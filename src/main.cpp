@@ -35,16 +35,24 @@ namespace {
     }
 
     std::string readSetting(std::string const& key, std::string const& fallback) {
-        std::ifstream file(settingPath(key), std::ios::binary);
-        if (!file.is_open()) return fallback;
+        auto path = settingPath(key);
+        std::ifstream file(path, std::ios::binary);
+        if (!file.is_open()) {
+            log::debug("[OpenGeode] readSetting '{}' -> not found at {}, using fallback '{}'", key, path.string(), fallback);
+            return fallback;
+        }
         std::ostringstream ss;
         ss << file.rdbuf();
-        return ss.str();
+        auto value = ss.str();
+        log::debug("[OpenGeode] readSetting '{}' -> '{}' (from {})", key, value, path.string());
+        return value;
     }
 
     void writeSetting(std::string const& key, std::string const& value) {
-        std::ofstream file(settingPath(key), std::ios::binary | std::ios::trunc);
+        auto path = settingPath(key);
+        std::ofstream file(path, std::ios::binary | std::ios::trunc);
         file << value;
+        log::debug("[OpenGeode] writeSetting '{}' = '{}' (to {})", key, value, path.string());
     }
 
     void deleteSetting(std::string const& key) {
@@ -200,27 +208,11 @@ void deleteCustomIndex(std::string const& id) {
     deleteSetting("custom-index-url-" + id);
 }
 
-// Replaces the value of `key` in a URL's query string, but only if that key
-// is already present. We deliberately never *add* a param that wasn't
-// there -- e.g. an endpoint that doesn't take `geode` shouldn't suddenly
-// get one just because an override is set.
-std::string overrideQueryParam(std::string url, std::string const& key, std::string const& value) {
-    std::string needle = key + "=";
-    size_t start = std::string::npos;
-
-    if (auto pos = url.find("?" + needle); pos != std::string::npos) {
-        start = pos + 1;
-    } else if (auto pos = url.find("&" + needle); pos != std::string::npos) {
-        start = pos + 1;
-    }
-    if (start == std::string::npos) return url;
-
-    size_t valueStart = start + needle.size();
-    size_t valueEnd = url.find('&', valueStart);
-    if (valueEnd == std::string::npos) valueEnd = url.size();
-
-    return url.substr(0, valueStart) + value + url.substr(valueEnd);
-}
+// NOTE: gd/geode/platforms are NOT part of the URL string at all --
+// WebRequest stores query params separately (see getUrlParams()/param() in
+// <Geode/utils/web.hpp>) and only merges them into the final query string
+// at actual dispatch time. Overriding them means calling req.param()
+// directly on the intercepted request; see the interceptor below.
 
 // ---------------------------------------------------------------------------
 // Shared popup background theming. Geode's own Popup base tags its
@@ -643,9 +635,16 @@ protected:
         auto applyBtn = CCMenuItemExt::createSpriteExtra(
             ButtonSprite::create("Apply", "goldFont.fnt", "GJ_button_02.png", 0.6f),
             [this](auto) {
-                setOverridePlatform(m_platformInput->getString());
-                setOverrideGeodeVersion(m_geodeInput->getString());
-                setOverrideGDVersion(m_gdInput->getString());
+                auto platform = m_platformInput->getString();
+                auto geodeVer = m_geodeInput->getString();
+                auto gdVer = m_gdInput->getString();
+                log::debug(
+                    "[OpenGeode] FilterPopup Apply -> platform='{}' geode='{}' gd='{}'",
+                    platform, geodeVer, gdVer
+                );
+                setOverridePlatform(platform);
+                setOverrideGeodeVersion(geodeVer);
+                setOverrideGDVersion(gdVer);
                 FLAlertLayer::create("Success", "Filter overrides updated!", "OK")->show();
                 this->onClose(nullptr);
             }
@@ -671,26 +670,39 @@ public:
 };
 
 // ---------------------------------------------------------------------------
-// Filter button appearance: GE_button_05 by default (Geode theme),
-// GE_button_01 when the loader's theme is Geometry Dash, and GE_button_02
-// whenever an override is currently active. GE_* textures are loose files
-// under geode.loader's own resource folder rather than a spritesheet, so
-// they need the "geode.loader/" namespace prefix -- same convention as the
-// icon below -- to resolve via the sprite frame cache at all.
+// Filter button appearance. GE_button_05.png (default) and GE_button_02.png
+// (active) are now bundled as this mod's own resources -- referenced via
+// the `_spr` literal, which namespaces them under this mod's own id at
+// compile time, the same way any of our own sprites would be. The
+// Geometry-Dash-theme case uses GJ_button_01.png plain, with no prefix at
+// all, since that's a standard public GD texture already resident in the
+// game's own spritesheet, not something any mod needs to bundle.
 // ---------------------------------------------------------------------------
 
 CCNode* buildFilterButtonSprite() {
-    std::string bg = isFilterActive()
-        ? "geode.loader/GE_button_02.png"
-        : (useDarkTheme() ? "geode.loader/GE_button_05.png" : "geode.loader/GE_button_01.png");
+    std::string spriteName;
+    if (isFilterActive()) {
+        spriteName = "GE_button_02.png"_spr;
+    } else if (useDarkTheme()) {
+        spriteName = "GE_button_05.png"_spr;
+    } else {
+        spriteName = "GJ_button_01.png";
+    }
 
-    auto bgSprite = CCSprite::createWithSpriteFrameName(bg.c_str());
-    if (!bgSprite) return CCSprite::create(); // fall back to an empty node rather than crash if the frame's missing
+    log::debug("[OpenGeode] filter button sprite frame: '{}'", spriteName);
+
+    auto bgSprite = CCSprite::createWithSpriteFrameName(spriteName.c_str());
+    if (!bgSprite) {
+        log::debug("[OpenGeode] filter button sprite frame '{}' returned null, using blank fallback", spriteName);
+        return CCSprite::create();
+    }
 
     if (auto icon = CCSprite::createWithSpriteFrameName("geode.loader/geode-logo-outline-gold.png")) {
         icon->setPosition({bgSprite->getContentSize().width / 2, bgSprite->getContentSize().height / 2});
         icon->setScale(0.8f);
         bgSprite->addChild(icon);
+    } else {
+        log::debug("[OpenGeode] icon frame 'geode.loader/geode-logo-outline-gold.png' returned null");
     }
     return bgSprite;
 }
@@ -708,8 +720,13 @@ CCNode* buildFilterButtonSprite() {
 class $nodeModify(IndexSwitcherModsLayer, ModsLayer) {
     void ensureIndexSwitcherButton() {
         auto actionsMenu = typeinfo_cast<CCMenu*>(getChildByID("actions-menu"));
-        if (!actionsMenu || actionsMenu->getChildByID("index-switcher-button"_spr)) return;
+        if (!actionsMenu) {
+            log::debug("[OpenGeode] ensureIndexSwitcherButton: 'actions-menu' not found on ModsLayer");
+            return;
+        }
+        if (actionsMenu->getChildByID("index-switcher-button"_spr)) return; // already present, nothing to do
 
+        log::debug("[OpenGeode] ensureIndexSwitcherButton: adding button to actions-menu");
         auto indexBtn = CCMenuItemExt::createSpriteExtra(
             CircleButtonSprite::createWithSpriteFrameName(
                 "geode.loader/geode-logo.png",
@@ -729,16 +746,33 @@ class $nodeModify(IndexSwitcherModsLayer, ModsLayer) {
 
     void ensureFilterButton() {
         auto listFrame = getChildByID("mod-list-frame");
-        if (!listFrame) return;
+        if (!listFrame) {
+            log::debug("[OpenGeode] ensureFilterButton: 'mod-list-frame' not found");
+            return;
+        }
         auto modList = listFrame->getChildByID("ModList");
-        if (!modList) return;
+        if (!modList) {
+            log::debug("[OpenGeode] ensureFilterButton: 'ModList' not found under mod-list-frame");
+            return;
+        }
         auto topContainer = modList->getChildByID("top-container");
-        if (!topContainer) return;
+        if (!topContainer) {
+            log::debug("[OpenGeode] ensureFilterButton: 'top-container' not found under ModList");
+            return;
+        }
         auto searchMenu = topContainer->getChildByID("search-menu");
-        if (!searchMenu) return;
+        if (!searchMenu) {
+            log::debug("[OpenGeode] ensureFilterButton: 'search-menu' not found under top-container");
+            return;
+        }
         auto filtersMenu = typeinfo_cast<CCMenu*>(searchMenu->getChildByID("search-filters-menu"));
-        if (!filtersMenu || filtersMenu->getChildByID("index-filter-button"_spr)) return;
+        if (!filtersMenu) {
+            log::debug("[OpenGeode] ensureFilterButton: 'search-filters-menu' not found (or not a CCMenu) under search-menu");
+            return;
+        }
+        if (filtersMenu->getChildByID("index-filter-button"_spr)) return; // already present, nothing to do
 
+        log::debug("[OpenGeode] ensureFilterButton: adding button to search-filters-menu");
         auto filterBtn = CCMenuItemExt::createSpriteExtra(
             buildFilterButtonSprite(),
             [](auto) {
@@ -769,30 +803,59 @@ $on_mod(Loaded) {
     web::WebRequestInterceptEvent().listen(
         [](std::string_view id, web::WebRequest& req) {
             std::string givenUrl = req.getUrl().data();
-            std::string targetIndex = getIndexUrl();
+            log::debug("[OpenGeode] intercepted request, base url = '{}'", givenUrl);
 
+            {
+                std::string dump;
+                for (auto const& [k, v] : req.getUrlParams()) dump += k + "=" + v + "; ";
+                log::debug("[OpenGeode] params at interception time: {}", dump.empty() ? "(none)" : dump);
+            }
+
+            std::string targetIndex = getIndexUrl();
             if (string::contains(givenUrl, "api.geode-sdk.org")) {
                 givenUrl = string::replace(givenUrl, "https://api.geode-sdk.org", targetIndex);
+                req.url(givenUrl);
+                log::debug("[OpenGeode] rewrote host -> '{}'", givenUrl);
             }
 
-            // Apply browse overrides. `platforms` is what the mods-list
-            // endpoints (downloads/featured/recent tabs, mod updates) use;
-            // `platform` (singular) is what the loader-versions endpoint
-            // uses -- both get rewritten when present. Only params Geode
-            // already put in the URL get touched, so unrelated endpoints
-            // are untouched.
-            if (auto platform = getOverridePlatform(); !platform.empty()) {
-                givenUrl = overrideQueryParam(givenUrl, "platforms", platform);
-                givenUrl = overrideQueryParam(givenUrl, "platform", platform);
+            auto platform = getOverridePlatform();
+            auto geodeVer = getOverrideGeodeVersion();
+            auto gdVer = getOverrideGDVersion();
+            log::debug(
+                "[OpenGeode] saved overrides -> platform='{}' geode='{}' gd='{}'",
+                platform, geodeVer, gdVer
+            );
+
+            // Apply browse overrides directly on the request's own param
+            // store. `platforms` is what the mods-list endpoints (downloads/
+            // featured/recent tabs, mod updates) use; `platform` (singular)
+            // is what the loader-versions endpoint uses -- both get
+            // overridden when present. Only replace a param that's already
+            // there, so endpoints that don't use a given key never get one
+            // invented for them.
+            if (!platform.empty()) {
+                bool hasPlatforms = req.getUrlParams().count("platforms") > 0;
+                bool hasPlatform = req.getUrlParams().count("platform") > 0;
+                log::debug("[OpenGeode] platform override: hasPlatforms={} hasPlatform={}", hasPlatforms, hasPlatform);
+                if (hasPlatforms) req.param("platforms", platform);
+                if (hasPlatform) req.param("platform", platform);
             }
-            if (auto geodeVer = getOverrideGeodeVersion(); !geodeVer.empty()) {
-                givenUrl = overrideQueryParam(givenUrl, "geode", geodeVer);
+            if (!geodeVer.empty()) {
+                bool hasGeode = req.getUrlParams().count("geode") > 0;
+                log::debug("[OpenGeode] geode override: hasGeode={}", hasGeode);
+                if (hasGeode) req.param("geode", geodeVer);
             }
-            if (auto gdVer = getOverrideGDVersion(); !gdVer.empty()) {
-                givenUrl = overrideQueryParam(givenUrl, "gd", gdVer);
+            if (!gdVer.empty()) {
+                bool hasGd = req.getUrlParams().count("gd") > 0;
+                log::debug("[OpenGeode] gd override: hasGd={}", hasGd);
+                if (hasGd) req.param("gd", gdVer);
             }
 
-            req.url(givenUrl);
+            {
+                std::string dump;
+                for (auto const& [k, v] : req.getUrlParams()) dump += k + "=" + v + "; ";
+                log::debug("[OpenGeode] params after overrides: {}", dump.empty() ? "(none)" : dump);
+            }
 
             return ListenerResult::Propagate;
         }, Priority::Stub
