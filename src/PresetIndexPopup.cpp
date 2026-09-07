@@ -19,6 +19,7 @@ protected:
         m_onAdded = std::move(onAdded);
 
         this->setTitle("Pre-made Indexes");
+        applyPopupTheme(this);
 
         float centerX = m_mainLayer->getContentWidth() / 2;
         float top = m_mainLayer->getContentHeight() - 50.f;

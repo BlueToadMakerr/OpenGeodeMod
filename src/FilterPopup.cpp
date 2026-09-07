@@ -44,8 +44,6 @@ protected:
     }
 
     static CCNode* createStatusVisual(StatusInfo const& info, bool selected) {
-        // Use Geode's resizable white-square texture so the status buttons can
-        // shrink cleanly when the row does not have enough room.
         auto button = ButtonSprite::create(
             info.label,
             "bigFont.fnt",
@@ -61,7 +59,6 @@ protected:
         auto const opacity = selected ? 255 : 105;
         button->m_BGSprite->setOpacity(opacity);
         button->m_label->setOpacity(opacity);
-
         return button;
     }
 
@@ -81,20 +78,14 @@ protected:
             return nullptr;
 
         toggle->m_notClickable = true;
-        toggle->setUserObject(
-            "status",
-            CCString::create(statusToString(info.status))
-        );
+        toggle->setUserObject("status", CCString::create(statusToString(info.status)));
         return toggle;
     }
 
     void updateStatusButtons() {
         for (size_t i = 0; i < STATUS_INFO.size(); ++i) {
-            if (m_statusButtons[i]) {
-                m_statusButtons[i]->toggle(
-                    m_selectedStatus == STATUS_INFO[i].status
-                );
-            }
+            if (m_statusButtons[i])
+                m_statusButtons[i]->toggle(m_selectedStatus == STATUS_INFO[i].status);
         }
     }
 
@@ -143,18 +134,7 @@ protected:
             return false;
 
         this->setTitle("Browse Filters");
-
-        if (isGeodeTheme()) {
-            this->setCloseButtonSpr(
-                CircleButtonSprite::createWithSpriteFrameName(
-                    // @geode-ignore(unknown-resource)
-                    "geode.loader/close.png",
-                    0.875f,
-                    CircleBaseColor::DarkPurple
-                ),
-                0.875f
-            );
-        }
+        applyPopupTheme(this);
 
         auto const& config = getCurrentTabConfig();
         m_selectedStatus = config.status;
@@ -171,17 +151,13 @@ protected:
         resetBtn->m_baseScale = .45f;
 
         auto statusTitle = createSectionTitle("Status", resetBtn, statusContainer->getContentWidth());
-        statusContainer->addChildAtPosition(
-            statusTitle,
-            Anchor::TopLeft,
-            ccp(0, 4)
-        );
+        statusContainer->addChildAtPosition(statusTitle, Anchor::TopLeft, ccp(0, 4));
 
         auto statusMenu = CCMenu::create();
         statusMenu->setContentSize({292.f, 24.f});
         statusMenu->setLayout(
             RowLayout::create()
-                ->setAutoScale(true)
+                ->setAutoScale(false)
                 ->setGap(3.f)
                 ->setAxisAlignment(AxisAlignment::Center)
                 ->setCrossAxisAlignment(AxisAlignment::Center)
@@ -191,36 +167,38 @@ protected:
             auto button = createStatusButton(STATUS_INFO[i]);
             if (!button)
                 continue;
-
             m_statusButtons[i] = button;
             statusMenu->addChild(button);
         }
 
         statusMenu->updateLayout();
-        statusContainer->addChildAtPosition(
-            statusMenu,
-            Anchor::Center,
-            ccp(0, 0)
-        );
 
-        m_mainLayer->addChildAtPosition(
-            statusContainer,
-            Anchor::Center,
-            ccp(0, 75)
-        );
+        float totalWidth = 0.f;
+        size_t buttonCount = 0;
+        for (auto child : CCArrayExt<CCNode*>(statusMenu->getChildren())) {
+            totalWidth += child->getContentSize().width;
+            ++buttonCount;
+        }
+        totalWidth += buttonCount > 1 ? 3.f * static_cast<float>(buttonCount - 1) : 0.f;
+
+        if (totalWidth > statusMenu->getContentSize().width && totalWidth > 0.f) {
+            float const scale = statusMenu->getContentSize().width / totalWidth;
+            for (auto child : CCArrayExt<CCNode*>(statusMenu->getChildren())) {
+                child->setScale(child->getScale() * scale);
+                if (auto item = typeinfo_cast<CCMenuItemToggler*>(child))
+                    item->m_baseScale = item->getScale();
+            }
+            statusMenu->updateLayout();
+        }
+
+        statusContainer->addChildAtPosition(statusMenu, Anchor::Center, ccp(0, 0));
+        m_mainLayer->addChildAtPosition(statusContainer, Anchor::Center, ccp(0, 75));
 
         auto parametersContainer = createSectionContainer({310.f, 130.f});
-
         auto parametersTitle = createSectionTitle(
-            "Parameters",
-            nullptr,
-            parametersContainer->getContentWidth()
+            "Parameters", nullptr, parametersContainer->getContentWidth()
         );
-        parametersContainer->addChildAtPosition(
-            parametersTitle,
-            Anchor::TopLeft,
-            ccp(0, 4)
-        );
+        parametersContainer->addChildAtPosition(parametersTitle, Anchor::TopLeft, ccp(0, 4));
 
         float centerX = parametersContainer->getContentWidth() / 2.f;
         float top = parametersContainer->getContentHeight() - 29.f;
@@ -240,22 +218,13 @@ protected:
         m_gdInput->setPosition({centerX, top - 76.f});
         parametersContainer->addChild(m_gdInput);
 
-        m_mainLayer->addChildAtPosition(
-            parametersContainer,
-            Anchor::Bottom,
-            ccp(0, 105)
-        );
+        m_mainLayer->addChildAtPosition(parametersContainer, Anchor::Bottom, ccp(0, 105));
 
         auto applySpr = ButtonSprite::create(
-            "OK",
-            "goldFont.fnt",
-            getButtonTexture("GJ_button_01.png"),
-            .7f
+            "OK", "goldFont.fnt", getButtonTexture("GJ_button_01.png"), .7f
         );
         auto applyBtn = CCMenuItemSpriteExtra::create(
-            applySpr,
-            this,
-            menu_selector(FilterPopup::onClose)
+            applySpr, this, menu_selector(FilterPopup::onClose)
         );
         m_buttonMenu->addChildAtPosition(applyBtn, Anchor::Bottom, ccp(0, 18));
 
