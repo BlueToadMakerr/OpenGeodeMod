@@ -39,7 +39,7 @@ protected:
         m_onLoggedIn = std::move(onLoggedIn); this->setTitle("OpenGeode Login");
         if (auto close = createGeodeCloseButton()) this->setCloseButtonSpr(close, 0.875f);
         auto center = m_mainLayer->getContentWidth() / 2;
-        auto label = CCLabelBMFont::create("Enter the 4-character code from the OpenGeode website", "chatFont.fnt"); label->setScale(.45f); label->setDimensions(250.f, 0.f); label->setAlignment(kCCTextAlignmentCenter); label->setPosition({center,120.f}); m_mainLayer->addChild(label);
+        auto label = CCLabelBMFont::create("Enter the 4-character code from the OpenGeode website", "chatFont.fnt"); label->setScale(.45f); label->setAlignment(kCCTextAlignmentCenter); label->setPosition({center,120.f}); m_mainLayer->addChild(label);
         m_code = TextInput::create(140.f, "AB12", "chatFont.fnt"); m_code->setPosition({center,80.f}); m_mainLayer->addChild(m_code);
         m_status = CCLabelBMFont::create("", "chatFont.fnt"); m_status->setScale(.42f); m_status->setPosition({center,50.f}); m_mainLayer->addChild(m_status);
         auto login = CCMenuItemExt::createSpriteExtra(ButtonSprite::create("Log In", "goldFont.fnt", getButtonTexture("GJ_button_01.png"), .65f), [this](auto){ submit(); }); auto menu=CCMenu::create(); menu->addChild(login); menu->setPosition({center,22.f}); m_mainLayer->addChild(menu); return true;
