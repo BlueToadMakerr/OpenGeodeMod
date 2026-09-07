@@ -78,6 +78,16 @@ protected:
         menu->setAnchorPoint({.5f, .5f});
         menu->setPosition({95.f, 120.f});
 
+        auto modID = getPopupModID(m_modPopup);
+        if (getInstalledModSource(modID)) {
+            auto from = CCMenuItemExt::createSpriteExtra(
+                ButtonSprite::create("From", "goldFont.fnt", getButtonTexture("GJ_button_01.png"), .45f),
+                [modID](auto) { showInstallSource(modID); }
+            );
+            from->setID("opengeode-more-from-button"_spr);
+            menu->addChild(from);
+        }
+
         struct NativeAction {
             char const* id;
             char const* label;
@@ -212,7 +222,6 @@ protected:
         auto manageTitle = scene->getChildByIDRecursive("manage-title");
         if (!manageTitle) return;
 
-        // Walk upward until we reach the ModPopup that owns the Manage section.
         auto popup = manageTitle;
         while (popup) {
             if (popup->getChildByIDRecursive("mod-id-label")) break;
