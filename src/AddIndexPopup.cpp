@@ -44,7 +44,7 @@ protected:
         m_mainLayer->addChild(m_urlInput);
 
         auto addBtn = CCMenuItemExt::createSpriteExtra(
-            ButtonSprite::create("Add", "goldFont.fnt", "GJ_button_01.png", 0.6f),
+            ButtonSprite::create("Add", "goldFont.fnt", getButtonTexture("GJ_button_01.png"), 0.6f),
             [this](auto) {
                 auto name = m_nameInput->getString();
                 auto url = m_urlInput->getString();
