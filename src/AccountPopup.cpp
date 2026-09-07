@@ -78,15 +78,8 @@ protected:
     bool m_refreshing = false;
     MDTextArea* m_modArea = nullptr;
 
-    struct VersionInfo {
-        std::string name;
-        std::string status;
-        std::string reason;
-    };
-    struct ModInfo {
-        std::string id;
-        std::map<std::string, VersionInfo> versions;
-    };
+    struct VersionInfo { std::string name; std::string status; std::string reason; };
+    struct ModInfo { std::string id; std::map<std::string, VersionInfo> versions; };
 
     bool init() {
         if (!Popup::init(370.f, 285.f, getPopupBackground())) return false;
@@ -141,7 +134,7 @@ protected:
                     text += "\n";
                 }
                 if (text.empty()) text = "No submitted mods found.";
-                m_modArea->setString(text);
+                m_modArea->setString(text.c_str());
                 return;
             }
 
