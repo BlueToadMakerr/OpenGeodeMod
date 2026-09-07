@@ -24,7 +24,8 @@ protected:
 
         if (!Popup::init(300.f, 220.f, getPopupBackground())) return false;
         this->setTitle("Modify Index");
-        applyPopupTheme(this);
+        if (auto close = createGeodeCloseButton())
+            this->setCloseButtonSpr(close, 0.875f);
 
         float centerX = m_mainLayer->getContentWidth() / 2;
         float top = m_mainLayer->getContentHeight() - 40.f;
