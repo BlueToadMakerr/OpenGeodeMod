@@ -1,10 +1,7 @@
 #include "Settings.hpp"
-#include "InstalledMods.hpp"
 
 #include <Geode/Geode.hpp>
 #include <Geode/utils/web.hpp>
-
-#include <regex>
 
 using namespace geode::prelude;
 
@@ -15,6 +12,10 @@ $on_mod(Loaded) {
 
     web::WebRequestInterceptEvent().listen(
         [](std::string_view id, web::WebRequest& req) {
+            // Requests such as the index stats request can explicitly opt out
+            // of the global index override. Check the request parameters
+            // themselves rather than relying on the serialized URL, since the
+            // intercept can run before WebRequest has appended them to the URL.
             if (req.getUrlParams().count("no_override") > 0) {
                 return ListenerResult::Propagate;
             }
@@ -22,16 +23,6 @@ $on_mod(Loaded) {
             std::string givenUrl = req.getUrl().data();
             if (!string::contains(givenUrl, "api.geode-sdk.org")) {
                 return ListenerResult::Propagate;
-            }
-
-            // Geode downloads a mod through /v1/mods/{id}/versions/{version}/download.
-            // Record the selected index before rewriting the request to a custom index.
-            static std::regex const downloadPattern(
-                R"(/v1/mods/([^/]+)/versions/([^/]+)/download(?:\?|$))"
-            );
-            std::smatch match;
-            if (std::regex_search(givenUrl, match, downloadPattern) && match.size() >= 3) {
-                setInstalledModSource(match[1].str(), match[2].str());
             }
 
             auto const modListPrefix = std::string("https://api.geode-sdk.org/v1/mods");
@@ -47,6 +38,9 @@ $on_mod(Loaded) {
             givenUrl = string::replace(givenUrl, "https://api.geode-sdk.org", targetIndex);
             req.url(givenUrl);
 
+            // Authentication is per-index, just like the rest of the account
+            // state. Every intercepted Geode API request should carry the
+            // access token for the currently selected index when logged in.
             auto accessToken = getAuthAccessToken();
             if (!accessToken.empty()) {
                 req.header("Authorization", "Bearer " + accessToken);
@@ -67,6 +61,10 @@ $on_mod(Loaded) {
                 if (req.getUrlParams().count("gd") > 0) req.param("gd", config.gdVersion);
             }
 
+            // Only alter the mod-list request. Other /v1/mods endpoints such
+            // as /mods/{id}, /mods/updates, and /mods/{id}/logo must not receive
+            // a list-only status parameter. The status values are the same
+            // variants used by the existing Unverified Mods implementation.
             if (isModListRequest) {
                 req.param("status", statusToString(config.status));
             }
