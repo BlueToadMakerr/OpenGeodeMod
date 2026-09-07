@@ -38,6 +38,14 @@ $on_mod(Loaded) {
             givenUrl = string::replace(givenUrl, "https://api.geode-sdk.org", targetIndex);
             req.url(givenUrl);
 
+            // Authentication is per-index, just like the rest of the account
+            // state. Every intercepted Geode API request should carry the
+            // access token for the currently selected index when logged in.
+            auto accessToken = getAuthAccessToken();
+            if (!accessToken.empty()) {
+                req.header("Authorization", "Bearer " + accessToken);
+            }
+
             auto const& config = getCurrentTabConfig();
 
             if (!config.platform.empty()) {
