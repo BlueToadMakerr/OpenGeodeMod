@@ -35,6 +35,16 @@ protected:
         { ModStatus::Rejected, "Rejected", { 235, 40, 40 } },
     }};
 
+    static ccColor3B brighterColor(ccColor3B color) {
+        // Keep the border visibly related to the button color while making it
+        // just a little brighter than the fill.
+        return {
+            static_cast<GLubyte>(std::min(255, static_cast<int>(color.r) + 30)),
+            static_cast<GLubyte>(std::min(255, static_cast<int>(color.g) + 30)),
+            static_cast<GLubyte>(std::min(255, static_cast<int>(color.b) + 30)),
+        };
+    }
+
     static CCNode* createStatusVisual(StatusInfo const& info, bool selected) {
         auto root = CCNode::create();
         if (!root)
@@ -55,21 +65,35 @@ protected:
         root->setContentSize({width, height});
         root->setAnchorPoint({.5f, .5f});
 
-        // The status color is a flat rectangle underneath the text. Using a
-        // normal CCLayerColor avoids depending on the internal sprite-frame
-        // name for cc_2x2_white_image.png and keeps the dimensions finite.
-        auto bg = CCLayerColor::create(ccc4(info.color.r, info.color.g, info.color.b, 255), width, height);
-        if (!bg)
+        // Use the native rounded button texture for both layers. The larger
+        // outer sprite acts as a subtle border while the smaller inner sprite
+        // provides the colored fill. This keeps the corners slightly curved
+        // without relying on Cocos' non-existent rounded CCLayerColor API.
+        auto border = CCSprite::create("GJ_button_01.png");
+        auto bg = CCSprite::create("GJ_button_01.png");
+        if (!border || !bg)
             return nullptr;
 
+        auto borderColor = brighterColor(info.color);
+        border->setColor(borderColor);
+        border->setOpacity(selected ? 255 : 95);
+        border->setPosition({width / 2.f, height / 2.f});
+        border->setScaleX(width / border->getContentSize().width);
+        border->setScaleY(height / border->getContentSize().height);
+        root->addChild(border, 0);
+
+        constexpr float inset = 1.25f;
+        bg->setColor(info.color);
         bg->setOpacity(selected ? 255 : 95);
-        bg->setPosition({0.f, 0.f});
-        root->addChild(bg, 0);
+        bg->setPosition({width / 2.f, height / 2.f});
+        bg->setScaleX((width - inset * 2.f) / bg->getContentSize().width);
+        bg->setScaleY((height - inset * 2.f) / bg->getContentSize().height);
+        root->addChild(bg, 1);
 
         label->setAnchorPoint({.5f, .5f});
         label->setPosition({width / 2.f, height / 2.f});
         label->setOpacity(selected ? 255 : 180);
-        root->addChild(label, 1);
+        root->addChild(label, 2);
 
         return root;
     }
