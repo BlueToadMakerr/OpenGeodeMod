@@ -46,9 +46,9 @@ protected:
         m_onLoggedIn = std::move(onLoggedIn); setTitle("OpenGeode Login");
         if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .875f);
         auto center = m_mainLayer->getContentWidth() / 2;
-        auto label = CCLabelBMFont::create("Enter the 4-character code from the website", "chatFont.fnt"); label->setScale(.42f); label->setAlignment(kCCTextAlignmentCenter); label->setPosition({center,110.f}); m_mainLayer->addChild(label);
+        auto label = CCLabelBMFont::create("Enter the 4-character code from the website", "chatFont.fnt"); label->setScale(.8f); label->setAlignment(kCCTextAlignmentCenter); label->setPosition({center,120.f}); m_mainLayer->addChild(label);
         m_code = TextInput::create(130.f, "AB12", "chatFont.fnt"); m_code->setPosition({center,73.f}); m_mainLayer->addChild(m_code);
-        m_status = CCLabelBMFont::create("", "chatFont.fnt"); m_status->setScale(.38f); m_status->setPosition({center,48.f}); m_mainLayer->addChild(m_status);
+        m_status = CCLabelBMFont::create("", "chatFont.fnt"); m_status->setScale(.5f); m_status->setPosition({center,48.f}); m_mainLayer->addChild(m_status);
         auto login = CCMenuItemExt::createSpriteExtra(ButtonSprite::create("Log In", "goldFont.fnt", getButtonTexture("GJ_button_01.png"), .6f), [this](auto){ submit(); });
         auto menu = CCMenu::create(); menu->addChild(login); menu->setPosition({center,20.f}); m_mainLayer->addChild(menu); return true;
     }
@@ -122,18 +122,18 @@ protected:
         auto mods = std::make_shared<std::map<std::string, ModInfo>>();
         auto step = std::make_shared<std::function<void(int)>>();
         *step = [this, mods, step](int index) {
-            static const char* statuses[] = {"accepted", "pending", "rejected"};
+            static const char* statuses[] = {"Accepted", "Pending", "Rejected"};
             if (index >= 3) {
                 std::string text;
                 for (auto const& [id, mod] : *mods) {
                     text += fmt::format("<mod:{}>\n", id);
                     for (auto const& [version, info] : mod.versions) {
-                        text += fmt::format("{} v{} — {}\n", info.name.empty() ? id : info.name, version, info.status);
-                        if (info.status == "rejected" && !info.reason.empty()) text += fmt::format("Reason: {}\n", info.reason);
+                        text += fmt::format("{} | v{} | {}\n", info.name.empty() ? id : info.name, version, info.status);
+                        if (info.status == "Rejected" && !info.reason.empty()) text += fmt::format("with the reason: {}\n", info.reason);
                     }
                     text += "\n";
                 }
-                if (text.empty()) text = "No submitted mods found.";
+                if (text.empty()) text = "No submitted mods found..";
                 m_modArea->setString(text.c_str());
                 return;
             }
