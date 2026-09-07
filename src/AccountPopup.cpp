@@ -14,6 +14,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <vector>
 
 using namespace geode::prelude;
 
@@ -33,6 +34,32 @@ std::string makeJsonString(std::string const& value) {
     out += '"'; return out;
 }
 ByteVector makeBody(std::string const& value) { return ByteVector(value.begin(), value.end()); }
+
+bool versionIsNewer(std::string const& lhs, std::string const& rhs) {
+    size_t l = 0;
+    size_t r = 0;
+
+    while (l < lhs.size() || r < rhs.size()) {
+        while (l < lhs.size() && !std::isdigit(static_cast<unsigned char>(lhs[l]))) ++l;
+        while (r < rhs.size() && !std::isdigit(static_cast<unsigned char>(rhs[r]))) ++r;
+
+        unsigned long long lv = 0;
+        unsigned long long rv = 0;
+
+        while (l < lhs.size() && std::isdigit(static_cast<unsigned char>(lhs[l]))) {
+            lv = lv * 10 + (lhs[l++] - '0');
+        }
+
+        while (r < rhs.size() && std::isdigit(static_cast<unsigned char>(rhs[r]))) {
+            rv = rv * 10 + (rhs[r++] - '0');
+        }
+
+        if (lv != rv)
+            return lv > rv;
+    }
+
+    return lhs > rhs;
+}
 
 class GdLoginPopup : public Popup {
 protected:
@@ -125,15 +152,56 @@ protected:
             static const char* statuses[] = {"accepted", "pending", "rejected"};
             if (index >= 3) {
                 std::string text;
+
+                auto statusColor = [](std::string const& status) {
+                    if (status == "accepted") return "cg";
+                    if (status == "pending") return "cy";
+                    if (status == "rejected") return "cr";
+                    return "cw";
+                };
+
                 for (auto const& [id, mod] : *mods) {
-                    text += fmt::format("<mod:{}>\n", id);
+                    text += fmt::format("<mod:{}>  \n", id);
+
+                    std::vector<std::pair<std::string, VersionInfo>> versions;
+                    versions.reserve(mod.versions.size());
+
                     for (auto const& [version, info] : mod.versions) {
-                        text += fmt::format("{} | v{} | {}\n", info.name.empty() ? id : info.name, version, info.status);
-                        if (info.status == "rejected" && !info.reason.empty()) text += fmt::format("with the reason: {}\n", info.reason);
+                        versions.emplace_back(version, info);
                     }
+
+                    std::sort(
+                        versions.begin(),
+                        versions.end(),
+                        [](auto const& a, auto const& b) {
+                            return versionIsNewer(a.first, b.first);
+                        }
+                    );
+
+                    for (auto const& [version, info] : versions) {
+                        auto color = statusColor(info.status);
+
+                        text += fmt::format(
+                            "<{}>{} | v{} | {}",
+                            color,
+                            info.name.empty() ? id : info.name,
+                            version,
+                            info.status
+                        );
+
+                        if (info.status == "rejected" && !info.reason.empty()) {
+                            text += fmt::format(" | with the reason: {}", info.reason);
+                        }
+
+                        text += "</c>  \n";
+                    }
+
                     text += "\n";
                 }
-                if (text.empty()) text = "No submitted mods found..";
+
+                if (text.empty())
+                    text = "No submitted mods found..";
+
                 m_modArea->setString(text.c_str());
                 return;
             }
