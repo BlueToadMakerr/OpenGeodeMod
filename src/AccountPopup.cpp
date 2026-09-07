@@ -4,9 +4,8 @@
 
 #include <Geode/Geode.hpp>
 #include <Geode/ui/Popup.hpp>
-#include <Geode/ui/ScrollLayer.hpp>
-#include <Geode/ui/TextInput.hpp>
 #include <Geode/ui/MDTextArea.hpp>
+#include <Geode/ui/TextInput.hpp>
 #include <Geode/utils/web.hpp>
 
 #include <algorithm>
@@ -41,6 +40,7 @@ protected:
     CCLabelBMFont* m_status = nullptr;
     std::function<void()> m_onLoggedIn;
     async::TaskHolder<web::WebResponse> m_task;
+
     bool init(std::function<void()> onLoggedIn) {
         if (!Popup::init(280.f, 175.f, getPopupBackground())) return false;
         m_onLoggedIn = std::move(onLoggedIn); setTitle("OpenGeode Login");
@@ -52,6 +52,7 @@ protected:
         auto login = CCMenuItemExt::createSpriteExtra(ButtonSprite::create("Log In", "goldFont.fnt", getButtonTexture("GJ_button_01.png"), .6f), [this](auto){ submit(); });
         auto menu = CCMenu::create(); menu->addChild(login); menu->setPosition({center,20.f}); m_mainLayer->addChild(menu); return true;
     }
+
     void submit() {
         std::string code = m_code->getString().c_str();
         if (code.size() != 4) { m_status->setString("Enter exactly 4 characters."); return; }
@@ -65,8 +66,110 @@ protected:
             setAuthTokens(access, refresh); if (m_onLoggedIn) m_onLoggedIn(); onClose(nullptr);
         });
     }
+
 public:
     static GdLoginPopup* create(std::function<void()> onLoggedIn) { auto ret = new GdLoginPopup(); if (ret && ret->init(std::move(onLoggedIn))) { ret->autorelease(); return ret; } delete ret; return nullptr; }
+};
+
+class MyModsPopup : public Popup {
+protected:
+    async::TaskHolder<web::WebResponse> m_requestTask;
+    async::TaskHolder<web::WebResponse> m_refreshTask;
+    bool m_refreshing = false;
+    MDTextArea* m_modArea = nullptr;
+
+    struct VersionInfo {
+        std::string name;
+        std::string status;
+        std::string reason;
+    };
+    struct ModInfo {
+        std::string id;
+        std::map<std::string, VersionInfo> versions;
+    };
+
+    bool init() {
+        if (!Popup::init(370.f, 285.f, getPopupBackground())) return false;
+        setTitle("My Mods");
+        if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .8f);
+        m_modArea = MDTextArea::create("Loading mods...", {330.f, 210.f});
+        if (!m_modArea) return false;
+        m_modArea->setAnchorPoint({0.f, 1.f});
+        m_modArea->setPosition({20.f, 245.f});
+        m_mainLayer->addChild(m_modArea);
+        loadMods();
+        return true;
+    }
+
+    void request(std::string method, std::string path, std::string body, std::function<void(web::WebResponse)> callback, bool allowRefresh = true) {
+        auto token = getAuthAccessToken();
+        if (token.empty()) { clearAuthTokens(); onClose(nullptr); return; }
+        auto req = web::WebRequest(); req.header("Authorization", "Bearer " + token);
+        if (!body.empty()) { req.header("Content-Type", "application/json"); req.body(makeBody(body)); }
+        m_requestTask.spawn(req.send(method, trimSlash(getIndexUrl()) + path), [this, method, path, body, callback = std::move(callback), allowRefresh](web::WebResponse res) mutable {
+            if (res.code() == 401 && allowRefresh && !m_refreshing && !getAuthRefreshToken().empty()) { refreshAndRetry(method, path, body, std::move(callback)); return; }
+            callback(std::move(res));
+        });
+    }
+
+    void refreshAndRetry(std::string method, std::string path, std::string body, std::function<void(web::WebResponse)> callback) {
+        m_refreshing = true;
+        auto req = web::WebRequest(); req.header("Content-Type", "application/json"); req.body(makeBody(fmt::format("{{\"refresh_token\":{}}}", makeJsonString(getAuthRefreshToken()))));
+        m_refreshTask.spawn(req.post(trimSlash(getIndexUrl()) + "/v1/login/refresh"), [this, method, path, body, callback = std::move(callback)](web::WebResponse res) mutable {
+            m_refreshing = false;
+            if (!res.ok()) { clearAuthTokens(); onClose(nullptr); return; }
+            auto payload = res.json().unwrapOr(matjson::Value())["payload"];
+            auto access = payload["access_token"].asString().unwrapOr(""); auto refresh = payload["refresh_token"].asString().unwrapOr("");
+            if (access.empty() || refresh.empty()) { clearAuthTokens(); onClose(nullptr); return; }
+            setAuthTokens(access, refresh); request(method, path, body, std::move(callback), false);
+        });
+    }
+
+    void loadMods() {
+        auto mods = std::make_shared<std::map<std::string, ModInfo>>();
+        auto step = std::make_shared<std::function<void(int)>>();
+        *step = [this, mods, step](int index) {
+            static const char* statuses[] = {"accepted", "pending", "rejected"};
+            if (index >= 3) {
+                std::string text;
+                for (auto const& [id, mod] : *mods) {
+                    text += fmt::format("<mod:{}>\n", id);
+                    for (auto const& [version, info] : mod.versions) {
+                        text += fmt::format("{} v{} — {}\n", info.name.empty() ? id : info.name, version, info.status);
+                        if (info.status == "rejected" && !info.reason.empty()) text += fmt::format("Reason: {}\n", info.reason);
+                    }
+                    text += "\n";
+                }
+                if (text.empty()) text = "No submitted mods found.";
+                m_modArea->setString(text);
+                return;
+            }
+
+            request("GET", fmt::format("/v1/me/mods?status={}", statuses[index]), "", [this, mods, step, index](web::WebResponse res) {
+                if (!res.ok()) { m_modArea->setString(errorText(res).c_str()); return; }
+                auto payload = res.json().unwrapOr(matjson::Value())["payload"];
+                if (payload.isArray()) for (auto const& mod : payload) {
+                    auto id = mod["id"].asString().unwrapOr("");
+                    if (id.empty()) continue;
+                    auto& entry = (*mods)[id]; entry.id = id;
+                    auto versions = mod["versions"];
+                    if (versions.isArray()) for (auto const& version : versions) {
+                        auto versionID = version["version"].asString().unwrapOr("");
+                        if (versionID.empty()) versionID = fmt::format("unknown-{}", entry.versions.size());
+                        auto& info = entry.versions[versionID];
+                        info.name = version["name"].asString().unwrapOr(id);
+                        info.status = version["status"].asString().unwrapOr(statuses[index]);
+                        info.reason = version["info"].asString().unwrapOr("");
+                    }
+                }
+                (*step)(index + 1);
+            });
+        };
+        (*step)(0);
+    }
+
+public:
+    static MyModsPopup* create() { auto ret = new MyModsPopup(); if (ret && ret->init()) { ret->autorelease(); return ret; } delete ret; return nullptr; }
 };
 
 class AccountPopup : public Popup {
@@ -76,31 +179,35 @@ protected:
     CCLabelBMFont* m_badges = nullptr;
     TextInput* m_displayName = nullptr;
     CCLabelBMFont* m_status = nullptr;
-    ScrollLayer* m_modScroll = nullptr;
     async::TaskHolder<web::WebResponse> m_requestTask;
     async::TaskHolder<web::WebResponse> m_refreshTask;
     bool m_refreshing = false;
 
     bool init() {
-        if (!Popup::init(370.f, 285.f, getPopupBackground())) return false;
+        if (!Popup::init(370.f, 255.f, getPopupBackground())) return false;
         setTitle("OpenGeode Account");
         if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .8f);
         auto center = m_mainLayer->getContentWidth() / 2;
 
-        m_name = CCLabelBMFont::create("Loading...", "bigFont.fnt"); m_name->setScale(.48f); m_name->setPosition({center, 240.f}); m_mainLayer->addChild(m_name);
-        m_id = CCLabelBMFont::create("Account ID: -", "chatFont.fnt"); m_id->setScale(.36f); m_id->setPosition({center, 220.f}); m_mainLayer->addChild(m_id);
-        m_badges = CCLabelBMFont::create("", "goldFont.fnt"); m_badges->setScale(.36f); m_badges->setPosition({center, 202.f}); m_mainLayer->addChild(m_badges);
+        m_name = CCLabelBMFont::create("Loading...", "bigFont.fnt");
+        m_name->setScale(.48f); m_name->setAlignment(kCCTextAlignmentCenter); m_name->setAnchorPoint({.5f, .5f}); m_name->setPosition({center, 211.f}); m_mainLayer->addChild(m_name);
+        m_id = CCLabelBMFont::create("Account ID: -", "chatFont.fnt");
+        m_id->setScale(.36f); m_id->setAlignment(kCCTextAlignmentCenter); m_id->setAnchorPoint({.5f, .5f}); m_id->setPosition({center, 192.f}); m_mainLayer->addChild(m_id);
+        m_badges = CCLabelBMFont::create("", "goldFont.fnt");
+        m_badges->setScale(.36f); m_badges->setAlignment(kCCTextAlignmentCenter); m_badges->setAnchorPoint({.5f, .5f}); m_badges->setPosition({center, 175.f}); m_mainLayer->addChild(m_badges);
 
-        auto displayLabel = CCLabelBMFont::create("Display Name", "goldFont.fnt"); displayLabel->setScale(.38f); displayLabel->setAnchorPoint({0.f, .5f}); displayLabel->setPosition({22.f, 178.f}); m_mainLayer->addChild(displayLabel);
-        m_displayName = TextInput::create(190.f, "Display Name", "chatFont.fnt"); m_displayName->setPosition({125.f, 156.f}); m_mainLayer->addChild(m_displayName);
+        auto displayLabel = CCLabelBMFont::create("Display Name", "goldFont.fnt");
+        displayLabel->setScale(.38f); displayLabel->setAlignment(kCCTextAlignmentCenter); displayLabel->setAnchorPoint({.5f, .5f}); displayLabel->setPosition({center, 154.f}); m_mainLayer->addChild(displayLabel);
+        m_displayName = TextInput::create(190.f, "Display Name", "chatFont.fnt");
+        m_displayName->setPosition({center, 129.f}); m_mainLayer->addChild(m_displayName);
 
         auto save = CCMenuItemExt::createSpriteExtra(ButtonSprite::create("Save", "goldFont.fnt", getButtonTexture("GJ_button_01.png"), .45f), [this](auto){ saveProfile(); });
         auto logout = CCMenuItemExt::createSpriteExtra(ButtonSprite::create("Logout", "goldFont.fnt", getButtonTexture("GJ_button_02.png"), .45f), [this](auto){ clearAuthTokens(); onClose(nullptr); });
-        auto buttons = CCMenu::create(); buttons->addChild(save); buttons->addChild(logout); buttons->setLayout(RowLayout::create()->setGap(7.f)); buttons->setPosition({center, 128.f}); buttons->updateLayout(); m_mainLayer->addChild(buttons);
+        auto mods = CCMenuItemExt::createSpriteExtra(ButtonSprite::create("My Mods", "goldFont.fnt", getButtonTexture("GJ_button_01.png"), .45f), [](auto){ MyModsPopup::create()->show(); });
+        auto buttons = CCMenu::create(); buttons->addChild(save); buttons->addChild(mods); buttons->addChild(logout); buttons->setLayout(RowLayout::create()->setGap(6.f)); buttons->setPosition({center, 92.f}); buttons->updateLayout(); m_mainLayer->addChild(buttons);
 
-        m_status = CCLabelBMFont::create("Loading profile...", "chatFont.fnt"); m_status->setScale(.34f); m_status->setPosition({center, 108.f}); m_mainLayer->addChild(m_status);
-        auto modsLabel = CCLabelBMFont::create("My Mods", "goldFont.fnt"); modsLabel->setScale(.42f); modsLabel->setPosition({center, 91.f}); m_mainLayer->addChild(modsLabel);
-        m_modScroll = ScrollLayer::create({330.f, 75.f}); m_modScroll->setPosition({20.f, 20.f}); m_mainLayer->addChild(m_modScroll);
+        m_status = CCLabelBMFont::create("Loading profile...", "chatFont.fnt");
+        m_status->setScale(.34f); m_status->setAlignment(kCCTextAlignmentCenter); m_status->setAnchorPoint({.5f, .5f}); m_status->setPosition({center, 62.f}); m_mainLayer->addChild(m_status);
         loadProfile(); return true;
     }
 
@@ -135,7 +242,7 @@ protected:
             m_id->setString(fmt::format("Account ID: {}", p["id"].asInt().unwrapOr(0)).c_str());
             m_displayName->setString(display.c_str());
             std::string badges; if (p["verified"].asBool().unwrapOr(false)) badges += "Verified"; if (p["admin"].asBool().unwrapOr(false)) { if (!badges.empty()) badges += "  |  "; badges += "Admin"; }
-            m_badges->setString(badges.c_str()); m_status->setString("Profile loaded."); loadMods();
+            m_badges->setString(badges.c_str()); m_status->setString("Profile loaded.");
         });
     }
 
@@ -144,48 +251,6 @@ protected:
         if (name.size() < 2 || name.size() > 64) { m_status->setString("Display name must be 2-64 characters."); return; }
         for (auto c : name) if (!std::isalnum(static_cast<unsigned char>(c)) || static_cast<unsigned char>(c) > 127) { m_status->setString("Display name must be ASCII letters/numbers."); return; }
         m_status->setString("Saving..."); request("PUT", "/v1/me", fmt::format("{{\"display_name\":{}}}", makeJsonString(name)), [this](web::WebResponse res) { if (!res.ok()) { m_status->setString(errorText(res).c_str()); return; } m_status->setString("Profile saved."); loadProfile(); });
-    }
-
-    void loadMods() {
-        auto modText = std::make_shared<std::map<std::string, std::string>>();
-        auto step = std::make_shared<std::function<void(int)>>();
-        *step = [this, modText, step](int index) {
-            static const char* statuses[] = {"accepted", "pending", "rejected"};
-            if (index >= 3) {
-                m_modScroll->m_contentLayer->removeAllChildren();
-                std::string text;
-                for (auto const& [id, info] : *modText) text += info + "\n";
-                if (text.empty()) text = "No submitted mods found.";
-                float height = std::max(75.f, std::min(1200.f, 45.f + static_cast<float>(text.size()) * .55f));
-                auto area = MDTextArea::create(text, {315.f, height});
-                if (area) {
-                    area->setAnchorPoint({0.f, 1.f}); area->setPosition({7.5f, height}); m_modScroll->m_contentLayer->addChild(area);
-                    m_modScroll->m_contentLayer->setContentSize({330.f, std::max(75.f, height + 8.f)});
-                }
-                m_modScroll->scrollToTop(); return;
-            }
-            request("GET", fmt::format("/v1/me/mods?status={}", statuses[index]), "", [this, modText, step, index](web::WebResponse res) {
-                if (!res.ok()) { m_status->setString(errorText(res).c_str()); return; }
-                auto payload = res.json().unwrapOr(matjson::Value())["payload"];
-                if (payload.isArray()) for (auto const& mod : payload) {
-                    auto id = mod["id"].asString().unwrapOr(""); if (id.empty()) continue;
-                    auto& out = (*modText)[id];
-                    if (out.empty()) out = fmt::format("<mod:{}>\n", id);
-                    auto versions = mod["versions"];
-                    if (versions.isArray()) for (auto const& version : versions) {
-                        auto status = version["status"].asString().unwrapOr(statuses[index]);
-                        auto name = version["name"].asString().unwrapOr(id);
-                        auto ver = version["version"].asString().unwrapOr("");
-                        out += fmt::format("{} {} — {}", name, ver.empty() ? "" : fmt::format("v{}", ver), status);
-                        if (status == "rejected") { auto reason = version["info"].asString().unwrapOr(""); if (!reason.empty()) out += fmt::format("\nReason: {}", reason); }
-                        out += "\n";
-                    }
-                    out += "\n";
-                }
-                (*step)(index + 1);
-            });
-        };
-        (*step)(0);
     }
 
 public:
