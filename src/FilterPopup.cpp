@@ -36,8 +36,6 @@ protected:
     }};
 
     static ccColor3B brighterColor(ccColor3B color) {
-        // Keep the border visibly related to the button color while making it
-        // just a little brighter than the fill.
         return {
             static_cast<GLubyte>(std::min(255, static_cast<int>(color.r) + 30)),
             static_cast<GLubyte>(std::min(255, static_cast<int>(color.g) + 30)),
@@ -46,56 +44,26 @@ protected:
     }
 
     static CCNode* createStatusVisual(StatusInfo const& info, bool selected) {
-        auto root = CCNode::create();
-        if (!root)
+        // Use the same resizable ButtonSprite technique as Geode's tag labels.
+        // white-square is designed for ButtonSprite sizing, so the border stays
+        // clean at different text widths instead of stretching a fixed button.
+        auto button = ButtonSprite::create(
+            info.label,
+            "bigFont.fnt",
+            "white-square.png"_spr,
+            .8f
+        );
+        if (!button)
             return nullptr;
 
-        auto label = CCLabelBMFont::create(info.label, "bigFont.fnt");
-        if (!label)
-            return nullptr;
+        button->m_BGSprite->setColor(info.color);
+        button->m_label->setColor(brighterColor(info.color));
 
-        // Keep the label compact so all four status tags fit comfortably in
-        // one centered row, just like the native Geode tag selector.
-        label->setScale(.28f);
+        auto const opacity = selected ? 255 : 105;
+        button->m_BGSprite->setOpacity(opacity);
+        button->m_label->setOpacity(opacity);
 
-        float const textWidth = label->getContentSize().width * label->getScaleX();
-        float const width = textWidth + 10.f;
-        float const height = 20.f;
-
-        root->setContentSize({width, height});
-        root->setAnchorPoint({.5f, .5f});
-
-        // Use the native rounded button texture for both layers. The larger
-        // outer sprite acts as a subtle border while the smaller inner sprite
-        // provides the colored fill. This keeps the corners slightly curved
-        // without relying on Cocos' non-existent rounded CCLayerColor API.
-        auto border = CCSprite::create("GJ_button_01.png");
-        auto bg = CCSprite::create("GJ_button_01.png");
-        if (!border || !bg)
-            return nullptr;
-
-        auto borderColor = brighterColor(info.color);
-        border->setColor(borderColor);
-        border->setOpacity(selected ? 255 : 95);
-        border->setPosition({width / 2.f, height / 2.f});
-        border->setScaleX(width / border->getContentSize().width);
-        border->setScaleY(height / border->getContentSize().height);
-        root->addChild(border, 0);
-
-        constexpr float inset = 1.25f;
-        bg->setColor(info.color);
-        bg->setOpacity(selected ? 255 : 95);
-        bg->setPosition({width / 2.f, height / 2.f});
-        bg->setScaleX((width - inset * 2.f) / bg->getContentSize().width);
-        bg->setScaleY((height - inset * 2.f) / bg->getContentSize().height);
-        root->addChild(bg, 1);
-
-        label->setAnchorPoint({.5f, .5f});
-        label->setPosition({width / 2.f, height / 2.f});
-        label->setOpacity(selected ? 255 : 180);
-        root->addChild(label, 2);
-
-        return root;
+        return button;
     }
 
     CCMenuItemToggler* createStatusButton(StatusInfo const& info) {
@@ -113,10 +81,7 @@ protected:
         if (!toggle)
             return nullptr;
 
-        // Like Geode's own tag filter, this row is controlled by our
-        // selection state rather than CCMenuItemToggler toggling itself.
         toggle->m_notClickable = true;
-
         toggle->setUserObject(
             "status",
             CCString::create(statusToString(info.status))
@@ -156,7 +121,6 @@ protected:
     }
 
     void onClose(CCObject* sender) override {
-        // 1. Save configurations and update UI elements
         auto& config = getCurrentTabConfig();
         config.platform = m_platformInput->getString();
         config.geodeVersion = m_geodeInput->getString();
@@ -172,15 +136,11 @@ protected:
         }
 
         triggerModsListReload();
-
-        // 2. Call the Geode base class handler to safely close the layer
         Popup::onClose(sender);
     }
 
     bool init() override {
-        // Compact Geode-style popup: a small Status section at the top and a
-        // separate Parameters section at the bottom.
-        if (!Popup::init(350.f, 285.f))
+        if (!Popup::init(350.f, 285.f, getPopupBackground()))
             return false;
 
         this->setTitle("Browse Filters");
@@ -188,9 +148,6 @@ protected:
         auto const& config = getCurrentTabConfig();
         m_selectedStatus = config.status;
 
-        // ─────────────────────────────────────────────
-        // Status section
-        // ─────────────────────────────────────────────
         auto statusContainer = createSectionContainer({310.f, 35.f});
 
         auto resetSpr = CCSprite::createWithSpriteFrameName("GJ_trashBtn_001.png");
@@ -209,7 +166,6 @@ protected:
             ccp(0, 4)
         );
 
-        // Exactly one row containing all four status buttons.
         auto statusMenu = CCMenu::create();
         statusMenu->setContentSize({292.f, 24.f});
         statusMenu->setLayout(
@@ -236,17 +192,12 @@ protected:
             ccp(0, 0)
         );
 
-        // Same placement convention as the native FiltersPopup.cpp: section
-        // title at the top-left with the reset icon at the top-right.
         m_mainLayer->addChildAtPosition(
             statusContainer,
             Anchor::Center,
             ccp(0, 75)
         );
 
-        // ─────────────────────────────────────────────
-        // Parameters section
-        // ─────────────────────────────────────────────
         auto parametersContainer = createSectionContainer({310.f, 130.f});
 
         auto parametersTitle = createSectionTitle(
@@ -263,29 +214,17 @@ protected:
         float centerX = parametersContainer->getContentWidth() / 2.f;
         float top = parametersContainer->getContentHeight() - 29.f;
 
-        m_platformInput = TextInput::create(
-            250.f,
-            "platform, e.g. win",
-            "chatFont.fnt"
-        );
+        m_platformInput = TextInput::create(250.f, "platform, e.g. win", "chatFont.fnt");
         m_platformInput->setString(config.platform);
         m_platformInput->setPosition({centerX, top});
         parametersContainer->addChild(m_platformInput);
 
-        m_geodeInput = TextInput::create(
-            250.f,
-            "Geode version, e.g. 5.0.0",
-            "chatFont.fnt"
-        );
+        m_geodeInput = TextInput::create(250.f, "Geode version, e.g. 5.0.0", "chatFont.fnt");
         m_geodeInput->setString(config.geodeVersion);
         m_geodeInput->setPosition({centerX, top - 38.f});
         parametersContainer->addChild(m_geodeInput);
 
-        m_gdInput = TextInput::create(
-            250.f,
-            "GD version, e.g. 2.2074",
-            "chatFont.fnt"
-        );
+        m_gdInput = TextInput::create(250.f, "GD version, e.g. 2.2074", "chatFont.fnt");
         m_gdInput->setString(config.gdVersion);
         m_gdInput->setPosition({centerX, top - 76.f});
         parametersContainer->addChild(m_gdInput);
@@ -296,22 +235,13 @@ protected:
             ccp(0, 105)
         );
 
-        auto applySpr = ButtonSprite::create(
-            "OK",
-            "goldFont.fnt",
-            "GJ_button_01.png",
-            .7f
-        );
+        auto applySpr = ButtonSprite::create("OK", "goldFont.fnt", "GJ_button_01.png", .7f);
         auto applyBtn = CCMenuItemSpriteExtra::create(
             applySpr,
             this,
             menu_selector(FilterPopup::onClose)
         );
-        m_buttonMenu->addChildAtPosition(
-            applyBtn,
-            Anchor::Bottom,
-            ccp(0, 18)
-        );
+        m_buttonMenu->addChildAtPosition(applyBtn, Anchor::Bottom, ccp(0, 18));
 
         updateStatusButtons();
         return true;
@@ -324,7 +254,6 @@ public:
             ret->autorelease();
             return ret;
         }
-
         delete ret;
         return nullptr;
     }
