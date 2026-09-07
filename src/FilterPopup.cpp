@@ -44,8 +44,8 @@ protected:
     }
 
     static CCNode* createStatusVisual(StatusInfo const& info, bool selected) {
-        // Follow Geode's own tag-label implementation and use its resizable
-        // white-square texture instead of a fixed-width button texture.
+        // Use Geode's resizable white-square texture so the status buttons can
+        // shrink cleanly when the row does not have enough room.
         auto button = ButtonSprite::create(
             info.label,
             "bigFont.fnt",
@@ -144,6 +144,18 @@ protected:
 
         this->setTitle("Browse Filters");
 
+        if (isGeodeTheme()) {
+            this->setCloseButtonSpr(
+                CircleButtonSprite::createWithSpriteFrameName(
+                    // @geode-ignore(unknown-resource)
+                    "geode.loader/close.png",
+                    0.875f,
+                    CircleBaseColor::DarkPurple
+                ),
+                0.875f
+            );
+        }
+
         auto const& config = getCurrentTabConfig();
         m_selectedStatus = config.status;
 
@@ -169,7 +181,7 @@ protected:
         statusMenu->setContentSize({292.f, 24.f});
         statusMenu->setLayout(
             RowLayout::create()
-                ->setAutoScale(false)
+                ->setAutoScale(true)
                 ->setGap(3.f)
                 ->setAxisAlignment(AxisAlignment::Center)
                 ->setCrossAxisAlignment(AxisAlignment::Center)
