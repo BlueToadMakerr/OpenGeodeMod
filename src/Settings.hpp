@@ -28,7 +28,6 @@ inline std::string readSetting(std::string const& key, std::string const& fallba
     auto path = settingPath(key);
     std::ifstream file(path, std::ios::binary);
     if (!file.is_open()) return fallback;
-
     std::ostringstream ss;
     ss << file.rdbuf();
     return ss.str();
@@ -37,9 +36,7 @@ inline std::string readSetting(std::string const& key, std::string const& fallba
 inline void writeSetting(std::string const& key, std::string const& value) {
     auto path = settingPath(key);
     std::ofstream file(path, std::ios::binary | std::ios::trunc);
-    if (file.is_open()) {
-        file << value;
-    }
+    if (file.is_open()) file << value;
 }
 
 inline void deleteSetting(std::string const& key) {
@@ -66,12 +63,7 @@ inline std::string joinCSV(std::vector<std::string> const& items) {
     return out;
 }
 
-enum class ModStatus {
-    Accepted,
-    Unlisted,
-    Pending,
-    Rejected,
-};
+enum class ModStatus { Accepted, Unlisted, Pending, Rejected };
 
 inline ModStatus statusFromString(std::string const& status) {
     if (status == "unlisted") return ModStatus::Unlisted;
@@ -107,17 +99,11 @@ struct TabFilterConfig {
     ModStatus status = ModStatus::Accepted;
 
     bool isDefault() const {
-        return platform.empty()
-            && geodeVersion.empty()
-            && gdVersion.empty()
-            && status == ModStatus::Accepted;
+        return platform.empty() && geodeVersion.empty() && gdVersion.empty() && status == ModStatus::Accepted;
     }
 
     void clear() {
-        platform.clear();
-        geodeVersion.clear();
-        gdVersion.clear();
-        status = ModStatus::Accepted;
+        platform.clear(); geodeVersion.clear(); gdVersion.clear(); status = ModStatus::Accepted;
     }
 };
 
@@ -135,24 +121,16 @@ inline TabFilterConfig& getCurrentTabConfig() {
     return getTabConfigs()[getCachedActiveTabKey()];
 }
 
-inline bool isFilterActiveForCurrentTab() {
-    return !getCurrentTabConfig().isDefault();
-}
+inline bool isFilterActiveForCurrentTab() { return !getCurrentTabConfig().isDefault(); }
 
-inline std::string getIndexUrl() {
-    return readSetting("custom-index-url", "https://api.geode-sdk.org");
-}
+inline std::string getIndexUrl() { return readSetting("custom-index-url", "https://api.geode-sdk.org"); }
 
 inline void setIndexUrl(std::string url) {
     if (!url.empty() && url.back() == '/') url.pop_back();
     writeSetting("custom-index-url", url);
 }
 
-struct IndexEntry {
-    std::string id;
-    std::string name;
-    std::string url;
-};
+struct IndexEntry { std::string id; std::string name; std::string url; };
 
 inline std::vector<IndexEntry> getAllIndexes() {
     std::vector<IndexEntry> out;
@@ -166,19 +144,47 @@ inline std::vector<IndexEntry> getAllIndexes() {
     return out;
 }
 
+inline std::string getActiveIndexId() {
+    auto url = getIndexUrl();
+    for (auto const& entry : getAllIndexes()) {
+        if (entry.url == url) return entry.id;
+    }
+    // The fallback keeps tokens isolated even if a legacy installation has
+    // an active URL which is not present in the saved index list.
+    std::hash<std::string> hasher;
+    return "url-" + fmt::format("{:016x}", static_cast<unsigned long long>(hasher(url)));
+}
+
+inline std::string getAuthAccessToken() {
+    return readSetting("auth-access-" + getActiveIndexId(), "");
+}
+
+inline std::string getAuthRefreshToken() {
+    return readSetting("auth-refresh-" + getActiveIndexId(), "");
+}
+
+inline void setAuthTokens(std::string const& accessToken, std::string const& refreshToken) {
+    auto id = getActiveIndexId();
+    writeSetting("auth-access-" + id, accessToken);
+    writeSetting("auth-refresh-" + id, refreshToken);
+}
+
+inline void clearAuthTokens() {
+    auto id = getActiveIndexId();
+    deleteSetting("auth-access-" + id);
+    deleteSetting("auth-refresh-" + id);
+}
+
+inline bool hasAuthTokens() {
+    return !getAuthAccessToken().empty() && !getAuthRefreshToken().empty();
+}
+
 inline bool addCustomIndex(std::string name, std::string url) {
     if (!url.empty() && url.back() == '/') url.pop_back();
-
-    for (auto const& entry : getAllIndexes()) {
-        if (entry.url == url) return false;
-    }
-
+    for (auto const& entry : getAllIndexes()) if (entry.url == url) return false;
     auto ids = splitCSV(readSetting("custom-index-ids", ""));
     int nextId = 0;
-    for (auto const& id : ids) {
-        nextId = std::max(nextId, std::atoi(id.c_str()) + 1);
-    }
-
+    for (auto const& id : ids) nextId = std::max(nextId, std::atoi(id.c_str()) + 1);
     std::string id = std::to_string(nextId);
     ids.push_back(id);
     writeSetting("custom-index-ids", joinCSV(ids));
@@ -198,11 +204,7 @@ inline void ensurePresetsExist() {
 
 inline bool updateCustomIndex(std::string const& id, std::string name, std::string url) {
     if (!url.empty() && url.back() == '/') url.pop_back();
-
-    for (auto const& entry : getAllIndexes()) {
-        if (entry.id != id && entry.url == url) return false;
-    }
-
+    for (auto const& entry : getAllIndexes()) if (entry.id != id && entry.url == url) return false;
     bool wasActive = readSetting("custom-index-url-" + id, "") == getIndexUrl();
     writeSetting("custom-index-name-" + id, name);
     writeSetting("custom-index-url-" + id, url);
@@ -213,19 +215,14 @@ inline bool updateCustomIndex(std::string const& id, std::string name, std::stri
 inline void deleteCustomIndex(std::string const& id) {
     auto ids = splitCSV(readSetting("custom-index-ids", ""));
     auto url = readSetting("custom-index-url-" + id, "");
-
     ids.erase(std::remove(ids.begin(), ids.end(), id), ids.end());
     writeSetting("custom-index-ids", joinCSV(ids));
     deleteSetting("custom-index-name-" + id);
     deleteSetting("custom-index-url-" + id);
-
+    deleteSetting("auth-access-" + id);
+    deleteSetting("auth-refresh-" + id);
     if (!url.empty() && url == getIndexUrl()) {
-        if (!ids.empty()) {
-            setIndexUrl(readSetting("custom-index-url-" + ids[0], "https://api.geode-sdk.org"));
-        }
-        else {
-            setIndexUrl("https://api.geode-sdk.org");
-        }
+        setIndexUrl(!ids.empty() ? readSetting("custom-index-url-" + ids[0], "https://api.geode-sdk.org") : "https://api.geode-sdk.org");
     }
 }
 
