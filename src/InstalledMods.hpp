@@ -2,6 +2,7 @@
 
 #include "Settings.hpp"
 
+#include <optional>
 #include <string>
 
 namespace opengeode {
