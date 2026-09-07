@@ -1,4 +1,5 @@
 #include "ModifyIndexPopup.hpp"
+#include "PopupSectionUtils.hpp"
 #include "StatsFetcher.hpp"
 
 #include <Geode/Geode.hpp>
@@ -21,7 +22,7 @@ protected:
         m_id = entry.id;
         m_onSaved = std::move(onSaved);
 
-        if (!Popup::init(300.f, 220.f)) return false;
+        if (!Popup::init(300.f, 220.f, getPopupBackground())) return false;
         this->setTitle("Modify Index");
 
         float centerX = m_mainLayer->getContentWidth() / 2;
