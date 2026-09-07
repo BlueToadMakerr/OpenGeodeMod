@@ -132,8 +132,7 @@ void ensureModPopupExtras(CCNode* popup) {
     if (!popup || popup->getChildByID("opengeode-manage-extras"_spr)) return;
 
     auto manageTitle = popup->getChildByIDRecursive("manage-title");
-    auto installButton = popup->getChildByIDRecursive("install-button");
-    if (!manageTitle || !installButton) return;
+    if (!manageTitle) return;
 
     auto manageContainer = manageTitle->getParent();
     if (!manageContainer) return;
@@ -216,7 +215,7 @@ protected:
         // Walk upward until we reach the ModPopup that owns the Manage section.
         auto popup = manageTitle;
         while (popup) {
-            if (popup->getChildByIDRecursive("install-button")) break;
+            if (popup->getChildByIDRecursive("mod-id-label")) break;
             popup = popup->getParent();
         }
         if (popup) ensureModPopupExtras(popup);
