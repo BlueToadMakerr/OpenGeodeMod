@@ -1,4 +1,3 @@
-#include "ModsLayerHook.hpp"
 #include "AccountPopup.hpp"
 #include "InstalledMods.hpp"
 #include "Settings.hpp"
@@ -89,17 +88,17 @@ protected:
             NativeAction{"unavailable-button", "Unavailable"},
             NativeAction{"install-button", "Install"},
             NativeAction{"uninstall-button", "Uninstall"},
-            NativeAction{"cancel-button", "Cancel"},
+            NativeAction{"cancel-button", "Cancel"}
         }) {
-            auto node = modPopup->getChildByIDRecursive(action.id);
-            auto native = typeinfo_cast<CCMenuItem*>(node);
-            if (!native || !native->isVisible()) continue;
+            auto native = m_modPopup->getChildByIDRecursive(action.id);
+            auto menuItem = typeinfo_cast<CCMenuItem*>(native);
+            if (!menuItem || !menuItem->isVisible()) continue;
 
             auto item = CCMenuItemExt::createSpriteExtra(
                 ButtonSprite::create(action.text, 40, true, "goldFont.fnt", "GJ_button_01.png", 25.f, .6f),
-                [this, native](CCMenuItemSpriteExtra*) {
+                [this, menuItem](CCMenuItemSpriteExtra*) {
                     this->onClose(nullptr);
-                    native->activate();
+                    menuItem->activate();
                 }
             );
             menu->addChild(item);
@@ -111,7 +110,7 @@ protected:
 
 public:
     static MoreManagePopup* create(CCNode* modPopup) {
-        auto ret = new MoreManagePopup();
+        auto ret = new MoreManagePopup;
         if (ret->init(modPopup)) {
             ret->autorelease();
             return ret;
@@ -122,16 +121,16 @@ public:
 };
 
 void ensureModPopupExtras(CCNode* popup) {
-    if (!popup || popup->getChildByID("opengeode-manage-extras")) return;
-
     auto manageTitle = popup->getChildByIDRecursive("manage-title");
     if (!manageTitle) return;
 
+    if (popup->getChildByID("opengeode-manage-extras")) return;
+
     auto menu = CCMenu::create();
     menu->setID("opengeode-manage-extras");
-    menu->setContentSize({250.f, 42.f});
+    menu->setContentSize({150.f, 50.f});
     menu->setAnchorPoint({.5f, .5f});
-    menu->setPosition({popup->getContentSize().width / 2.f, 47.f});
+    menu->setPosition({popup->getContentSize().width / 2.f, 35.f});
     menu->setLayout(
         RowLayout::create()
             ->setGap(8.f)
@@ -141,11 +140,11 @@ void ensureModPopupExtras(CCNode* popup) {
 
     auto modID = getPopupModID(popup);
     if (!modID.empty() && getInstalledModSource(modID)) {
-        auto from = CCMenuItemExt::createSpriteExtra(
+        auto item = CCMenuItemExt::createSpriteExtra(
             ButtonSprite::create("From", 40, true, "goldFont.fnt", "GJ_button_01.png", 25.f, .6f),
             [modID](CCMenuItemSpriteExtra*) { showInstallSource(modID); }
         );
-        menu->addChild(from);
+        menu->addChild(item);
     }
 
     auto more = CCMenuItemExt::createSpriteExtra(
@@ -159,7 +158,6 @@ void ensureModPopupExtras(CCNode* popup) {
 }
 
 void ensureOpenGeodeModPopupExtras(CCNode* scene) {
-    if (!scene) return;
     auto manageTitle = scene->getChildByIDRecursive("manage-title");
     if (!manageTitle) return;
 
@@ -175,18 +173,18 @@ class ModsLayerWatcher : public CCNode {
 public:
     bool init() {
         if (!CCNode::init()) return false;
-        this->schedule(schedule_selector(ModsLayerWatcher::check), .1f);
+        schedule(schedule_selector(ModsLayerWatcher::check), 0.2f);
         return true;
     }
 
     void check(float) {
-        auto scene = CCScene::get();
+        auto scene = CCDirector::sharedDirector()->getRunningScene();
         if (!scene) return;
         ensureOpenGeodeModPopupExtras(scene);
     }
 
     static ModsLayerWatcher* create() {
-        auto ret = new ModsLayerWatcher();
+        auto ret = new ModsLayerWatcher;
         if (ret->init()) {
             ret->autorelease();
             return ret;
@@ -199,7 +197,10 @@ public:
 class $modify(ModsLayer) {
     bool init() {
         if (!ModsLayer::init()) return false;
-        this->addChild(ModsLayerWatcher::create());
+
+        auto watcher = ModsLayerWatcher::create();
+        watcher->setID("opengeode-mods-watcher");
+        this->addChild(watcher);
         return true;
     }
 };
