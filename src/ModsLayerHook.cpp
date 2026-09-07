@@ -2,7 +2,6 @@
 #include "InstalledMods.hpp"
 #include "Settings.hpp"
 #include "PopupSectionUtils.hpp"
-#include <Geode/modify/ModsLayer.hpp>
 #include <Geode/ui/Popup.hpp>
 #include <Geode/ui/TextInput.hpp>
 #include <Geode/utils/web.hpp>
@@ -124,19 +123,20 @@ void ensureModPopupExtras(CCNode* popup) {
     auto manageTitle = popup->getChildByIDRecursive("manage-title");
     if (!manageTitle) return;
 
-    if (popup->getChildByID("opengeode-manage-extras")) return;
+    auto manageContainer = manageTitle->getParent();
+    if (!manageContainer || popup->getChildByID("opengeode-manage-extras")) return;
 
     auto menu = CCMenu::create();
     menu->setID("opengeode-manage-extras");
-    menu->setContentSize({150.f, 50.f});
-    menu->setAnchorPoint({.5f, .5f});
-    menu->setPosition({popup->getContentSize().width / 2.f, 35.f});
+    menu->setContentSize({100.f, 40.f});
+    menu->setAnchorPoint({1.f, .5f});
+    menu->setPosition({manageContainer->getContentWidth(), 5.f});
     menu->setLayout(
         RowLayout::create()
-            ->setGap(8.f)
+            ->setGap(5.f)
             ->setAxisAlignment(AxisAlignment::Center)
     );
-    popup->addChild(menu);
+    manageContainer->addChild(menu);
 
     auto modID = getPopupModID(popup);
     if (!modID.empty() && getInstalledModSource(modID)) {
@@ -194,15 +194,11 @@ public:
     }
 };
 
-class $modify(ModsLayer) {
-    bool init() {
-        if (!ModsLayer::init()) return false;
-
-        auto watcher = ModsLayerWatcher::create();
-        watcher->setID("opengeode-mods-watcher");
-        this->addChild(watcher);
-        return true;
-    }
-};
+$on_mod(Loaded) {
+    // Keep a lightweight global watcher alive without depending on Geode's
+    // internal ModsLayer header, which is not part of the public mod API.
+    static auto watcher = ModsLayerWatcher::create();
+    if (watcher) watcher->retain();
+}
 
 } // namespace opengeode
