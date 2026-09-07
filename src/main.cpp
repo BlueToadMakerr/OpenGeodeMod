@@ -1,4 +1,5 @@
 #include "Settings.hpp"
+#include "InstalledMods.hpp"
 
 #include <Geode/Geode.hpp>
 #include <Geode/utils/web.hpp>
@@ -23,6 +24,27 @@ $on_mod(Loaded) {
             std::string givenUrl = req.getUrl().data();
             if (!string::contains(givenUrl, "api.geode-sdk.org")) {
                 return ListenerResult::Propagate;
+            }
+
+            // Geode performs mod installs/updates through this endpoint. The
+            // version is deliberately parsed from the request rather than
+            // hard-coded because Geode only keeps one version of a mod
+            // installed at a time.
+            auto downloadPrefix = std::string("https://api.geode-sdk.org/v1/mods/");
+            if (givenUrl.starts_with(downloadPrefix)) {
+                auto modStart = downloadPrefix.size();
+                auto versionsPos = givenUrl.find("/versions/", modStart);
+                if (versionsPos != std::string::npos && versionsPos > modStart) {
+                    auto versionStart = versionsPos + std::string("/versions/").size();
+                    auto downloadPos = givenUrl.find("/download", versionStart);
+                    if (downloadPos != std::string::npos && downloadPos > versionStart) {
+                        auto modID = givenUrl.substr(modStart, versionsPos - modStart);
+                        auto version = givenUrl.substr(versionStart, downloadPos - versionStart);
+                        if (!modID.empty() && !version.empty()) {
+                            setInstalledModSource(modID, version);
+                        }
+                    }
+                }
             }
 
             auto const modListPrefix = std::string("https://api.geode-sdk.org/v1/mods");
