@@ -12,14 +12,15 @@ $on_mod(Loaded) {
 
     web::WebRequestInterceptEvent().listen(
         [](std::string_view id, web::WebRequest& req) {
-            std::string givenUrl = req.getUrl().data();
-
-            // Requests made by StatsFetcher intentionally bypass the index
-            // override so statistics are fetched from the URL being edited.
-            if (givenUrl.find("no_override=1") != std::string::npos) {
+            // Requests such as the index stats request can explicitly opt out
+            // of the global index override. Check the request parameters
+            // themselves rather than relying on the serialized URL, since the
+            // intercept can run before WebRequest has appended them to the URL.
+            if (req.getUrlParams().count("no_override") > 0) {
                 return ListenerResult::Propagate;
             }
 
+            std::string givenUrl = req.getUrl().data();
             if (!string::contains(givenUrl, "api.geode-sdk.org")) {
                 return ListenerResult::Propagate;
             }
