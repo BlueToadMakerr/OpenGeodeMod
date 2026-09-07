@@ -43,15 +43,23 @@ inline CCNode* createSettingsButtonSprite() {
     if (!root)
         return nullptr;
 
-    auto background = CCSprite::create("geode.loader/baseCircle_Medium_DarkPurple.png");
-    auto settings = CCSprite::create("geode.loader/settings.png");
+    // These are sprite frames provided by Geode's BlankSheet/APISheet atlases,
+    // not standalone texture files. Load them from the sprite-frame cache.
+    auto background = CCSprite::createWithSpriteFrameName(
+        // @geode-ignore(unknown-resource)
+        "geode.loader/baseCircle_Medium_DarkPurple.png"
+    );
+    auto settings = CCSprite::createWithSpriteFrameName(
+        // @geode-ignore(unknown-resource)
+        "geode.loader/settings.png"
+    );
     if (!background || !settings)
         return nullptr;
 
-    background->setPosition({20.f, 20.f});
-    settings->setPosition({20.f, 20.f});
-
     constexpr float targetSize = 40.f;
+    background->setPosition({targetSize / 2.f, targetSize / 2.f});
+    settings->setPosition({targetSize / 2.f, targetSize / 2.f});
+
     background->setScale(targetSize / background->getContentSize().width);
     settings->setScale(targetSize * 0.5f / settings->getContentSize().width);
 
