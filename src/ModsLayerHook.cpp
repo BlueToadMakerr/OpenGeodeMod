@@ -12,8 +12,6 @@
 #include <Geode/ui/SceneEvent.hpp>
 #include <Geode/utils/web.hpp>
 
-#include <vector>
-
 using namespace geode::prelude;
 
 namespace opengeode {
@@ -188,6 +186,9 @@ protected:
     void check(float) {
         auto scene = CCDirector::sharedDirector()->getRunningScene();
         if (!scene || scene != this->getParent()) return;
+
+        ensureOpenGeodeModPopupExtras(scene);
+
         auto listFrame = scene->getChildByIDRecursive("mod-list-frame");
         if (!listFrame) return;
         auto modList = listFrame->getChildByID("ModList");
@@ -206,15 +207,17 @@ protected:
         ensureIndexSwitcherButton(scene);
         ensureFilterButton(filtersMenu);
         ensureAccountButton(scene);
-        ensureOpenGeodeModPopupExtras(scene);
     }
 
     void ensureOpenGeodeModPopupExtras(CCNode* scene) {
-        auto popup = scene->getChildByIDRecursive("mod-popup");
-        if (!popup) {
-            // ModPopup uses popup-{mod-id}; locate it by its stable Manage child.
-            auto manageTitle = scene->getChildByIDRecursive("manage-title");
-            if (manageTitle) popup = manageTitle->getParent()->getParent();
+        auto manageTitle = scene->getChildByIDRecursive("manage-title");
+        if (!manageTitle) return;
+
+        // Walk upward until we reach the ModPopup that owns the Manage section.
+        auto popup = manageTitle;
+        while (popup) {
+            if (popup->getChildByIDRecursive("install-button")) break;
+            popup = popup->getParent();
         }
         if (popup) ensureModPopupExtras(popup);
     }
