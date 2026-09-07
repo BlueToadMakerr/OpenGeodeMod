@@ -122,14 +122,14 @@ protected:
         auto mods = std::make_shared<std::map<std::string, ModInfo>>();
         auto step = std::make_shared<std::function<void(int)>>();
         *step = [this, mods, step](int index) {
-            static const char* statuses[] = {"Accepted", "Pending", "Rejected"};
+            static const char* statuses[] = {"accepted", "pending", "rejected"};
             if (index >= 3) {
                 std::string text;
                 for (auto const& [id, mod] : *mods) {
                     text += fmt::format("<mod:{}>\n", id);
                     for (auto const& [version, info] : mod.versions) {
                         text += fmt::format("{} | v{} | {}\n", info.name.empty() ? id : info.name, version, info.status);
-                        if (info.status == "Rejected" && !info.reason.empty()) text += fmt::format("with the reason: {}\n", info.reason);
+                        if (info.status == "rejected" && !info.reason.empty()) text += fmt::format("with the reason: {}\n", info.reason);
                     }
                     text += "\n";
                 }
@@ -206,7 +206,7 @@ protected:
         m_modUrl = TextInput::create(225.f, "Mod .geode URL", "chatFont.fnt");
         m_modUrl->setPosition({center, 86.f}); m_mainLayer->addChild(m_modUrl);
         auto submit = CCMenuItemExt::createSpriteExtra(ButtonSprite::create("Submit", "goldFont.fnt", getButtonTexture("GJ_button_01.png"), .42f), [this](auto){ submitMod(); });
-        auto submitMenu = CCMenu::create(); submitMenu->addChild(submit); submitMenu->setPosition({center, 57.f}); m_mainLayer->addChild(submitMenu);
+        auto submitMenu = CCMenu::create(); submitMenu->addChild(submit); submitMenu->setPosition({center, 45.f}); m_mainLayer->addChild(submitMenu);
 
         m_modStatus = CCLabelBMFont::create("", "chatFont.fnt");
         m_modStatus->setScale(.32f); m_modStatus->setAlignment(kCCTextAlignmentCenter); m_modStatus->setAnchorPoint({.5f, .5f}); m_modStatus->setPosition({center, 29.f}); m_mainLayer->addChild(m_modStatus);
