@@ -2,10 +2,17 @@
 
 #include <Geode/Geode.hpp>
 #include <Geode/ui/GeodeUI.hpp>
+#include <Geode/utils/ColorProvider.hpp>
 
 using namespace geode::prelude;
 
 namespace opengeode {
+
+inline char const* getPopupBackground() {
+    std::string theme;
+    ThemeIDProvidingEvent().send(theme);
+    return theme == "geometry-dash" ? "GJ_square01.png" : "GE_square01.png";
+}
 
 inline CCNode* createSectionContainer(CCSize size) {
     auto container = CCNode::create();

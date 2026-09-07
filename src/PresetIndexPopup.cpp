@@ -1,4 +1,5 @@
 #include "PresetIndexPopup.hpp"
+#include "PopupSectionUtils.hpp"
 #include "Settings.hpp"
 
 #include <Geode/Geode.hpp>
@@ -14,7 +15,7 @@ protected:
     std::function<void()> m_onAdded;
 
     bool init(std::function<void()> onAdded) {
-        if (!Popup::init(300.f, 200.f)) return false;
+        if (!Popup::init(300.f, 200.f, getPopupBackground())) return false;
         m_onAdded = std::move(onAdded);
 
         this->setTitle("Pre-made Indexes");

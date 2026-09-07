@@ -1,6 +1,7 @@
 #include "IndexListPopup.hpp"
 #include "AddIndexPopup.hpp"
 #include "ModifyIndexPopup.hpp"
+#include "PopupSectionUtils.hpp"
 #include "PresetIndexPopup.hpp"
 #include "Settings.hpp"
 
@@ -18,7 +19,7 @@ protected:
     ScrollLayer* m_scrollLayer = nullptr;
 
     bool init() {
-        if (!Popup::init(340.f, 280.f)) return false;
+        if (!Popup::init(340.f, 280.f, getPopupBackground())) return false;
         this->setTitle("Index Selector");
 
         float centerX = m_mainLayer->getContentWidth() / 2;
