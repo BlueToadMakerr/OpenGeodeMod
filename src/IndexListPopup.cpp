@@ -21,7 +21,8 @@ protected:
     bool init() {
         if (!Popup::init(340.f, 280.f, getPopupBackground())) return false;
         this->setTitle("Index Selector");
-        applyPopupTheme(this);
+        if (auto close = createGeodeCloseButton())
+            this->setCloseButtonSpr(close, 0.875f);
 
         float centerX = m_mainLayer->getContentWidth() / 2;
 
@@ -96,12 +97,10 @@ protected:
             row->addChild(useBtn);
 
             CCNode* modifySprite = nullptr;
-            if (isGeodeTheme()) {
+            if (isGeodeTheme())
                 modifySprite = createSettingsButtonSprite();
-            }
-            else {
+            else
                 modifySprite = CCSprite::createWithSpriteFrameName("GJ_optionsBtn_001.png");
-            }
 
             auto modifyBtn = CCMenuItemExt::createSpriteExtra(
                 modifySprite,
