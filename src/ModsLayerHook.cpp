@@ -124,7 +124,7 @@ void ensureModPopupExtras(CCNode* popup) {
     if (!manageTitle) return;
 
     auto manageContainer = manageTitle->getParent();
-    if (!manageContainer || popup->getChildByID("opengeode-manage-extras")) return;
+    if (!manageContainer || manageContainer->getChildByID("opengeode-manage-extras")) return;
 
     auto menu = CCMenu::create();
     menu->setID("opengeode-manage-extras");
@@ -195,10 +195,11 @@ public:
 };
 
 $on_mod(Loaded) {
-    // Keep a lightweight global watcher alive without depending on Geode's
-    // internal ModsLayer header, which is not part of the public mod API.
-    static auto watcher = ModsLayerWatcher::create();
-    if (watcher) watcher->retain();
+    auto watcher = ModsLayerWatcher::create();
+    if (watcher) {
+        watcher->retain();
+        CCDirector::sharedDirector()->getRunningScene()->addChild(watcher);
+    }
 }
 
 } // namespace opengeode
