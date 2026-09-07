@@ -1,4 +1,5 @@
 #include "AddIndexPopup.hpp"
+#include "PopupSectionUtils.hpp"
 #include "Settings.hpp"
 
 #include <Geode/Geode.hpp>
@@ -16,7 +17,7 @@ protected:
     std::function<void()> m_onAdded;
 
     bool init(std::function<void()> onAdded) {
-        if (!Popup::init(280.f, 160.f)) return false;
+        if (!Popup::init(280.f, 160.f, getPopupBackground())) return false;
         m_onAdded = std::move(onAdded);
 
         this->setTitle("Add Index");
