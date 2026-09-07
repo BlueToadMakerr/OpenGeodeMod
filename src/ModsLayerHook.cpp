@@ -3,12 +3,16 @@
 #include "ModsListUtils.hpp"
 #include "AccountPopup.hpp"
 #include "PopupSectionUtils.hpp"
+#include "InstalledMods.hpp"
 #include "Settings.hpp"
 
 #include <Geode/Geode.hpp>
 #include <Geode/ui/GeodeUI.hpp>
+#include <Geode/ui/Popup.hpp>
 #include <Geode/ui/SceneEvent.hpp>
 #include <Geode/utils/web.hpp>
+
+#include <vector>
 
 using namespace geode::prelude;
 
@@ -35,6 +39,136 @@ CCNode* createProfileButtonSprite() {
     root->setAnchorPoint({.5f, .5f});
     root->addChild(profile);
     return root;
+}
+
+std::string getPopupModID(CCNode* popup) {
+    auto label = typeinfo_cast<CCLabelBMFont*>(popup->getChildByIDRecursive("mod-id-label"));
+    if (!label) return "";
+    std::string value = label->getString().c_str();
+    auto prefix = std::string("(ID: ");
+    if (!value.starts_with(prefix) || value.size() < prefix.size() + 1) return "";
+    value.erase(0, prefix.size());
+    if (!value.empty() && value.back() == ')') value.pop_back();
+    return value;
+}
+
+void showInstallSource(std::string const& modID) {
+    auto source = getInstalledModSource(modID);
+    if (!source) return;
+
+    auto description = fmt::format(
+        "Installed from <cy>{}</c>\nVersion: <cg>{}</c>\n{}",
+        source->indexName,
+        source->version,
+        source->indexUrl
+    );
+    createQuickPopup("Install Source", description, "OK");
+}
+
+class MoreManagePopup : public Popup {
+protected:
+    CCNode* m_modPopup = nullptr;
+
+    bool init(CCNode* modPopup) {
+        if (!Popup::init(190.f, 255.f, getPopupBackground())) return false;
+        m_modPopup = modPopup;
+        setTitle("More");
+        if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .8f);
+
+        auto menu = CCMenu::create();
+        menu->setContentSize({160.f, 205.f});
+        menu->setAnchorPoint({.5f, .5f});
+        menu->setPosition({95.f, 120.f});
+
+        struct NativeAction {
+            char const* id;
+            char const* label;
+        };
+
+        for (auto const& action : std::initializer_list<NativeAction>{
+            {"update-button", "Update"},
+            {"enable-button", "Enable"},
+            {"reenable-button", "Re-Enable"},
+            {"unavailable-button", "Unavailable"},
+            {"install-button", "Install"},
+            {"uninstall-button", "Uninstall"},
+            {"cancel-button", "Cancel"},
+        }) {
+            auto native = m_modPopup->getChildByIDRecursive(action.id);
+            if (!native || !native->isVisible()) continue;
+
+            auto button = CCMenuItemExt::createSpriteExtra(
+                ButtonSprite::create(action.label, "goldFont.fnt", getButtonTexture("GJ_button_01.png"), .45f),
+                [this, native](auto) {
+                    onClose(nullptr);
+                    if (auto item = typeinfo_cast<CCMenuItem*>(native)) item->activate();
+                }
+            );
+            button->setID(fmt::format("opengeode-more-{}", action.id));
+            menu->addChild(button);
+        }
+
+        menu->setLayout(
+            ColumnLayout::create()
+                ->setGap(5.f)
+                ->setAxisAlignment(AxisAlignment::Center)
+        );
+        menu->updateLayout();
+        m_mainLayer->addChild(menu);
+        return true;
+    }
+
+public:
+    static MoreManagePopup* create(CCNode* modPopup) {
+        auto ret = new MoreManagePopup();
+        if (ret && ret->init(modPopup)) {
+            ret->autorelease();
+            return ret;
+        }
+        delete ret;
+        return nullptr;
+    }
+};
+
+void ensureModPopupExtras(CCNode* popup) {
+    if (!popup || popup->getChildByID("opengeode-manage-extras"_spr)) return;
+
+    auto manageTitle = popup->getChildByIDRecursive("manage-title");
+    auto installButton = popup->getChildByIDRecursive("install-button");
+    if (!manageTitle || !installButton) return;
+
+    auto manageContainer = manageTitle->getParent();
+    if (!manageContainer) return;
+
+    auto extras = CCMenu::create();
+    extras->setID("opengeode-manage-extras"_spr);
+    extras->setContentSize({85.f, 18.f});
+    extras->setAnchorPoint({1.f, .5f});
+
+    auto modID = getPopupModID(popup);
+    auto source = getInstalledModSource(modID);
+
+    if (source) {
+        auto from = CCMenuItemExt::createSpriteExtra(
+            ButtonSprite::create("From", "goldFont.fnt", getButtonTexture("GJ_button_01.png"), .32f),
+            [modID](auto) { showInstallSource(modID); }
+        );
+        from->setID("opengeode-from-button"_spr);
+        extras->addChild(from);
+    }
+
+    auto more = CCMenuItemExt::createSpriteExtra(
+        ButtonSprite::create("More", "goldFont.fnt", getButtonTexture("GJ_button_01.png"), .32f),
+        [popup](auto) {
+            if (auto morePopup = MoreManagePopup::create(popup)) morePopup->show();
+        }
+    );
+    more->setID("opengeode-more-button"_spr);
+    extras->addChild(more);
+
+    extras->setLayout(RowLayout::create()->setGap(3.f)->setAxisAlignment(AxisAlignment::End));
+    extras->updateLayout();
+    manageContainer->addChildAtPosition(extras, Anchor::Right, ccp(0.f, 0.f), ccp(1.f, .5f));
 }
 
 class ModsLayerWatcher : public CCNode {
@@ -72,6 +206,17 @@ protected:
         ensureIndexSwitcherButton(scene);
         ensureFilterButton(filtersMenu);
         ensureAccountButton(scene);
+        ensureOpenGeodeModPopupExtras(scene);
+    }
+
+    void ensureOpenGeodeModPopupExtras(CCNode* scene) {
+        auto popup = scene->getChildByIDRecursive("mod-popup");
+        if (!popup) {
+            // ModPopup uses popup-{mod-id}; locate it by its stable Manage child.
+            auto manageTitle = scene->getChildByIDRecursive("manage-title");
+            if (manageTitle) popup = manageTitle->getParent()->getParent();
+        }
+        if (popup) ensureModPopupExtras(popup);
     }
 
     void ensureIndexSwitcherButton(CCNode* scene) {
