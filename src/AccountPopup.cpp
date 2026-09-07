@@ -6,11 +6,12 @@
 #include <Geode/ui/Popup.hpp>
 #include <Geode/ui/ScrollLayer.hpp>
 #include <Geode/ui/TextInput.hpp>
+#include <Geode/ui/MDTextArea.hpp>
 #include <Geode/utils/web.hpp>
-#include <Geode/ui/mods/list/ModItem.hpp>
 
 #include <algorithm>
 #include <cctype>
+#include <set>
 
 using namespace geode::prelude;
 
@@ -93,7 +94,45 @@ protected:
     }
     void loadProfile(){request("GET","/v1/me","",[this](web::WebResponse res){if(!res.ok()){m_status->setString(errorText(res).c_str());return;}auto p=res.json().unwrapOr(matjson::Value())["payload"];auto display=p["display_name"].asString().unwrapOr("");auto username=p["username"].asString().unwrapOr("");m_name->setString((display.empty()?username:display).c_str());m_displayName->setString(display.c_str());std::string badges;if(p["verified"].asBool().unwrapOr(false))badges+="Verified";if(p["admin"].asBool().unwrapOr(false)){if(!badges.empty())badges+="  |  ";badges+="Admin";}m_badges->setString(badges.c_str());m_status->setString("Profile loaded.");loadMods();});}
     void saveProfile(){auto name=m_displayName->getString();if(name.size()<2||name.size()>64){m_status->setString("Display name must be 2-64 characters.");return;}for(auto c:name)if(!std::isalnum(static_cast<unsigned char>(c))||static_cast<unsigned char>(c)>127){m_status->setString("Display name must be ASCII letters/numbers.");return;}m_status->setString("Saving...");request("PUT","/v1/me",fmt::format("{{\"display_name\":{}}}",makeJsonString(name)),[this](web::WebResponse res){if(!res.ok()){m_status->setString(errorText(res).c_str());return;}m_status->setString("Profile saved.");loadProfile();});}
-    void loadMods(){request("GET","/v1/me/mods?status=accepted","",[this](web::WebResponse res){if(!res.ok()){m_status->setString(errorText(res).c_str());return;}auto payload=res.json().unwrapOr(matjson::Value())["payload"];m_modScroll->m_contentLayer->removeAllChildren();float y=95.f;size_t count=0;if(payload.isArray())for(auto const& mod:payload){auto id=mod["id"].asInt().unwrapOr(0);if(id<=0)continue;auto item=AnyModItem::create(fmt::format("{}",id));if(!item)continue;item->updateDisplay(365.f,ModListDisplay::SmallList);item->setPosition({190.f,y});m_modScroll->m_contentLayer->addChild(item);y-=item->getContentSize().height+6.f;++count;}if(!count){auto empty=CCLabelBMFont::create("No published mods.","chatFont.fnt");empty->setScale(.4f);empty->setPosition({182.f,52.f});m_modScroll->m_contentLayer->addChild(empty);y=105.f;}m_modScroll->m_contentLayer->setContentSize({365.f,std::max(105.f,105.f-y+20.f)});m_modScroll->scrollToTop();});}
+    void loadMods(){
+        auto payloads = std::make_shared<std::vector<matjson::Value>>();
+        auto loadStatus = [this, payloads](auto&& self, int index) -> void {
+            static const char* statuses[] = {"accepted", "pending", "rejected"};
+            if (index >= 3) {
+                m_modScroll->m_contentLayer->removeAllChildren();
+                float y = 95.f; size_t count = 0; std::set<std::string> seen;
+                for (auto const& payload : *payloads) if (payload.isArray()) for (auto const& mod : payload) {
+                    auto id = mod["id"].asString().unwrapOr(""); if (id.empty() || seen.count(id)) continue; seen.insert(id);
+                    std::string text = fmt::format("<mod:{}>\n\n", id);
+                    auto versions = mod["versions"];
+                    if (versions.isArray()) for (auto const& version : versions) {
+                        auto status = version["status"].asString().unwrapOr("");
+                        if (status.empty()) continue;
+                        text += fmt::format("Status: {}", status);
+                        if (status == "rejected") {
+                            auto reason = version["info"].asString().unwrapOr("");
+                            if (!reason.empty()) text += fmt::format("\\nReason: {}", reason);
+                        }
+                        text += "\\n\\n";
+                    }
+                    auto area = MDTextArea::create(text, {365.f, 95.f});
+                    area->setAnchorPoint({0.f, 1.f}); area->setPosition({7.5f, y}); m_modScroll->m_contentLayer->addChild(area);
+                    y -= 101.f; ++count;
+                }
+                if (!count) {
+                    auto empty=CCLabelBMFont::create("No mods found.","chatFont.fnt"); empty->setScale(.4f); empty->setPosition({182.f,52.f}); m_modScroll->m_contentLayer->addChild(empty);
+                }
+                m_modScroll->m_contentLayer->setContentSize({365.f,std::max(105.f,105.f + (95.f - y) + 20.f)}); m_modScroll->scrollToTop();
+                return;
+            }
+            request("GET", fmt::format("/v1/me/mods?status={}", statuses[index]), "", [this, payloads, self, index](web::WebResponse res) mutable {
+                if (!res.ok()) { m_status->setString(errorText(res).c_str()); return; }
+                payloads->push_back(res.json().unwrapOr(matjson::Value())["payload"]);
+                self(self, index + 1);
+            });
+        };
+        loadStatus(loadStatus, 0);
+    }
 public:static AccountPopup* create(){auto ret=new AccountPopup();if(ret&&ret->init()){ret->autorelease();return ret;}delete ret;return nullptr;}
 };
 
