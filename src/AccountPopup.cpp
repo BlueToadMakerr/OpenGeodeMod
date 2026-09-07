@@ -268,7 +268,12 @@ protected:
             auto id = payload["id"].asString().unwrapOr("");
             auto versions = payload["versions"];
             std::string status;
-            if (versions.isArray() && !versions.empty()) status = versions[0]["status"].asString().unwrapOr("");
+            if (versions.isArray()) {
+                for (auto const& version : versions) {
+                    status = version["status"].asString().unwrapOr("");
+                    break;
+                }
+            }
             if (status.empty()) status = "submitted";
             m_modStatus->setString(fmt::format("{} {} successfully.", id.empty() ? "Mod" : id, status).c_str());
             m_modUrl->setString("");
@@ -284,7 +289,6 @@ protected:
             [](auto, bool confirmed) {
                 if (confirmed) {
                     clearAuthTokens();
-                    showAccountPopup();
                 }
             }
         )->show();
