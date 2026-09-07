@@ -30,8 +30,8 @@ std::string makeJsonString(std::string const& value) {
     for (auto c : value) { if (c == '\\' || c == '"') out += '\\'; out += c; }
     out += '"'; return out;
 }
-web::ByteVector makeBody(std::string const& value) {
-    return web::ByteVector(value.begin(), value.end());
+ByteVector makeBody(std::string const& value) {
+    return ByteVector(value.begin(), value.end());
 }
 
 class GdLoginPopup : public Popup {
