@@ -2,7 +2,6 @@
 
 #include <Geode/Geode.hpp>
 #include <Geode/ui/GeodeUI.hpp>
-#include <Geode/ui/Popup.hpp>
 #include <Geode/utils/ColorProvider.hpp>
 
 using namespace geode::prelude;
@@ -27,18 +26,15 @@ inline char const* getButtonTexture(char const* geometryDashTexture) {
     return isGeodeTheme() ? "geode.loader/GE_button_05.png" : geometryDashTexture;
 }
 
-inline void applyPopupTheme(Popup* popup) {
-    if (!popup || !isGeodeTheme())
-        return;
+inline CCSprite* createGeodeCloseButton() {
+    if (!isGeodeTheme())
+        return nullptr;
 
-    popup->setCloseButtonSpr(
-        CircleButtonSprite::createWithSpriteFrameName(
-            // @geode-ignore(unknown-resource)
-            "geode.loader/close.png",
-            0.875f,
-            CircleBaseColor::DarkPurple
-        ),
-        0.875f
+    return CircleButtonSprite::createWithSpriteFrameName(
+        // @geode-ignore(unknown-resource)
+        "geode.loader/close.png",
+        0.875f,
+        CircleBaseColor::DarkPurple
     );
 }
 

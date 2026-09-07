@@ -134,7 +134,8 @@ protected:
             return false;
 
         this->setTitle("Browse Filters");
-        applyPopupTheme(this);
+        if (auto close = createGeodeCloseButton())
+            this->setCloseButtonSpr(close, 0.875f);
 
         auto const& config = getCurrentTabConfig();
         m_selectedStatus = config.status;
@@ -155,13 +156,6 @@ protected:
 
         auto statusMenu = CCMenu::create();
         statusMenu->setContentSize({292.f, 24.f});
-        statusMenu->setLayout(
-            RowLayout::create()
-                ->setAutoScale(false)
-                ->setGap(3.f)
-                ->setAxisAlignment(AxisAlignment::Center)
-                ->setCrossAxisAlignment(AxisAlignment::Center)
-        );
 
         for (size_t i = 0; i < STATUS_INFO.size(); ++i) {
             auto button = createStatusButton(STATUS_INFO[i]);
@@ -171,24 +165,29 @@ protected:
             statusMenu->addChild(button);
         }
 
-        statusMenu->updateLayout();
-
+        // CCMenuItemToggler keeps its unscaled content size, so RowLayout's
+        // auto-scaling does not reliably shrink the visible ButtonSprite.
+        // Fit the four toggles explicitly and place them ourselves instead.
+        auto children = CCArrayExt<CCNode*>(statusMenu->getChildren());
         float totalWidth = 0.f;
-        size_t buttonCount = 0;
-        for (auto child : CCArrayExt<CCNode*>(statusMenu->getChildren())) {
+        for (auto child : children)
             totalWidth += child->getContentSize().width;
-            ++buttonCount;
-        }
-        totalWidth += buttonCount > 1 ? 3.f * static_cast<float>(buttonCount - 1) : 0.f;
 
-        if (totalWidth > statusMenu->getContentSize().width && totalWidth > 0.f) {
-            float const scale = statusMenu->getContentSize().width / totalWidth;
-            for (auto child : CCArrayExt<CCNode*>(statusMenu->getChildren())) {
-                child->setScale(child->getScale() * scale);
-                if (auto item = typeinfo_cast<CCMenuItemToggler*>(child))
-                    item->m_baseScale = item->getScale();
-            }
-            statusMenu->updateLayout();
+        constexpr float gap = 3.f;
+        float const gaps = children.size() > 1 ? gap * static_cast<float>(children.size() - 1) : 0.f;
+        float const availableWidth = statusMenu->getContentSize().width - gaps;
+        float const scale = totalWidth > availableWidth && totalWidth > 0.f
+            ? availableWidth / totalWidth
+            : 1.f;
+
+        float x = -statusMenu->getContentSize().width / 2.f;
+        for (auto child : children) {
+            float const width = child->getContentSize().width * scale;
+            child->setScale(scale);
+            child->setPosition({x + width / 2.f, 0.f});
+            if (auto item = typeinfo_cast<CCMenuItemToggler*>(child))
+                item->m_baseScale = scale;
+            x += width + gap;
         }
 
         statusContainer->addChildAtPosition(statusMenu, Anchor::Center, ccp(0, 0));
