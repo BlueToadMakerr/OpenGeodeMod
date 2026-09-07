@@ -171,36 +171,47 @@ protected:
     CCLabelBMFont* m_id = nullptr;
     CCLabelBMFont* m_badges = nullptr;
     TextInput* m_displayName = nullptr;
+    TextInput* m_modUrl = nullptr;
     CCLabelBMFont* m_status = nullptr;
+    CCLabelBMFont* m_modStatus = nullptr;
     async::TaskHolder<web::WebResponse> m_requestTask;
     async::TaskHolder<web::WebResponse> m_refreshTask;
     bool m_refreshing = false;
 
     bool init() {
-        if (!Popup::init(370.f, 255.f, getPopupBackground())) return false;
+        if (!Popup::init(370.f, 300.f, getPopupBackground())) return false;
         setTitle("OpenGeode Account");
         if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .8f);
         auto center = m_mainLayer->getContentWidth() / 2;
 
         m_name = CCLabelBMFont::create("Loading...", "bigFont.fnt");
-        m_name->setScale(.48f); m_name->setAlignment(kCCTextAlignmentCenter); m_name->setAnchorPoint({.5f, .5f}); m_name->setPosition({center, 211.f}); m_mainLayer->addChild(m_name);
+        m_name->setScale(.48f); m_name->setAlignment(kCCTextAlignmentCenter); m_name->setAnchorPoint({.5f, .5f}); m_name->setPosition({center, 256.f}); m_mainLayer->addChild(m_name);
         m_id = CCLabelBMFont::create("Account ID: -", "chatFont.fnt");
-        m_id->setScale(.36f); m_id->setAlignment(kCCTextAlignmentCenter); m_id->setAnchorPoint({.5f, .5f}); m_id->setPosition({center, 192.f}); m_mainLayer->addChild(m_id);
+        m_id->setScale(.36f); m_id->setAlignment(kCCTextAlignmentCenter); m_id->setAnchorPoint({.5f, .5f}); m_id->setPosition({center, 237.f}); m_mainLayer->addChild(m_id);
         m_badges = CCLabelBMFont::create("", "goldFont.fnt");
-        m_badges->setScale(.36f); m_badges->setAlignment(kCCTextAlignmentCenter); m_badges->setAnchorPoint({.5f, .5f}); m_badges->setPosition({center, 175.f}); m_mainLayer->addChild(m_badges);
+        m_badges->setScale(.36f); m_badges->setAlignment(kCCTextAlignmentCenter); m_badges->setAnchorPoint({.5f, .5f}); m_badges->setPosition({center, 220.f}); m_mainLayer->addChild(m_badges);
 
         auto displayLabel = CCLabelBMFont::create("Display Name", "goldFont.fnt");
-        displayLabel->setScale(.38f); displayLabel->setAlignment(kCCTextAlignmentCenter); displayLabel->setAnchorPoint({.5f, .5f}); displayLabel->setPosition({center, 154.f}); m_mainLayer->addChild(displayLabel);
+        displayLabel->setScale(.38f); displayLabel->setAlignment(kCCTextAlignmentCenter); displayLabel->setAnchorPoint({.5f, .5f}); displayLabel->setPosition({center, 199.f}); m_mainLayer->addChild(displayLabel);
         m_displayName = TextInput::create(190.f, "Display Name", "chatFont.fnt");
-        m_displayName->setPosition({center, 129.f}); m_mainLayer->addChild(m_displayName);
+        m_displayName->setPosition({center, 174.f}); m_mainLayer->addChild(m_displayName);
 
         auto save = CCMenuItemExt::createSpriteExtra(ButtonSprite::create("Save", "goldFont.fnt", getButtonTexture("GJ_button_01.png"), .45f), [this](auto){ saveProfile(); });
-        auto logout = CCMenuItemExt::createSpriteExtra(ButtonSprite::create("Logout", "goldFont.fnt", getButtonTexture("GJ_button_02.png"), .45f), [this](auto){ clearAuthTokens(); onClose(nullptr); });
+        auto logout = CCMenuItemExt::createSpriteExtra(ButtonSprite::create("Logout", "goldFont.fnt", getButtonTexture("GJ_button_06.png"), .45f), [this](auto){ confirmLogout(); });
         auto mods = CCMenuItemExt::createSpriteExtra(ButtonSprite::create("My Mods", "goldFont.fnt", getButtonTexture("GJ_button_01.png"), .45f), [](auto){ MyModsPopup::create()->show(); });
-        auto buttons = CCMenu::create(); buttons->addChild(save); buttons->addChild(mods); buttons->addChild(logout); buttons->setLayout(RowLayout::create()->setGap(6.f)); buttons->setPosition({center, 92.f}); buttons->updateLayout(); m_mainLayer->addChild(buttons);
+        auto buttons = CCMenu::create(); buttons->addChild(save); buttons->addChild(mods); buttons->addChild(logout); buttons->setLayout(RowLayout::create()->setGap(6.f)); buttons->setPosition({center, 137.f}); buttons->updateLayout(); m_mainLayer->addChild(buttons);
 
+        auto submitLabel = CCLabelBMFont::create("Submit / Update Mod", "goldFont.fnt");
+        submitLabel->setScale(.38f); submitLabel->setAlignment(kCCTextAlignmentCenter); submitLabel->setAnchorPoint({.5f, .5f}); submitLabel->setPosition({center, 111.f}); m_mainLayer->addChild(submitLabel);
+        m_modUrl = TextInput::create(225.f, "Mod .geode URL", "chatFont.fnt");
+        m_modUrl->setPosition({center, 86.f}); m_mainLayer->addChild(m_modUrl);
+        auto submit = CCMenuItemExt::createSpriteExtra(ButtonSprite::create("Submit", "goldFont.fnt", getButtonTexture("GJ_button_01.png"), .42f), [this](auto){ submitMod(); });
+        auto submitMenu = CCMenu::create(); submitMenu->addChild(submit); submitMenu->setPosition({center, 57.f}); m_mainLayer->addChild(submitMenu);
+
+        m_modStatus = CCLabelBMFont::create("", "chatFont.fnt");
+        m_modStatus->setScale(.32f); m_modStatus->setAlignment(kCCTextAlignmentCenter); m_modStatus->setAnchorPoint({.5f, .5f}); m_modStatus->setPosition({center, 29.f}); m_mainLayer->addChild(m_modStatus);
         m_status = CCLabelBMFont::create("Loading profile...", "chatFont.fnt");
-        m_status->setScale(.34f); m_status->setAlignment(kCCTextAlignmentCenter); m_status->setAnchorPoint({.5f, .5f}); m_status->setPosition({center, 62.f}); m_mainLayer->addChild(m_status);
+        m_status->setScale(.34f); m_status->setAlignment(kCCTextAlignmentCenter); m_status->setAnchorPoint({.5f, .5f}); m_status->setPosition({center, 12.f}); m_mainLayer->addChild(m_status);
         loadProfile(); return true;
     }
 
@@ -244,6 +255,39 @@ protected:
         if (name.size() < 2 || name.size() > 64) { m_status->setString("Display name must be 2-64 characters."); return; }
         for (auto c : name) if (!std::isalnum(static_cast<unsigned char>(c)) || static_cast<unsigned char>(c) > 127) { m_status->setString("Display name must be ASCII letters/numbers."); return; }
         m_status->setString("Saving..."); request("PUT", "/v1/me", fmt::format("{{\"display_name\":{}}}", makeJsonString(name)), [this](web::WebResponse res) { if (!res.ok()) { m_status->setString(errorText(res).c_str()); return; } m_status->setString("Profile saved."); loadProfile(); });
+    }
+
+    void submitMod() {
+        std::string url = m_modUrl->getString().c_str();
+        if (url.empty()) { m_modStatus->setString("Enter a .geode download URL."); return; }
+        if (url.size() > 1024) { m_modStatus->setString("URL is too long."); return; }
+        m_modStatus->setString("Submitting mod...");
+        request("POST", "/v1/mods", fmt::format("{{\"download_link\":{}}}", makeJsonString(url)), [this](web::WebResponse res) {
+            if (!res.ok()) { m_modStatus->setString(errorText(res).c_str()); return; }
+            auto payload = res.json().unwrapOr(matjson::Value())["payload"];
+            auto id = payload["id"].asString().unwrapOr("");
+            auto versions = payload["versions"];
+            std::string status;
+            if (versions.isArray() && !versions.empty()) status = versions[0]["status"].asString().unwrapOr("");
+            if (status.empty()) status = "submitted";
+            m_modStatus->setString(fmt::format("{} {} successfully.", id.empty() ? "Mod" : id, status).c_str());
+            m_modUrl->setString("");
+        });
+    }
+
+    void confirmLogout() {
+        FLAlertLayer::create(
+            "Log Out",
+            "Are you sure you want to log out of this OpenGeode account?",
+            "Cancel",
+            "Log Out",
+            [](auto, bool confirmed) {
+                if (confirmed) {
+                    clearAuthTokens();
+                    showAccountPopup();
+                }
+            }
+        )->show();
     }
 
 public:
