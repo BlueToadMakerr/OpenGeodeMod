@@ -209,9 +209,9 @@ protected:
         auto submitMenu = CCMenu::create(); submitMenu->addChild(submit); submitMenu->setPosition({center, 45.f}); m_mainLayer->addChild(submitMenu);
 
         m_modStatus = CCLabelBMFont::create("", "chatFont.fnt");
-        m_modStatus->setScale(.32f); m_modStatus->setAlignment(kCCTextAlignmentCenter); m_modStatus->setAnchorPoint({.5f, .5f}); m_modStatus->setPosition({center, 29.f}); m_mainLayer->addChild(m_modStatus);
+        m_modStatus->setScale(.5f); m_modStatus->setAlignment(kCCTextAlignmentCenter); m_modStatus->setAnchorPoint({.5f, .5f}); m_modStatus->setPosition({center, 20.f}); m_mainLayer->addChild(m_modStatus);
         m_status = CCLabelBMFont::create("Loading profile...", "chatFont.fnt");
-        m_status->setScale(.34f); m_status->setAlignment(kCCTextAlignmentCenter); m_status->setAnchorPoint({.5f, .5f}); m_status->setPosition({center, 12.f}); m_mainLayer->addChild(m_status);
+        m_status->setScale(.5f); m_status->setAlignment(kCCTextAlignmentCenter); m_status->setAnchorPoint({.5f, .5f}); m_status->setPosition({center, 10.f}); m_mainLayer->addChild(m_status);
         loadProfile(); return true;
     }
 
