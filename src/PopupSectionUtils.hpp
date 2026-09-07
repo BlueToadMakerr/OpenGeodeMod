@@ -8,10 +8,22 @@ using namespace geode::prelude;
 
 namespace opengeode {
 
-inline char const* getPopupBackground() {
+inline bool isGeodeTheme() {
     std::string theme;
     ThemeIDProvidingEvent().send(theme);
-    return theme == "geometry-dash" ? "GJ_square01.png" : "GE_square01.png";
+    return theme != "geometry-dash";
+}
+
+inline char const* getPopupBackground() {
+    return isGeodeTheme() ? "geode.loader/GE_square01.png" : "GJ_square01.png";
+}
+
+inline char const* getSectionBackground() {
+    return isGeodeTheme() ? "geode.loader/GE_square02.png" : "square02b_001.png";
+}
+
+inline char const* getButtonTexture(char const* geometryDashTexture) {
+    return isGeodeTheme() ? "geode.loader/GE_button_05.png" : geometryDashTexture;
 }
 
 inline CCNode* createSectionContainer(CCSize size) {
@@ -19,7 +31,7 @@ inline CCNode* createSectionContainer(CCSize size) {
     container->setContentSize(size);
     container->setAnchorPoint({.5f, .5f});
 
-    auto bg = NineSlice::create("square02b_001.png");
+    auto bg = NineSlice::create(getSectionBackground());
     bg->setColor({0, 0, 0});
     bg->setOpacity(75);
     bg->setScale(.3f);

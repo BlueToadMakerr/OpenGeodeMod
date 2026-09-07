@@ -31,14 +31,14 @@ protected:
         rebuildList();
 
         auto addBtn = CCMenuItemExt::createSpriteExtra(
-            ButtonSprite::create("+ Add", "goldFont.fnt", "GJ_button_01.png", 0.6f),
+            ButtonSprite::create("+ Add", "goldFont.fnt", getButtonTexture("GJ_button_01.png"), 0.6f),
             [this](auto) {
                 showAddIndexPopup([this] { rebuildList(); });
             }
         );
 
         auto presetBtn = CCMenuItemExt::createSpriteExtra(
-            ButtonSprite::create("Presets", "goldFont.fnt", "GJ_button_02.png", 0.6f),
+            ButtonSprite::create("Presets", "goldFont.fnt", getButtonTexture("GJ_button_02.png"), 0.6f),
             [this](auto) {
                 showPresetIndexPopup([this] { rebuildList(); });
             }
@@ -84,7 +84,7 @@ protected:
             row->addChild(label);
 
             auto useBtn = CCMenuItemExt::createSpriteExtra(
-                ButtonSprite::create("Use", "goldFont.fnt", "GJ_button_01.png", 0.5f),
+                ButtonSprite::create("Use", "goldFont.fnt", getButtonTexture("GJ_button_01.png"), 0.5f),
                 [url = entry.url, this](auto) {
                     setIndexUrl(url);
                     this->onClose(nullptr);

@@ -54,7 +54,7 @@ protected:
         m_mainLayer->addChild(m_stats.label);
 
         auto saveBtn = CCMenuItemExt::createSpriteExtra(
-            ButtonSprite::create("Save", "goldFont.fnt", "GJ_button_02.png", 0.6f),
+            ButtonSprite::create("Save", "goldFont.fnt", getButtonTexture("GJ_button_02.png"), 0.6f),
             [this](auto) {
                 auto name = m_nameInput->getString();
                 auto url = m_urlInput->getString();

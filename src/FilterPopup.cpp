@@ -44,13 +44,12 @@ protected:
     }
 
     static CCNode* createStatusVisual(StatusInfo const& info, bool selected) {
-        // Use the same resizable ButtonSprite technique as Geode's tag labels.
-        // white-square is designed for ButtonSprite sizing, so the border stays
-        // clean at different text widths instead of stretching a fixed button.
+        // Follow Geode's own tag-label implementation and use its resizable
+        // white-square texture instead of a fixed-width button texture.
         auto button = ButtonSprite::create(
             info.label,
             "bigFont.fnt",
-            "white-square.png"_spr,
+            "geode.loader/white-square.png",
             .8f
         );
         if (!button)
@@ -235,7 +234,12 @@ protected:
             ccp(0, 105)
         );
 
-        auto applySpr = ButtonSprite::create("OK", "goldFont.fnt", "GJ_button_01.png", .7f);
+        auto applySpr = ButtonSprite::create(
+            "OK",
+            "goldFont.fnt",
+            getButtonTexture("GJ_button_01.png"),
+            .7f
+        );
         auto applyBtn = CCMenuItemSpriteExtra::create(
             applySpr,
             this,
