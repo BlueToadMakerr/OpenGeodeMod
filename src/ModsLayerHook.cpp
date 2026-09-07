@@ -19,7 +19,7 @@ Notification* g_switchNotif = nullptr;
 namespace {
 
 CCNode* createProfileButtonSprite() {
-    auto profile = CCSprite::createWithSpriteFrameName("Gj_profileButton_001.png");
+    auto profile = CCSprite::createWithSpriteFrameName("GJ_profileButton_001.png");
     if (!profile) return nullptr;
 
     constexpr float targetSize = 40.f;
