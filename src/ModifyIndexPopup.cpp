@@ -24,6 +24,7 @@ protected:
 
         if (!Popup::init(300.f, 220.f, getPopupBackground())) return false;
         this->setTitle("Modify Index");
+        applyPopupTheme(this);
 
         float centerX = m_mainLayer->getContentWidth() / 2;
         float top = m_mainLayer->getContentHeight() - 40.f;
