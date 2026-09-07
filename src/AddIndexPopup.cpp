@@ -21,7 +21,8 @@ protected:
         m_onAdded = std::move(onAdded);
 
         this->setTitle("Add Index");
-        applyPopupTheme(this);
+        if (auto close = createGeodeCloseButton())
+            this->setCloseButtonSpr(close, 0.875f);
 
         float centerX = m_mainLayer->getContentWidth() / 2;
         float top = m_mainLayer->getContentHeight() - 30.f;
