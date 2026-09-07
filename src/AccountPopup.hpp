@@ -2,6 +2,8 @@
 
 #include <Geode/Geode.hpp>
 
+#include <functional>
+
 namespace opengeode {
 
 void showAccountPopup();
