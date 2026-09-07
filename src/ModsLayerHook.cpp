@@ -22,23 +22,27 @@ CCNode* createProfileButtonSprite() {
     auto root = CCNode::create();
     if (!root) return nullptr;
 
-    auto background = CCSprite::createWithSpriteFrameName(
-        // @geode-ignore(unknown-resource)
-        "geode.loader/baseCircle_Medium_DarkPurple.png"
-    );
-    auto profile = CCSprite::createWithSpriteFrameName("Gj_profileButton_001.png");
-    if (!background || !profile) return nullptr;
+    // Gj_profileButton_001.png is part of Geometry Dash's Gj_GameSheet03
+    // atlas. Unlike Geode's loader frames, it is not guaranteed to have been
+    // registered in the sprite-frame cache when this button is created.
+    auto cache = CCSpriteFrameCache::sharedSpriteFrameCache();
+    auto profileFrame = cache->spriteFrameByName("Gj_profileButton_001.png");
+    if (!profileFrame) {
+        cache->addSpriteFramesWithFile("GJ_GameSheet03.plist");
+        profileFrame = cache->spriteFrameByName("Gj_profileButton_001.png");
+    }
+    if (!profileFrame) return nullptr;
+
+    auto profile = CCSprite::createWithSpriteFrame(profileFrame);
+    if (!profile) return nullptr;
 
     constexpr float targetSize = 40.f;
-    background->setPosition({targetSize / 2.f, targetSize / 2.f});
     profile->setPosition({targetSize / 2.f, targetSize / 2.f});
-    background->setScale(targetSize / background->getContentSize().width);
-    profile->setScale(targetSize * 0.5f / profile->getContentSize().width);
+    profile->setScale(targetSize / std::max(profile->getContentSize().width, profile->getContentSize().height));
 
     root->setContentSize({targetSize, targetSize});
     root->setAnchorPoint({.5f, .5f});
-    root->addChild(background);
-    root->addChild(profile, 1);
+    root->addChild(profile);
     return root;
 }
 
