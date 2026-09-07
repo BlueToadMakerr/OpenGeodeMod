@@ -185,8 +185,6 @@ protected:
             float const width = child->getContentSize().width * scale;
             child->setScale(scale);
             child->setPosition({x + width / 2.f, 0.f});
-            if (auto item = typeinfo_cast<CCMenuItemToggler*>(child))
-                item->m_baseScale = scale;
             x += width + gap;
         }
 
