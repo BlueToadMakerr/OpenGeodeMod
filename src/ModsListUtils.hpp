@@ -22,7 +22,7 @@ inline CCNode* buildFilterButtonSprite() {
         bgSprite = CCSprite::create("GJ_button_02.png");
     }
     else if (useDarkTheme()) {
-        bgSprite = CCSprite::create("GE_button_05.png"_spr);
+        bgSprite = CCSprite::create("geode.loader/GE_button_05.png");
     }
     else {
         bgSprite = CCSprite::create("GJ_button_01.png");
