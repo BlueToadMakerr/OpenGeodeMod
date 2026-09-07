@@ -21,6 +21,7 @@ protected:
     bool init() {
         if (!Popup::init(340.f, 280.f, getPopupBackground())) return false;
         this->setTitle("Index Selector");
+        applyPopupTheme(this);
 
         float centerX = m_mainLayer->getContentWidth() / 2;
 
@@ -32,16 +33,12 @@ protected:
 
         auto addBtn = CCMenuItemExt::createSpriteExtra(
             ButtonSprite::create("+ Add", "goldFont.fnt", getButtonTexture("GJ_button_01.png"), 0.6f),
-            [this](auto) {
-                showAddIndexPopup([this] { rebuildList(); });
-            }
+            [this](auto) { showAddIndexPopup([this] { rebuildList(); }); }
         );
 
         auto presetBtn = CCMenuItemExt::createSpriteExtra(
             ButtonSprite::create("Presets", "goldFont.fnt", getButtonTexture("GJ_button_02.png"), 0.6f),
-            [this](auto) {
-                showPresetIndexPopup([this] { rebuildList(); });
-            }
+            [this](auto) { showPresetIndexPopup([this] { rebuildList(); }); }
         );
 
         auto bottomMenu = CCMenu::create();
@@ -88,26 +85,30 @@ protected:
                 [url = entry.url, this](auto) {
                     setIndexUrl(url);
                     this->onClose(nullptr);
-
                     g_shouldReopenModsList = true;
                     if (auto scene = CCDirector::sharedDirector()->getRunningScene()) {
-                        if (auto backBtn = typeinfo_cast<CCMenuItemSpriteExtra*>(scene->getChildByIDRecursive("back-button"))) {
+                        if (auto backBtn = typeinfo_cast<CCMenuItemSpriteExtra*>(scene->getChildByIDRecursive("back-button")))
                             backBtn->activate();
-                        }
                     }
                 }
             );
             useBtn->setPosition({contentWidth - 78.f, rowHeight / 2});
             row->addChild(useBtn);
 
+            CCNode* modifySprite = nullptr;
+            if (isGeodeTheme()) {
+                modifySprite = createSettingsButtonSprite();
+            }
+            else {
+                modifySprite = CCSprite::createWithSpriteFrameName("GJ_optionsBtn_001.png");
+            }
+
             auto modifyBtn = CCMenuItemExt::createSpriteExtra(
-                CCSprite::createWithSpriteFrameName("GJ_optionsBtn_001.png"),
-                [this, entry](auto) {
-                    showModifyIndexPopup(entry, [this] { rebuildList(); });
-                }
+                modifySprite,
+                [this, entry](auto) { showModifyIndexPopup(entry, [this] { rebuildList(); }); }
             );
-            modifyBtn->setScale(0.5f);
-            modifyBtn->m_baseScale = 0.5f;
+            modifyBtn->setScale(isGeodeTheme() ? 0.55f : 0.5f);
+            modifyBtn->m_baseScale = modifyBtn->getScale();
             modifyBtn->setPosition({contentWidth - 40.f, rowHeight / 2});
             row->addChild(modifyBtn);
 
