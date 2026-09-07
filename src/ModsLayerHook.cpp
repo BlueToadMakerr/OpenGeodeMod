@@ -20,18 +20,14 @@ namespace {
 
 CCNode* createProfileButtonSprite() {
     auto root = CCNode::create();
-    if (!root)
-        return nullptr;
+    if (!root) return nullptr;
 
-    // Match the working Geode settings button construction: use the atlas
-    // frames directly, with the profile icon layered over the circle base.
     auto background = CCSprite::createWithSpriteFrameName(
         // @geode-ignore(unknown-resource)
         "geode.loader/baseCircle_Medium_DarkPurple.png"
     );
     auto profile = CCSprite::createWithSpriteFrameName("Gj_profileButton_001.png");
-    if (!background || !profile)
-        return nullptr;
+    if (!background || !profile) return nullptr;
 
     constexpr float targetSize = 40.f;
     background->setPosition({targetSize / 2.f, targetSize / 2.f});
@@ -63,19 +59,13 @@ protected:
     void check(float) {
         auto scene = CCDirector::sharedDirector()->getRunningScene();
         if (!scene || scene != this->getParent()) return;
-
         auto listFrame = scene->getChildByIDRecursive("mod-list-frame");
         if (!listFrame) return;
         auto modList = listFrame->getChildByID("ModList");
         if (!modList) return;
 
-        if (g_switchNotif) {
-            g_switchNotif->cancel();
-            g_switchNotif = nullptr;
-        }
-        if (auto overlay = scene->getChildByID("switch-overlay"_spr)) {
-            overlay->removeFromParentAndCleanup(true);
-        }
+        if (g_switchNotif) { g_switchNotif->cancel(); g_switchNotif = nullptr; }
+        if (auto overlay = scene->getChildByID("switch-overlay"_spr)) overlay->removeFromParentAndCleanup(true);
 
         auto topContainer = modList->getChildByID("top-container");
         if (!topContainer) return;
@@ -84,56 +74,38 @@ protected:
         auto filtersMenu = typeinfo_cast<CCMenu*>(searchMenu->getChildByID("search-filters-menu"));
         if (!filtersMenu) return;
 
-        this->ensureIndexSwitcherButton(scene);
-        this->ensureFilterButton(filtersMenu);
-        this->ensureAccountButton(scene);
+        ensureIndexSwitcherButton(scene);
+        ensureFilterButton(filtersMenu);
+        ensureAccountButton(scene);
     }
 
     void ensureIndexSwitcherButton(CCNode* scene) {
         auto actionsMenu = typeinfo_cast<CCMenu*>(scene->getChildByIDRecursive("actions-menu"));
-        if (!actionsMenu) return;
-        if (actionsMenu->getChildByID("index-switcher-button"_spr)) return;
-
+        if (!actionsMenu || actionsMenu->getChildByID("index-switcher-button"_spr)) return;
         auto indexBtn = CCMenuItemExt::createSpriteExtra(
-            CircleButtonSprite::createWithSpriteFrameName(
-                "geode.loader/geode-logo.png", 0.85f, CircleBaseColor::Blue
-            ),
+            CircleButtonSprite::createWithSpriteFrameName("geode.loader/geode-logo.png", 0.85f, CircleBaseColor::Blue),
             [](auto) { showIndexListPopup(); }
         );
-        indexBtn->setScale(0.8f);
-        indexBtn->m_baseScale = 0.8f;
-        indexBtn->setID("index-switcher-button"_spr);
-        actionsMenu->addChild(indexBtn);
-        actionsMenu->updateLayout();
+        indexBtn->setScale(0.8f); indexBtn->m_baseScale = 0.8f; indexBtn->setID("index-switcher-button"_spr);
+        actionsMenu->addChild(indexBtn); actionsMenu->updateLayout();
     }
 
     void ensureFilterButton(CCMenu* filtersMenu) {
-        if (auto existingBtn = filtersMenu->getChildByID("index-filter-button"_spr)) {
-            existingBtn->removeFromParent();
-        }
-        auto filterBtn = CCMenuItemExt::createSpriteExtra(
-            buildFilterButtonSprite(), [](auto) { showFilterPopup(); }
-        );
-        filterBtn->setID("index-filter-button"_spr);
-        filtersMenu->addChild(filterBtn, -100);
-        filtersMenu->updateLayout();
+        if (auto existingBtn = filtersMenu->getChildByID("index-filter-button"_spr)) existingBtn->removeFromParent();
+        auto filterBtn = CCMenuItemExt::createSpriteExtra(buildFilterButtonSprite(), [](auto) { showFilterPopup(); });
+        filterBtn->setID("index-filter-button"_spr); filtersMenu->addChild(filterBtn, -100); filtersMenu->updateLayout();
     }
 
     void ensureAccountButton(CCNode* scene) {
         auto backMenu = typeinfo_cast<CCMenu*>(scene->getChildByIDRecursive("back-menu"));
         if (!backMenu) return;
-
         auto currentIndex = getIndexUrl();
         if (currentIndex != m_capabilityIndex) {
             m_capabilityIndex = currentIndex;
             m_capabilityPending = false;
             m_capabilityTask.cancel();
-            if (m_accountButton) {
-                m_accountButton->removeFromParent();
-                m_accountButton = nullptr;
-            }
+            if (m_accountButton) { m_accountButton->removeFromParent(); m_accountButton = nullptr; }
         }
-
         if (m_accountButton || m_capabilityPending) return;
         m_capabilityPending = true;
 
@@ -143,29 +115,18 @@ protected:
             m_capabilityPending = false;
             if (!res.ok()) return;
             auto json = res.json().unwrapOr(matjson::Value());
-            if (json["enabled"].asBool().unwrapOr(false) != true ||
-                json["allowGdLogin"].asBool().unwrapOr(false) != true) {
-                return;
-            }
+            if (!json["enabled"].asBool().unwrapOr(false) || !json["allowGdLogin"].asBool().unwrapOr(false)) return;
 
             auto sprite = createProfileButtonSprite();
             if (!sprite) return;
-            m_accountButton = CCMenuItemSpriteExtra::create(
-                sprite,
-                this,
-                menu_selector(ModsLayerWatcher::onAccount)
-            );
-            m_accountButton->setScale(.8f);
-            m_accountButton->m_baseScale = .8f;
+            m_accountButton = CCMenuItemSpriteExtra::create(sprite, this, menu_selector(ModsLayerWatcher::onAccount));
+            m_accountButton->setScale(.8f); m_accountButton->m_baseScale = .8f;
             m_accountButton->setID("opengeode-account-button"_spr);
-            backMenu->addChild(m_accountButton);
-            backMenu->updateLayout();
+            backMenu->addChild(m_accountButton); backMenu->updateLayout();
         });
     }
 
-    void onAccount(CCObject*) {
-        showAccountPopup();
-    }
+    void onAccount(CCObject*) { showAccountPopup(); }
 
     static std::string trimSlash(std::string url) {
         while (!url.empty() && url.back() == '/') url.pop_back();
@@ -175,12 +136,8 @@ protected:
 public:
     static ModsLayerWatcher* create() {
         auto ret = new ModsLayerWatcher();
-        if (ret && ret->init()) {
-            ret->autorelease();
-            return ret;
-        }
-        delete ret;
-        return nullptr;
+        if (ret && ret->init()) { ret->autorelease(); return ret; }
+        delete ret; return nullptr;
     }
 };
 
@@ -197,4 +154,4 @@ $on_mod(Loaded) {
     }).leak();
 }
 
-} // namespace opengeodeMod
+} // namespace opengeode
