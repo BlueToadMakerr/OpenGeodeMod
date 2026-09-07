@@ -282,6 +282,7 @@ protected:
 
     void confirmLogout() {
         FLAlertLayer::create(
+            nullptr,
             "Log Out",
             "Are you sure you want to log out of this OpenGeode account?",
             "Cancel",
