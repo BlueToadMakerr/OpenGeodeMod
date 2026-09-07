@@ -2,6 +2,7 @@
 #include "IndexListPopup.hpp"
 #include "ModsListUtils.hpp"
 #include "AccountPopup.hpp"
+#include "PopupSectionUtils.hpp"
 #include "Settings.hpp"
 
 #include <Geode/Geode.hpp>
@@ -16,6 +17,34 @@ namespace opengeode {
 Notification* g_switchNotif = nullptr;
 
 namespace {
+
+CCNode* createProfileButtonSprite() {
+    auto root = CCNode::create();
+    if (!root)
+        return nullptr;
+
+    // Match the working Geode settings button construction: use the atlas
+    // frames directly, with the profile icon layered over the circle base.
+    auto background = CCSprite::createWithSpriteFrameName(
+        // @geode-ignore(unknown-resource)
+        "geode.loader/baseCircle_Medium_DarkPurple.png"
+    );
+    auto profile = CCSprite::createWithSpriteFrameName("Gj_profileButton_001.png");
+    if (!background || !profile)
+        return nullptr;
+
+    constexpr float targetSize = 40.f;
+    background->setPosition({targetSize / 2.f, targetSize / 2.f});
+    profile->setPosition({targetSize / 2.f, targetSize / 2.f});
+    background->setScale(targetSize / background->getContentSize().width);
+    profile->setScale(targetSize * 0.5f / profile->getContentSize().width);
+
+    root->setContentSize({targetSize, targetSize});
+    root->setAnchorPoint({.5f, .5f});
+    root->addChild(background);
+    root->addChild(profile, 1);
+    return root;
+}
 
 class ModsLayerWatcher : public CCNode {
     async::TaskHolder<web::WebResponse> m_capabilityTask;
@@ -119,14 +148,15 @@ protected:
                 return;
             }
 
-            auto sprite = CCSprite::createWithSpriteFrameName("Gj_profileButton_001.png");
+            auto sprite = createProfileButtonSprite();
             if (!sprite) return;
-            sprite->setScale(0.8f);
             m_accountButton = CCMenuItemSpriteExtra::create(
                 sprite,
                 this,
                 menu_selector(ModsLayerWatcher::onAccount)
             );
+            m_accountButton->setScale(.8f);
+            m_accountButton->m_baseScale = .8f;
             m_accountButton->setID("opengeode-account-button"_spr);
             backMenu->addChild(m_accountButton);
             backMenu->updateLayout();
@@ -167,4 +197,4 @@ $on_mod(Loaded) {
     }).leak();
 }
 
-} // namespace opengeode
+} // namespace opengeodeMod
