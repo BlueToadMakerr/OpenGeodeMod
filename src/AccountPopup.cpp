@@ -281,18 +281,18 @@ protected:
     }
 
     void confirmLogout() {
-        FLAlertLayer::create(
-            nullptr,
+        createQuickPopup(
             "Log Out",
             "Are you sure you want to log out of this OpenGeode account?",
             "Cancel",
             "Log Out",
-            [](auto, bool confirmed) {
+            [this](FLAlertLayer*, bool confirmed) {
                 if (confirmed) {
                     clearAuthTokens();
+                    onClose(nullptr);
                 }
             }
-        )->show();
+        );
     }
 
 public:
