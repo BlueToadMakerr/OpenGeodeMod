@@ -34,7 +34,7 @@ protected:
 
         auto addPreset = [this](char const* name, char const* url) {
             return CCMenuItemExt::createSpriteExtra(
-                ButtonSprite::create(name, "goldFont.fnt", "GJ_button_01.png", 0.6f),
+                ButtonSprite::create(name, "goldFont.fnt", getButtonTexture("GJ_button_01.png"), 0.6f),
                 [this, name, url](auto) {
                     if (addCustomIndex(name, url)) {
                         if (m_onAdded) m_onAdded();
