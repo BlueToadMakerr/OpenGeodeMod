@@ -7,7 +7,7 @@ using namespace geode::prelude;
 
 namespace opengeode {
 
-extern Notification* g_switchNotif;
+Notification* g_switchNotif = nullptr;
 
 class $modify(IndexSwitcherMenuLayer, MenuLayer) {
     struct Fields {
