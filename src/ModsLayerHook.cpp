@@ -19,27 +19,18 @@ Notification* g_switchNotif = nullptr;
 namespace {
 
 CCNode* createProfileButtonSprite() {
-    auto root = CCNode::create();
-    if (!root) return nullptr;
-
-    // Gj_profileButton_001.png is part of Geometry Dash's Gj_GameSheet03
-    // atlas. Unlike Geode's loader frames, it is not guaranteed to have been
-    // registered in the sprite-frame cache when this button is created.
-    auto cache = CCSpriteFrameCache::sharedSpriteFrameCache();
-    auto profileFrame = cache->spriteFrameByName("Gj_profileButton_001.png");
-    if (!profileFrame) {
-        cache->addSpriteFramesWithFile("GJ_GameSheet03.plist");
-        profileFrame = cache->spriteFrameByName("Gj_profileButton_001.png");
-    }
-    if (!profileFrame) return nullptr;
-
-    auto profile = CCSprite::createWithSpriteFrame(profileFrame);
+    auto profile = CCSprite::createWithSpriteFrameName("Gj_profileButton_001.png");
     if (!profile) return nullptr;
 
     constexpr float targetSize = 40.f;
-    profile->setPosition({targetSize / 2.f, targetSize / 2.f});
-    profile->setScale(targetSize / std::max(profile->getContentSize().width, profile->getContentSize().height));
+    auto width = profile->getContentSize().width;
+    auto height = profile->getContentSize().height;
+    if (width <= 0.f || height <= 0.f) return nullptr;
 
+    auto root = CCNode::create();
+    if (!root) return nullptr;
+    profile->setPosition({targetSize / 2.f, targetSize / 2.f});
+    profile->setScale(targetSize / std::max(width, height));
     root->setContentSize({targetSize, targetSize});
     root->setAnchorPoint({.5f, .5f});
     root->addChild(profile);
