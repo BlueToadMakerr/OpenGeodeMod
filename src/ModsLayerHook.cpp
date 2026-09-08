@@ -109,7 +109,7 @@ CCMenuItemSpriteExtra* cloneNativeButton(CCMenuItemSpriteExtra* native, CCObject
 }
 
 ButtonSprite* createOpenGeodeButton(char const* text) {
-    return ButtonSprite::create(text, 40, false, true);
+    return ButtonSprite::create(text, 40, 40, 1.f, true);
 }
 
 class MoreManagePopup : public Popup {
