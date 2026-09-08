@@ -52,84 +52,27 @@ std::string getPopupModID(CCNode* popup) {
     return value;
 }
 
-void logNode(const char* tag, CCNode* node) {
-    if (!node) {
-        log::debug("[OpenGeode][Mgmt] {}: null", tag);
-        return;
-    }
-    log::debug(
-        "[OpenGeode][Mgmt] {}: node={} id='{}' visible={} parent={} children={}",
-        tag,
-        static_cast<void*>(node),
-        node->getID(),
-        node->isVisible(),
-        static_cast<void*>(node->getParent()),
-        node->getChildrenCount()
-    );
-}
-
-void logParentChain(const char* tag, CCNode* node) {
-    log::debug("[OpenGeode][Mgmt] ---- parent chain: {} ----", tag);
-    auto current = node;
-    int depth = 0;
-    while (current && depth < 12) {
-        log::debug(
-            "[OpenGeode][Mgmt] chain[{}]: node={} id='{}' visible={} parent={}",
-            depth,
-            static_cast<void*>(current),
-            current->getID(),
-            current->isVisible(),
-            static_cast<void*>(current->getParent())
-        );
-        current = current->getParent();
-        ++depth;
-    }
-    log::debug("[OpenGeode][Mgmt] ---- end parent chain ----");
-}
-
 struct NativeAction {
     CCMenuItem* action = nullptr;
     CCNode* visual = nullptr;
 };
 
 NativeAction getVisibleNativeAction(CCNode* popup, char const* id) {
-    log::debug("[OpenGeode][Mgmt] Looking for native id='{}' from popup={}", id, static_cast<void*>(popup));
     auto node = popup->getChildByIDRecursive(id);
-    logNode("recursive lookup result", node);
-    if (!node) {
-        log::debug("[OpenGeode][Mgmt] id='{}' FAILED: recursive lookup returned null", id);
-        return {};
-    }
-    if (!node->isVisible()) {
-        log::debug("[OpenGeode][Mgmt] id='{}' FAILED: node exists but is not visible", id);
-        logParentChain("hidden native action", node);
-        return {};
-    }
+    if (!node || !node->isVisible()) return {};
 
     if (auto toggler = typeinfo_cast<CCMenuItemToggler*>(node)) {
-        log::debug("[OpenGeode][Mgmt] id='{}' is toggler={} on={} off={}", id, static_cast<void*>(toggler), static_cast<void*>(toggler->m_onButton), static_cast<void*>(toggler->m_offButton));
         if (toggler->m_onButton && toggler->m_onButton->isVisible()) {
-            log::debug("[OpenGeode][Mgmt] id='{}' using VISIBLE onButton={}", id, static_cast<void*>(toggler->m_onButton));
-            logParentChain("toggler/onButton", toggler);
             return {toggler, toggler->m_onButton};
         }
         if (toggler->m_offButton && toggler->m_offButton->isVisible()) {
-            log::debug("[OpenGeode][Mgmt] id='{}' using VISIBLE offButton={}", id, static_cast<void*>(toggler->m_offButton));
-            logParentChain("toggler/offButton", toggler);
             return {toggler, toggler->m_offButton};
         }
-        log::debug("[OpenGeode][Mgmt] id='{}' FAILED: toggler has no visible state child", id);
         return {};
     }
 
     auto item = typeinfo_cast<CCMenuItemSpriteExtra*>(node);
-    if (!item) {
-        log::debug("[OpenGeode][Mgmt] id='{}' FAILED: node is not CCMenuItemSpriteExtra", id);
-        logParentChain("invalid native action", node);
-        return {};
-    }
-    log::debug("[OpenGeode][Mgmt] id='{}' is sprite action={} visual={}", id, static_cast<void*>(item), static_cast<void*>(item->getNormalImage()));
-    logParentChain("sprite action", item);
+    if (!item) return {};
     return {item, item->getNormalImage()};
 }
 
@@ -141,39 +84,15 @@ bool isPopupInstalled(CCNode* popup) {
 }
 
 CCMenu* getNativeManagementMenu(CCNode* popup) {
-    log::debug("[OpenGeode][Mgmt] ===== FIND MANAGEMENT MENU popup={} =====", static_cast<void*>(popup));
     for (auto const& id : {
         "update-button", "enable-button", "reenable-button", "unavailable-button",
         "install-button", "uninstall-button", "cancel-button"
     }) {
         auto native = getVisibleNativeAction(popup, id);
-        if (!native.action) {
-            log::debug("[OpenGeode][Mgmt] id='{}' did not produce an action", id);
-            continue;
-        }
-        auto parent = native.action->getParent();
-        logNode("native action parent", parent);
-        auto menu = typeinfo_cast<CCMenu*>(parent);
-        if (menu) {
-            log::debug("[OpenGeode][Mgmt] FOUND management menu={} from id='{}'", static_cast<void*>(menu), id);
-            logParentChain("management menu", menu);
-            log::debug("[OpenGeode][Mgmt] Management menu children:");
-            for (auto child : CCArrayExt<CCNode*>(menu->getChildren())) {
-                if (!child) continue;
-                log::debug(
-                    "[OpenGeode][Mgmt] child={} id='{}' visible={} parent={} children={}",
-                    static_cast<void*>(child),
-                    child->getID(),
-                    child->isVisible(),
-                    static_cast<void*>(child->getParent()),
-                    child->getChildrenCount()
-                );
-            }
-            return menu;
-        }
-        log::debug("[OpenGeode][Mgmt] id='{}' parent was NOT a CCMenu", id);
+        if (!native.action) continue;
+        auto menu = typeinfo_cast<CCMenu*>(native.action->getParent());
+        if (menu) return menu;
     }
-    log::debug("[OpenGeode][Mgmt] ===== MANAGEMENT MENU NOT FOUND =====");
     return nullptr;
 }
 
@@ -187,14 +106,6 @@ void showInstallSource(std::string const& modID) {
         source->indexUrl
     );
     FLAlertLayer::create("Install Source", description, "OK")->show();
-}
-
-IconButtonSprite* createFixedManageButton(char const* text, char const* iconFrame) {
-    auto icon = CCSprite::createWithSpriteFrameName(iconFrame);
-    if (!icon) return nullptr;
-    auto button = IconButtonSprite::create("GJ_button_01.png", icon, text, "bigFont.fnt");
-    if (button) button->setScale(.5f);
-    return button;
 }
 
 IconButtonSprite* createThemedManageButton(char const* text, char const* iconFrame) {
@@ -220,32 +131,27 @@ protected:
         menu->setLayout(ColumnLayout::create()->setGap(6.f)->setAxisAlignment(AxisAlignment::Center));
         m_mainLayer->addChildAtPosition(menu, Anchor::Center);
 
-        log::debug("[OpenGeode][Mgmt] ===== BUILD MORE POPUP modPopup={} =====", static_cast<void*>(modPopup));
         auto managementMenu = getNativeManagementMenu(modPopup);
         if (!managementMenu) {
-            log::debug("[OpenGeode][Mgmt] More popup: NO management menu, aborting button copy");
+            log::debug("[OpenGeode][More] Cannot build More: native management menu was not found");
             return true;
         }
 
-        log::debug("[OpenGeode][Mgmt] More popup reading DIRECT children from managementMenu={}", static_cast<void*>(managementMenu));
+        log::debug("[OpenGeode][More] Reading {} management-menu children", managementMenu->getChildrenCount());
         for (auto child : CCArrayExt<CCNode*>(managementMenu->getChildren())) {
             if (!child) continue;
-            log::debug("[OpenGeode][Mgmt] More candidate child={} id='{}' visible={}", static_cast<void*>(child), child->getID(), child->isVisible());
+            auto id = child->getID();
 
-            if (child->getID() == "opengeode-more-button") {
-                log::debug("[OpenGeode][Mgmt] Skipping our More button");
-                continue;
-            }
+            if (id == "opengeode-more-button") continue;
 
             auto action = typeinfo_cast<CCMenuItem*>(child);
             if (!action) {
-                log::debug("[OpenGeode][Mgmt] Skipping child id='{}': not CCMenuItem", child->getID());
+                log::debug("[OpenGeode][More] Skip id='{}': child is not a CCMenuItem", id);
                 continue;
             }
 
             CCNode* visual = nullptr;
             if (auto toggler = typeinfo_cast<CCMenuItemToggler*>(action)) {
-                log::debug("[OpenGeode][Mgmt] Candidate id='{}' is toggler={} on={} off={}", child->getID(), static_cast<void*>(toggler), static_cast<void*>(toggler->m_onButton), static_cast<void*>(toggler->m_offButton));
                 if (toggler->m_onButton && toggler->m_onButton->isVisible()) visual = toggler->m_onButton;
                 else if (toggler->m_offButton && toggler->m_offButton->isVisible()) visual = toggler->m_offButton;
             }
@@ -254,16 +160,46 @@ protected:
             }
 
             if (!visual) {
-                log::debug("[OpenGeode][Mgmt] Candidate id='{}' FAILED: no visible visual", child->getID());
+                log::debug("[OpenGeode][More] id='{}': no visual could be selected", id);
                 continue;
             }
 
-            logNode("visual selected for More", visual);
+            auto size = visual->getContentSize();
+            auto scale = visual->getScale();
+            log::debug(
+                "[OpenGeode][More] COPY TEST id='{}': visual={} type={}; visible={} children={}; size={}x{}; scale={}; sprite={}; parent={}",
+                id,
+                static_cast<void*>(visual),
+                typeinfo_cast<CCSprite*>(visual) ? "CCSprite" : "CCNode",
+                visual->isVisible(),
+                visual->getChildrenCount(),
+                size.width,
+                size.height,
+                scale,
+                typeinfo_cast<CCSprite*>(visual) != nullptr,
+                static_cast<void*>(visual->getParent())
+            );
+
             auto copy = typeinfo_cast<CCNode*>(visual->copyWithZone(nullptr));
             if (!copy) {
-                log::debug("[OpenGeode][Mgmt] Candidate id='{}' FAILED: visual copy failed", child->getID());
+                log::debug(
+                    "[OpenGeode][More] COPY FAILED id='{}': copyWithZone(nullptr) returned null for visual={}",
+                    id,
+                    static_cast<void*>(visual)
+                );
                 continue;
             }
+
+            log::debug(
+                "[OpenGeode][More] COPY OK id='{}': copy={} type={}; children={}; size={}x{}",
+                id,
+                static_cast<void*>(copy),
+                typeinfo_cast<CCSprite*>(copy) ? "CCSprite" : "CCNode",
+                copy->getChildrenCount(),
+                copy->getContentSize().width,
+                copy->getContentSize().height
+            );
+
             copy->setPosition({0.f, 0.f});
             copy->setScale(.5f);
 
@@ -275,7 +211,7 @@ protected:
                 }
             );
             menu->addChild(item);
-            log::debug("[OpenGeode][Mgmt] Added candidate id='{}' to More", child->getID());
+            log::debug("[OpenGeode][More] Added id='{}' to More", id);
         }
 
         menu->updateLayout();
@@ -298,14 +234,8 @@ void ensureModPopupExtras(CCNode* popup) {
     auto manageTitle = popup->getChildByIDRecursive("manage-title");
     if (!manageTitle) return;
 
-    log::debug("[OpenGeode][Mgmt] ===== ENSURE EXTRAS popup={} =====", static_cast<void*>(popup));
-    logParentChain("manage-title", manageTitle);
-
     auto managementMenu = getNativeManagementMenu(popup);
-    if (!managementMenu) {
-        log::debug("[OpenGeode][Mgmt] Extras: FAILED to locate management menu");
-        return;
-    }
+    if (!managementMenu) return;
 
     auto modID = getPopupModID(popup);
     if (!managementMenu->getChildByID("opengeode-from-button"_spr) &&
@@ -317,7 +247,6 @@ void ensureModPopupExtras(CCNode* popup) {
             );
             from->setID("opengeode-from-button"_spr);
             managementMenu->addChild(from);
-            log::debug("[OpenGeode][Mgmt] Added From button={} to managementMenu={}", static_cast<void*>(from), static_cast<void*>(managementMenu));
         }
     }
 
@@ -331,14 +260,7 @@ void ensureModPopupExtras(CCNode* popup) {
             );
             more->setID("opengeode-more-button"_spr);
             managementMenu->addChild(more);
-            log::debug("[OpenGeode][Mgmt] Added More button={} to managementMenu={}", static_cast<void*>(more), static_cast<void*>(managementMenu));
         }
-    }
-
-    log::debug("[OpenGeode][Mgmt] Final management menu children after OpenGeode additions:");
-    for (auto child : CCArrayExt<CCNode*>(managementMenu->getChildren())) {
-        if (!child) continue;
-        log::debug("[OpenGeode][Mgmt] final child={} id='{}' visible={}", static_cast<void*>(child), child->getID(), child->isVisible());
     }
 
     managementMenu->updateLayout();
