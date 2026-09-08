@@ -7,7 +7,6 @@
 #include "Settings.hpp"
 
 #include <Geode/Geode.hpp>
-#include <Geode/ui/GeodeStyle.hpp>
 #include <Geode/ui/GeodeUI.hpp>
 #include <Geode/ui/IconButtonSprite.hpp>
 #include <Geode/ui/Popup.hpp>
@@ -134,9 +133,14 @@ IconButtonSprite* createFixedManageButton(char const* text, char const* iconFram
 IconButtonSprite* createThemedManageButton(char const* text, char const* iconFrame) {
     auto icon = CCSprite::createWithSpriteFrameName(iconFrame);
     if (!icon) return nullptr;
-    auto button = createGeodeButton(
-        icon, text, GeodeButtonSprite::Default
+    auto button = IconButtonSprite::create(
+        "GE_button_01.png", icon, text, "bigFont.fnt"
     );
+    if (!button) {
+        button = IconButtonSprite::create(
+            "GJ_button_01.png", icon, text, "bigFont.fnt"
+        );
+    }
     if (button) button->setScale(.5f);
     return button;
 }
@@ -204,10 +208,6 @@ void ensureModPopupExtras(CCNode* popup) {
     auto manageTitle = popup->getChildByIDRecursive("manage-title");
     if (!manageTitle) return;
 
-    // ModPopup.cpp creates `manageContainer`, then a separate `installContainer`
-    // directly below it. The actual native buttons live in installContainer's
-    // m_installMenu. Find that exact menu through one of Geode's own buttons
-    // instead of guessing from the Manage node hierarchy.
     auto installMenu = getNativeInstallMenu(popup);
     if (!installMenu) return;
 
@@ -237,8 +237,6 @@ void ensureModPopupExtras(CCNode* popup) {
         }
     }
 
-    // Use the same RowLayout Geode assigned to m_installMenu so our controls
-    // occupy the exact management row below the Manage heading.
     installMenu->updateLayout();
 }
 
