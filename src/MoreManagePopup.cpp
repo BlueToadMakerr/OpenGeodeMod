@@ -28,6 +28,65 @@ struct NativeAction {
     IconButtonSprite* visual = nullptr;
 };
 
+void debugSprite(char const* label, CCSprite* sprite) {
+    if (!sprite) {
+        log::info("[OpenGeode][MoreDebug] {}: null", label);
+        return;
+    }
+
+    auto rect = sprite->getTextureRect();
+    auto size = sprite->getTexture() ? sprite->getTexture()->getContentSize() : CCSize{0.f, 0.f};
+    log::info(
+        "[OpenGeode][MoreDebug] {}: texture={} rect=({}, {}, {}, {}) rotated={} flipX={} flipY={} textureSize=({}, {})",
+        label,
+        sprite->getTexture() ? sprite->getTexture()->getName() : 0,
+        rect.origin.x, rect.origin.y, rect.size.width, rect.size.height,
+        sprite->isTextureRectRotated(),
+        sprite->isFlipX(), sprite->isFlipY(),
+        size.width, size.height
+    );
+}
+
+void debugNativeButton(char const* id, IconButtonSprite* button) {
+    if (!button) {
+        log::info("[OpenGeode][MoreDebug] {}: no IconButtonSprite", id);
+        return;
+    }
+
+    log::info(
+        "[OpenGeode][MoreDebug] {}: string=\"{}\" scale={} size=({}, {}) bg={} icon={}",
+        id,
+        button->getString(),
+        button->getScale(),
+        button->getContentSize().width, button->getContentSize().height,
+        fmt::ptr(button->getBg()),
+        fmt::ptr(button->getIcon())
+    );
+
+    debugSprite("  icon", typeinfo_cast<CCSprite*>(button->getIcon()));
+
+    auto bg = button->getBg();
+    if (!bg) return;
+
+    log::info(
+        "[OpenGeode][MoreDebug] {}: NineSlice size=({}, {}) insets=({}, {}, {}, {}) repeat={} scaleMultiplier={}",
+        id,
+        bg->getContentSize().width, bg->getContentSize().height,
+        bg->getInsetTop(), bg->getInsetRight(), bg->getInsetBottom(), bg->getInsetLeft(),
+        bg->getRepeatCenter(), bg->getScaleMultiplier()
+    );
+
+    debugSprite("  bg topLeft", bg->getTopLeft());
+    debugSprite("  bg topRight", bg->getTopRight());
+    debugSprite("  bg bottomLeft", bg->getBottomLeft());
+    debugSprite("  bg bottomRight", bg->getBottomRight());
+    debugSprite("  bg top", bg->getTop());
+    debugSprite("  bg bottom", bg->getBottom());
+    debugSprite("  bg left", bg->getLeft());
+    debugSprite("  bg right", bg->getRight());
+    debugSprite("  bg center", bg->getCenter());
+}
+
 IconButtonSprite* getVisibleIconButton(CCMenuItem* item) {
     if (auto toggler = typeinfo_cast<CCMenuItemToggler*>(item)) {
         auto wrapper = toggler->m_onButton && toggler->m_onButton->isVisible()
@@ -121,6 +180,8 @@ CCNode* duplicateIcon(CCNode* icon) {
 IconButtonSprite* recreateNativeButton(char const* id, IconButtonSprite* source) {
     if (!source) return nullptr;
 
+    debugNativeButton(id, source);
+
     auto icon = duplicateIcon(source->getIcon());
     if (!icon) return nullptr;
 
@@ -153,6 +214,8 @@ protected:
 
         auto managementMenu = getNativeManagementMenu(modPopup);
         if (!managementMenu) return true;
+
+        log::info("[OpenGeode][MoreDebug] Native management menu children={}", managementMenu->getChildrenCount());
 
         for (auto child : CCArrayExt<CCNode*>(managementMenu->getChildren())) {
             if (!child || child->getID() == "opengeode-more-button") continue;
