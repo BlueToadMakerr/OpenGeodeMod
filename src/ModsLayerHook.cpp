@@ -53,11 +53,7 @@ std::string getPopupModID(CCNode* popup) {
     return value;
 }
 
-// Geode's togglers contain two separate CCMenuItemSpriteExtra children.
-// Their IDs are intentionally not exposed, so the visible child is the
-// reliable way to determine whether this is Enable/Disable or Re-Enable/
-// Re-Disable.
-CCMenuItem* getVisibleNativeAction(CCNode* popup, char const* id) {
+CCMenuItemSpriteExtra* getVisibleNativeAction(CCNode* popup, char const* id) {
     auto node = popup->getChildByIDRecursive(id);
     if (!node || !node->isVisible()) return nullptr;
 
@@ -66,9 +62,10 @@ CCMenuItem* getVisibleNativeAction(CCNode* popup, char const* id) {
         auto on = toggler->m_onButton;
         if (on && on->isVisible()) return on;
         if (off && off->isVisible()) return off;
+        return nullptr;
     }
 
-    return typeinfo_cast<CCMenuItem*>(node);
+    return typeinfo_cast<CCMenuItemSpriteExtra*>(node);
 }
 
 bool isPopupInstalled(CCNode* popup) {
@@ -98,16 +95,16 @@ void showInstallSource(std::string const& modID) {
     );
 }
 
-// Make an exact visual copy of a native Geode action. We copy the already
-// constructed button sprite rather than guessing Geode's colors/icons.
-CCMenuItemSpriteExtra* cloneNativeButton(CCMenuItem* native, CCObject* target, SEL_MenuHandler selector) {
+// Copy the already-created native Geode button sprite so More uses the exact
+// same icon, text, colors, and enabled/disabled appearance as the real button.
+CCMenuItemSpriteExtra* cloneNativeButton(CCMenuItemSpriteExtra* native, CCObject* target, SEL_MenuHandler selector) {
     auto source = native->getNormalImage();
     if (!source) return nullptr;
 
-    auto sprite = source->clone();
-    if (!sprite) return nullptr;
+    auto copied = typeinfo_cast<CCNode*>(source->copyWithZone(nullptr));
+    if (!copied) return nullptr;
 
-    auto item = CCMenuItemSpriteExtra::create(sprite, target, selector);
+    auto item = CCMenuItemSpriteExtra::create(copied, target, selector);
     if (!item) return nullptr;
     item->setScale(.5f);
     return item;
@@ -136,7 +133,7 @@ protected:
         auto modID = getPopupModID(modPopup);
         if (!modID.empty() && getInstalledModSource(modID) && isPopupInstalled(modPopup)) {
             auto item = CCMenuItemExt::createSpriteExtra(
-                createGeodeButton("From", 40, false, true, GeodeButtonSprite::Default),
+                createGeodeButton("From", 40, false, true),
                 [modID](CCMenuItemSpriteExtra*) { showInstallSource(modID); }
             );
             menu->addChild(item);
@@ -196,14 +193,6 @@ void ensureModPopupExtras(CCNode* popup) {
     auto installContainer = manageContainer->getParent();
     if (!installContainer) return;
 
-    auto children = installContainer->getParent()->getChildren();
-    auto installIndex = children->indexOfObject(installContainer);
-    if (installIndex == UINT_MAX) return;
-
-    // The node directly after the Manage container is Geode's install row.
-    // Use that row as the parent for our controls, without modifying its
-    // native m_installMenu. This keeps the native buttons and our controls
-    // in the correct section.
     auto customMenu = installContainer->getChildByID("opengeode-manage-menu"_spr);
     if (!customMenu) {
         customMenu = CCMenu::create();
@@ -223,7 +212,7 @@ void ensureModPopupExtras(CCNode* popup) {
     if (!customMenu->getChildByID("opengeode-from-button"_spr) &&
         !modID.empty() && getInstalledModSource(modID) && isPopupInstalled(popup)) {
         auto from = CCMenuItemExt::createSpriteExtra(
-            createGeodeButton("From", 40, false, true, GeodeButtonSprite::Default),
+            createGeodeButton("From", 40, false, true),
             [modID](CCMenuItemSpriteExtra*) { showInstallSource(modID); }
         );
         from->setID("opengeode-from-button"_spr);
@@ -232,7 +221,7 @@ void ensureModPopupExtras(CCNode* popup) {
 
     if (!customMenu->getChildByID("opengeode-more-button"_spr)) {
         auto more = CCMenuItemExt::createSpriteExtra(
-            createGeodeButton("More", 40, false, true, GeodeButtonSprite::Default),
+            createGeodeButton("More", 40, false, true),
             [popup](CCMenuItemSpriteExtra*) { MoreManagePopup::create(popup)->show(); }
         );
         more->setID("opengeode-more-button"_spr);
