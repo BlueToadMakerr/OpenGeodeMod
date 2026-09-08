@@ -206,10 +206,9 @@ void logIconButtonDetails(char const* label, CCNode* node) {
         logMoreNodeDetails("IconButton icon", icon);
         if (auto sprite = typeinfo_cast<CCSprite*>(icon)) {
             log::debug(
-                "[OpenGeode][More] {} icon sprite: texture={} displayFrame={} textureRect={} rectRotated={}",
+                "[OpenGeode][More] {} icon sprite: texture={} textureRect={} rectRotated={}",
                 label,
                 static_cast<void*>(sprite->getTexture()),
-                static_cast<void*>(sprite->getDisplayFrame()),
                 sprite->getTextureRect().size.width,
                 sprite->getTextureRect().size.height,
                 sprite->isTextureRectRotated()
