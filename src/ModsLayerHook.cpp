@@ -207,20 +207,38 @@ void ensureModPopupExtras(CCNode* popup) {
     auto installMenu = getNativeInstallMenu(popup);
     if (!installMenu) return;
 
+    // Geode's native action buttons are direct children of m_installMenu and
+    // that menu owns the RowLayout/scale calculation. Do not add our buttons
+    // to it, since doing so can rescale or hide Geode's native controls.
+    auto installContainer = installMenu->getParent();
+    if (!installContainer) return;
+
+    auto extraMenu = typeinfo_cast<CCMenu*>(installContainer->getChildByID("opengeode-manage-menu"_spr));
+    if (!extraMenu) {
+        extraMenu = CCMenu::create();
+        if (!extraMenu) return;
+        extraMenu->setID("opengeode-manage-menu"_spr);
+        extraMenu->setContentSize(installContainer->getContentSize());
+        extraMenu->setAnchorPoint({.5f, .5f});
+        extraMenu->setPosition(installContainer->getContentSize() / 2.f);
+        installContainer->addChild(extraMenu);
+    }
+
     auto modID = getPopupModID(popup);
-    if (!installMenu->getChildByID("opengeode-from-button"_spr) &&
-        !modID.empty() && getInstalledModSource(modID) && isPopupInstalled(popup)) {
+    auto hasFrom = extraMenu->getChildByID("opengeode-from-button"_spr);
+    if (!hasFrom && !modID.empty() && getInstalledModSource(modID) && isPopupInstalled(popup)) {
         if (auto sprite = createFixedManageButton("From", "GJ_downloadsIcon_001.png")) {
             auto from = CCMenuItemExt::createSpriteExtra(
                 sprite,
                 [modID](CCMenuItemSpriteExtra*) { showInstallSource(modID); }
             );
             from->setID("opengeode-from-button"_spr);
-            installMenu->addChild(from);
+            from->setPosition({18.f, extraMenu->getContentSize().height / 2.f});
+            extraMenu->addChild(from);
         }
     }
 
-    if (!installMenu->getChildByID("opengeode-more-button"_spr)) {
+    if (!extraMenu->getChildByID("opengeode-more-button"_spr)) {
         if (auto sprite = createThemedManageButton("More", "GJ_filterIcon_001.png")) {
             auto more = CCMenuItemExt::createSpriteExtra(
                 sprite,
@@ -229,11 +247,10 @@ void ensureModPopupExtras(CCNode* popup) {
                 }
             );
             more->setID("opengeode-more-button"_spr);
-            installMenu->addChild(more);
+            more->setPosition({extraMenu->getContentSize().width - 18.f, extraMenu->getContentSize().height / 2.f});
+            extraMenu->addChild(more);
         }
     }
-
-    installMenu->updateLayout();
 }
 
 class ModsLayerWatcher : public CCNode {
