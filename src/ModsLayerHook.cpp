@@ -26,10 +26,12 @@ namespace {
 CCNode* createProfileButtonSprite() {
     auto profile = CCSprite::createWithSpriteFrameName("GJ_profileButton_001.png");
     if (!profile) return nullptr;
+
     constexpr float targetSize = 40.f;
     auto width = profile->getContentSize().width;
     auto height = profile->getContentSize().height;
     if (width <= 0.f || height <= 0.f) return nullptr;
+
     auto root = CCNode::create();
     if (!root) return nullptr;
     profile->setPosition({targetSize / 2.f, targetSize / 2.f});
@@ -51,92 +53,64 @@ std::string getPopupModID(CCNode* popup) {
     return value;
 }
 
-bool isNativeButtonVisible(CCNode* popup, char const* id) {
+// Geode's togglers contain two separate CCMenuItemSpriteExtra children.
+// Their IDs are intentionally not exposed, so the visible child is the
+// reliable way to determine whether this is Enable/Disable or Re-Enable/
+// Re-Disable.
+CCMenuItem* getVisibleNativeAction(CCNode* popup, char const* id) {
     auto node = popup->getChildByIDRecursive(id);
-    return node && node->isVisible();
+    if (!node || !node->isVisible()) return nullptr;
+
+    if (auto toggler = typeinfo_cast<CCMenuItemToggler*>(node)) {
+        auto off = toggler->m_offButton;
+        auto on = toggler->m_onButton;
+        if (on && on->isVisible()) return on;
+        if (off && off->isVisible()) return off;
+    }
+
+    return typeinfo_cast<CCMenuItem*>(node);
 }
 
 bool isPopupInstalled(CCNode* popup) {
-    return isNativeButtonVisible(popup, "uninstall-button") ||
-        isNativeButtonVisible(popup, "update-button") ||
-        isNativeButtonVisible(popup, "enable-button") ||
-        isNativeButtonVisible(popup, "reenable-button");
+    return getVisibleNativeAction(popup, "uninstall-button") ||
+        getVisibleNativeAction(popup, "update-button") ||
+        getVisibleNativeAction(popup, "enable-button") ||
+        getVisibleNativeAction(popup, "reenable-button");
 }
 
 void showInstallSource(std::string const& modID) {
     auto source = getInstalledModSource(modID);
     if (!source) return;
+
     auto description = fmt::format(
         "Installed from <cy>{}</c>\nVersion: <cg>{}</c>\n{}",
         source->indexName.empty() ? source->indexUrl : source->indexName,
         source->version,
         source->indexUrl
     );
-    createQuickPopup("Install Source", description, "OK", "", [](FLAlertLayer*, bool) {});
+
+    createQuickPopup(
+        "Install Source",
+        description,
+        "OK",
+        "",
+        [](FLAlertLayer*, bool) {}
+    );
 }
 
-CCMenuItemSpriteExtra* makeGeodeActionButton(
-    CCNode* nativeNode,
-    char const* id,
-    std::function<void(CCMenuItemSpriteExtra*)> callback
-) {
-    auto native = typeinfo_cast<CCMenuItemSpriteExtra*>(nativeNode);
-    if (!native || !native->isVisible()) return nullptr;
+// Make an exact visual copy of a native Geode action. We copy the already
+// constructed button sprite rather than guessing Geode's colors/icons.
+CCMenuItemSpriteExtra* cloneNativeButton(CCMenuItem* native, CCObject* target, SEL_MenuHandler selector) {
+    auto source = native->getNormalImage();
+    if (!source) return nullptr;
 
-    CCNode* sprite = nullptr;
-    if (std::string(id) == "update-button") {
-        sprite = createGeodeButton(
-            CCSprite::createWithSpriteFrameName("update.png"_spr), "Update",
-            GeodeButtonSprite::Install, false
-        );
-    }
-    else if (std::string(id) == "install-button") {
-        sprite = createGeodeButton(
-            CCSprite::createWithSpriteFrameName("GJ_downloadsIcon_001.png"), "Install",
-            GeodeButtonSprite::Install, false
-        );
-    }
-    else if (std::string(id) == "uninstall-button") {
-        sprite = createGeodeButton(
-            CCSprite::createWithSpriteFrameName("delete-white.png"_spr), "Uninstall",
-            GeodeButtonSprite::Default, false
-        );
-    }
-    else if (std::string(id) == "cancel-button") {
-        sprite = createGeodeButton(
-            CCSprite::createWithSpriteFrameName("GJ_deleteIcon_001.png"), "Cancel",
-            GeodeButtonSprite::Default, false
-        );
-    }
-    else if (std::string(id) == "unavailable-button") {
-        sprite = createGeodeButton(
-            CCSprite::createWithSpriteFrameName("exclamation.png"_spr), "Unavailable",
-            GeodeButtonSprite::Gray, false
-        );
-        if (sprite) sprite->setColor({155, 155, 155});
-    }
-    else if (std::string(id) == "enable-button") {
-        auto toggler = typeinfo_cast<CCMenuItemToggler*>(nativeNode);
-        bool disabling = toggler && toggler->m_onButton && toggler->m_onButton->isVisible();
-        sprite = createGeodeButton(
-            CCSprite::createWithSpriteFrameName(disabling ? "GJ_deleteIcon_001.png" : "GJ_completesIcon_001.png"),
-            disabling ? "Disable" : "Enable",
-            disabling ? GeodeButtonSprite::Delete : GeodeButtonSprite::Enable, false
-        );
-    }
-    else if (std::string(id) == "reenable-button") {
-        auto toggler = typeinfo_cast<CCMenuItemToggler*>(nativeNode);
-        bool disabling = toggler && toggler->m_onButton && toggler->m_onButton->isVisible();
-        sprite = createGeodeButton(
-            CCSprite::createWithSpriteFrameName("reset.png"_spr),
-            disabling ? "Re-Disable" : "Re-Enable",
-            GeodeButtonSprite::Default, false
-        );
-    }
-
+    auto sprite = source->clone();
     if (!sprite) return nullptr;
-    sprite->setScale(.5f);
-    return CCMenuItemExt::createSpriteExtra(sprite, std::move(callback));
+
+    auto item = CCMenuItemSpriteExtra::create(sprite, target, selector);
+    if (!item) return nullptr;
+    item->setScale(.5f);
+    return item;
 }
 
 class MoreManagePopup : public Popup {
@@ -152,38 +126,61 @@ protected:
         auto menu = CCMenu::create();
         menu->setContentSize({150.f, 190.f});
         menu->setPosition({20.f, 35.f});
-        menu->setLayout(ColumnLayout::create()->setGap(6.f)->setAxisAlignment(AxisAlignment::Center));
+        menu->setLayout(
+            ColumnLayout::create()
+                ->setGap(6.f)
+                ->setAxisAlignment(AxisAlignment::Center)
+        );
         m_mainLayer->addChild(menu);
 
         auto modID = getPopupModID(modPopup);
         if (!modID.empty() && getInstalledModSource(modID) && isPopupInstalled(modPopup)) {
             auto item = CCMenuItemExt::createSpriteExtra(
-                ButtonSprite::create("From", 40, true, "goldFont.fnt", "GJ_button_01.png", 25.f, .6f),
+                createGeodeButton("From", 40, false, true, GeodeButtonSprite::Default),
                 [modID](CCMenuItemSpriteExtra*) { showInstallSource(modID); }
             );
             menu->addChild(item);
         }
 
-        for (auto const& id : {
-            "update-button", "enable-button", "reenable-button", "unavailable-button",
-            "install-button", "uninstall-button", "cancel-button"
+        struct NativeAction { char const* id; };
+        for (auto const& action : {
+            NativeAction{"update-button"},
+            NativeAction{"enable-button"},
+            NativeAction{"reenable-button"},
+            NativeAction{"unavailable-button"},
+            NativeAction{"install-button"},
+            NativeAction{"uninstall-button"},
+            NativeAction{"cancel-button"}
         }) {
-            auto native = m_modPopup->getChildByIDRecursive(id);
-            auto item = makeGeodeActionButton(native, id, [this, native](CCMenuItemSpriteExtra*) {
-                this->onClose(nullptr);
-                if (auto menuItem = typeinfo_cast<CCMenuItem*>(native)) menuItem->activate();
-            });
-            if (item) menu->addChild(item);
+            auto native = getVisibleNativeAction(modPopup, action.id);
+            if (!native) continue;
+
+            auto item = cloneNativeButton(native, this, menu_selector(MoreManagePopup::onNativeAction));
+            if (!item) continue;
+            item->setUserObject("OpenGeode.native-action"_spr, native);
+            menu->addChild(item);
         }
 
         menu->updateLayout();
         return true;
     }
 
+    void onNativeAction(CCObject* sender) {
+        auto item = typeinfo_cast<CCMenuItemSpriteExtra*>(sender);
+        if (!item) return;
+        auto native = static_cast<CCMenuItem*>(item->getUserObject("OpenGeode.native-action"_spr));
+        if (!native) return;
+        this->onClose(nullptr);
+        native->activate();
+    }
+
 public:
     static MoreManagePopup* create(CCNode* modPopup) {
         auto ret = new MoreManagePopup();
-        if (ret && ret->init(modPopup)) { ret->autorelease(); return ret; }
+        if (ret && ret->init(modPopup)) {
+            ret->autorelease();
+            return ret;
+        }
         delete ret;
         return nullptr;
     }
@@ -193,37 +190,54 @@ void ensureModPopupExtras(CCNode* popup) {
     auto manageTitle = popup->getChildByIDRecursive("manage-title");
     if (!manageTitle) return;
 
-    // Geode's actual action row is the installContainer immediately below the
-    // Manage/status row. Find it through one of Geode's native action buttons
-    // rather than modifying the private ModPopup implementation.
-    auto installButton = popup->getChildByIDRecursive("install-button");
-    if (!installButton) return;
-    auto installMenu = installButton->getParent();
-    auto installContainer = installMenu ? installMenu->getParent() : nullptr;
-    if (!installContainer || installContainer->getChildByID("opengeode-manage-menu"_spr)) return;
+    auto manageContainer = manageTitle->getParent();
+    if (!manageContainer) return;
 
-    auto customMenu = CCMenu::create();
-    customMenu->setID("opengeode-manage-menu"_spr);
-    customMenu->setContentSize({90.f, 25.f});
-    customMenu->setAnchorPoint({1.f, .5f});
-    customMenu->setPosition({installContainer->getContentWidth() - 5.f, installContainer->getContentHeight() / 2.f});
-    customMenu->setLayout(RowLayout::create()->setGap(4.f)->setAxisAlignment(AxisAlignment::Center));
-    installContainer->addChild(customMenu);
+    auto installContainer = manageContainer->getParent();
+    if (!installContainer) return;
+
+    auto children = installContainer->getParent()->getChildren();
+    auto installIndex = children->indexOfObject(installContainer);
+    if (installIndex == UINT_MAX) return;
+
+    // The node directly after the Manage container is Geode's install row.
+    // Use that row as the parent for our controls, without modifying its
+    // native m_installMenu. This keeps the native buttons and our controls
+    // in the correct section.
+    auto customMenu = installContainer->getChildByID("opengeode-manage-menu"_spr);
+    if (!customMenu) {
+        customMenu = CCMenu::create();
+        customMenu->setID("opengeode-manage-menu"_spr);
+        customMenu->setContentSize({installContainer->getContentWidth() - 10.f, 25.f});
+        customMenu->setAnchorPoint({.5f, .5f});
+        customMenu->setPosition({installContainer->getContentWidth() / 2.f, installContainer->getContentHeight() / 2.f});
+        customMenu->setLayout(
+            RowLayout::create()
+                ->setGap(4.f)
+                ->setAxisAlignment(AxisAlignment::End)
+        );
+        installContainer->addChild(customMenu, 5);
+    }
 
     auto modID = getPopupModID(popup);
-    if (!modID.empty() && getInstalledModSource(modID) && isPopupInstalled(popup)) {
+    if (!customMenu->getChildByID("opengeode-from-button"_spr) &&
+        !modID.empty() && getInstalledModSource(modID) && isPopupInstalled(popup)) {
         auto from = CCMenuItemExt::createSpriteExtra(
-            ButtonSprite::create("From", 40, true, "goldFont.fnt", "GJ_button_01.png", 25.f, .6f),
+            createGeodeButton("From", 40, false, true, GeodeButtonSprite::Default),
             [modID](CCMenuItemSpriteExtra*) { showInstallSource(modID); }
         );
+        from->setID("opengeode-from-button"_spr);
         customMenu->addChild(from);
     }
 
-    auto more = CCMenuItemExt::createSpriteExtra(
-        ButtonSprite::create("More", 40, true, "goldFont.fnt", "GJ_button_01.png", 25.f, .6f),
-        [popup](CCMenuItemSpriteExtra*) { MoreManagePopup::create(popup)->show(); }
-    );
-    customMenu->addChild(more);
+    if (!customMenu->getChildByID("opengeode-more-button"_spr)) {
+        auto more = CCMenuItemExt::createSpriteExtra(
+            createGeodeButton("More", 40, false, true, GeodeButtonSprite::Default),
+            [popup](CCMenuItemSpriteExtra*) { MoreManagePopup::create(popup)->show(); }
+        );
+        more->setID("opengeode-more-button"_spr);
+        customMenu->addChild(more);
+    }
     customMenu->updateLayout();
 }
 
@@ -248,14 +262,17 @@ protected:
         if (!listFrame) return;
         auto modList = listFrame->getChildByID("ModList");
         if (!modList) return;
+
         if (g_switchNotif) { g_switchNotif->cancel(); g_switchNotif = nullptr; }
         if (auto overlay = scene->getChildByID("switch-overlay"_spr)) overlay->removeFromParentAndCleanup(true);
+
         auto topContainer = modList->getChildByID("top-container");
         if (!topContainer) return;
         auto searchMenu = topContainer->getChildByID("search-menu");
         if (!searchMenu) return;
         auto filtersMenu = typeinfo_cast<CCMenu*>(searchMenu->getChildByID("search-filters-menu"));
         if (!filtersMenu) return;
+
         ensureIndexSwitcherButton(scene);
         ensureFilterButton(filtersMenu);
         ensureAccountButton(scene);
@@ -291,6 +308,7 @@ protected:
         }
         if (m_accountButton || m_capabilityPending) return;
         m_capabilityPending = true;
+
         auto req = web::WebRequest();
         req.header("Accept", "application/json");
         m_capabilityTask.spawn(req.get(trimSlash(currentIndex) + "/OpenGeode"), [this, backMenu](web::WebResponse res) {
@@ -298,6 +316,7 @@ protected:
             if (!res.ok()) return;
             auto json = res.json().unwrapOr(matjson::Value());
             if (!json["enabled"].asBool().unwrapOr(false) || !json["allowGdLogin"].asBool().unwrapOr(false)) return;
+
             auto sprite = createProfileButtonSprite();
             if (!sprite) return;
             m_accountButton = CCMenuItemSpriteExtra::create(sprite, this, menu_selector(ModsLayerWatcher::onAccount));
@@ -322,7 +341,7 @@ public:
     }
 };
 
-}
+} // namespace
 
 $on_mod(Loaded) {
     ensurePresetsExist();
@@ -335,4 +354,4 @@ $on_mod(Loaded) {
     }).leak();
 }
 
-}
+} // namespace opengeode
