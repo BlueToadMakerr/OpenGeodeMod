@@ -60,7 +60,7 @@ struct NativeAction {
 
 NativeAction getNativeAction(CCNode* popup, char const* id) {
     auto node = popup->getChildByIDRecursive(id);
-    if (!node) return {};
+    if (!node || !node->isVisible()) return {};
 
     if (auto toggler = typeinfo_cast<CCMenuItemToggler*>(node)) {
         if (toggler->m_onButton && toggler->m_onButton->isVisible()) {
@@ -75,7 +75,7 @@ NativeAction getNativeAction(CCNode* popup, char const* id) {
     }
 
     auto item = typeinfo_cast<CCMenuItemSpriteExtra*>(node);
-    if (!item || !item->isVisible()) return {};
+    if (!item) return {};
 
     if (std::string(id) == "update-button") return {item, "Update", "update.png"};
     if (std::string(id) == "unavailable-button") return {item, "Unavailable", "exclamation.png"};
@@ -114,10 +114,7 @@ void showInstallSource(std::string const& modID) {
         source->version,
         source->indexUrl
     );
-    createQuickPopup(
-        "Install Source", description, "OK", "",
-        [](FLAlertLayer*, bool) {}
-    );
+    FLAlertLayer::create("Install Source", description, "OK")->show();
 }
 
 IconButtonSprite* createFixedManageButton(char const* text, char const* iconFrame) {
@@ -134,13 +131,8 @@ IconButtonSprite* createThemedManageButton(char const* text, char const* iconFra
     auto icon = CCSprite::createWithSpriteFrameName(iconFrame);
     if (!icon) return nullptr;
     auto button = IconButtonSprite::create(
-        "GE_button_01.png", icon, text, "bigFont.fnt"
+        getButtonTexture("GJ_button_01.png"), icon, text, "bigFont.fnt"
     );
-    if (!button) {
-        button = IconButtonSprite::create(
-            "GJ_button_01.png", icon, text, "bigFont.fnt"
-        );
-    }
     if (button) button->setScale(.5f);
     return button;
 }
@@ -157,16 +149,18 @@ protected:
 
         auto menu = CCMenu::create();
         menu->setContentSize({150.f, 190.f});
-        menu->setPosition({20.f, 35.f});
         menu->setLayout(ColumnLayout::create()->setGap(6.f)->setAxisAlignment(AxisAlignment::Center));
-        m_mainLayer->addChild(menu);
+        m_mainLayer->addChildAtPosition(menu, Anchor::Center);
 
         auto modID = getPopupModID(modPopup);
         if (!modID.empty() && getInstalledModSource(modID) && isPopupInstalled(modPopup)) {
-            if (auto sprite = createFixedManageButton("From", "GJ_folderIcon_001.png")) {
+            if (auto sprite = createFixedManageButton("From", "GJ_downloadsIcon_001.png")) {
                 auto item = CCMenuItemExt::createSpriteExtra(
                     sprite,
-                    [modID](CCMenuItemSpriteExtra*) { showInstallSource(modID); }
+                    [modID, this](CCMenuItemSpriteExtra*) {
+                        showInstallSource(modID);
+                        this->onClose(nullptr);
+                    }
                 );
                 menu->addChild(item);
             }
@@ -182,8 +176,9 @@ protected:
             if (!sprite) continue;
             auto item = CCMenuItemExt::createSpriteExtra(
                 sprite,
-                [native](CCMenuItemSpriteExtra*) {
+                [native, this](CCMenuItemSpriteExtra*) {
                     native.action->activate();
+                    this->onClose(nullptr);
                 }
             );
             menu->addChild(item);
@@ -214,7 +209,7 @@ void ensureModPopupExtras(CCNode* popup) {
     auto modID = getPopupModID(popup);
     if (!installMenu->getChildByID("opengeode-from-button"_spr) &&
         !modID.empty() && getInstalledModSource(modID) && isPopupInstalled(popup)) {
-        if (auto sprite = createFixedManageButton("From", "GJ_folderIcon_001.png")) {
+        if (auto sprite = createFixedManageButton("From", "GJ_downloadsIcon_001.png")) {
             auto from = CCMenuItemExt::createSpriteExtra(
                 sprite,
                 [modID](CCMenuItemSpriteExtra*) { showInstallSource(modID); }
