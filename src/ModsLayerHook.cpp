@@ -143,7 +143,7 @@ protected:
         if (!managementMenu) return true;
 
         for (auto child : CCArrayExt<CCNode*>(managementMenu->getChildren())) {
-            if (!child || child->getID() == "opengeode-more-button" || child->getID() == "opengeode-from-button") continue;
+            if (!child || child->getID() == "opengeode-more-button") continue;
 
             auto action = typeinfo_cast<CCMenuItem*>(child);
             if (!action) continue;
@@ -259,8 +259,93 @@ protected:
         ensureAccountButton(scene);
         ensureModPopupExtras(scene);
     }
+
+    void ensureIndexSwitcherButton(CCNode* scene) {
+        auto actionsMenu = typeinfo_cast<CCMenu*>(scene->getChildByIDRecursive("actions-menu"));
+        if (!actionsMenu || actionsMenu->getChildByID("index-switcher-button"_spr)) return;
+        auto indexBtn = CCMenuItemExt::createSpriteExtra(
+            CircleButtonSprite::createWithSpriteFrameName("geode.loader/geode-logo.png", 0.85f, CircleBaseColor::Blue),
+            [](auto) { showIndexListPopup(); }
+        );
+        indexBtn->setScale(0.8f);
+        indexBtn->m_baseScale = 0.8f;
+        indexBtn->setID("index-switcher-button"_spr);
+        actionsMenu->addChild(indexBtn);
+        actionsMenu->updateLayout();
+    }
+
+    void ensureFilterButton(CCMenu* filtersMenu) {
+        if (auto existingBtn = filtersMenu->getChildByID("index-filter-button"_spr)) existingBtn->removeFromParent();
+        auto filterBtn = CCMenuItemExt::createSpriteExtra(buildFilterButtonSprite(), [](auto) { showFilterPopup(); });
+        filterBtn->setID("index-filter-button"_spr);
+        filtersMenu->addChild(filterBtn, -100);
+        filtersMenu->updateLayout();
+    }
+
+    void ensureAccountButton(CCNode* scene) {
+        auto backMenu = typeinfo_cast<CCMenu*>(scene->getChildByIDRecursive("back-menu"));
+        if (!backMenu) return;
+        auto currentIndex = getIndexUrl();
+        if (currentIndex != m_capabilityIndex) {
+            m_capabilityIndex = currentIndex;
+            m_capabilityPending = false;
+            m_capabilityTask.cancel();
+            if (m_accountButton) {
+                m_accountButton->removeFromParent();
+                m_accountButton = nullptr;
+            }
+        }
+        if (m_accountButton || m_capabilityPending) return;
+        m_capabilityPending = true;
+
+        auto req = web::WebRequest();
+        req.header("Accept", "application/json");
+        m_capabilityTask.spawn(req.get(trimSlash(currentIndex) + "/OpenGeode"), [this, backMenu](web::WebResponse res) {
+            m_capabilityPending = false;
+            if (!res.ok()) return;
+            auto json = res.json().unwrapOr(matjson::Value());
+            if (!json["enabled"].asBool().unwrapOr(false) || !json["allowGdLogin"].asBool().unwrapOr(false)) return;
+            auto sprite = createProfileButtonSprite();
+            if (!sprite) return;
+            m_accountButton = CCMenuItemSpriteExtra::create(sprite, this, menu_selector(ModsLayerWatcher::onAccount));
+            m_accountButton->setScale(.8f);
+            m_accountButton->m_baseScale = .8f;
+            m_accountButton->setID("opengeode-account-button"_spr);
+            backMenu->addChild(m_accountButton);
+            backMenu->updateLayout();
+        });
+    }
+
+    void onAccount(CCObject*) { showAccountPopup(); }
+
+    static std::string trimSlash(std::string url) {
+        while (!url.empty() && url.back() == '/') url.pop_back();
+        return url;
+    }
+
+public:
+    static ModsLayerWatcher* create() {
+        auto ret = new ModsLayerWatcher();
+        if (ret && ret->init()) {
+            ret->autorelease();
+            return ret;
+        }
+        delete ret;
+        return nullptr;
+    }
 };
 
+} // namespace
+
+$on_mod(Loaded) {
+    ensurePresetsExist();
+    SceneEvent().listen([](CCScene* scene) {
+        if (!scene) return ListenerResult::Propagate;
+        if (scene->getChildByID("OpenGeode.mods-layer-watcher"_spr)) return ListenerResult::Propagate;
+        auto watcher = ModsLayerWatcher::create();
+        if (watcher) scene->addChild(watcher);
+        return ListenerResult::Propagate;
+    }).leak();
 }
 
-}
+} // namespace opengeode
