@@ -95,8 +95,6 @@ void showInstallSource(std::string const& modID) {
     );
 }
 
-// Copy the already-created native Geode button sprite so More uses the exact
-// same icon, text, colors, and enabled/disabled appearance as the real button.
 CCMenuItemSpriteExtra* cloneNativeButton(CCMenuItemSpriteExtra* native, CCObject* target, SEL_MenuHandler selector) {
     auto source = native->getNormalImage();
     if (!source) return nullptr;
@@ -108,6 +106,10 @@ CCMenuItemSpriteExtra* cloneNativeButton(CCMenuItemSpriteExtra* native, CCObject
     if (!item) return nullptr;
     item->setScale(.5f);
     return item;
+}
+
+ButtonSprite* createOpenGeodeButton(char const* text) {
+    return ButtonSprite::create(text, 40, false, true);
 }
 
 class MoreManagePopup : public Popup {
@@ -133,7 +135,7 @@ protected:
         auto modID = getPopupModID(modPopup);
         if (!modID.empty() && getInstalledModSource(modID) && isPopupInstalled(modPopup)) {
             auto item = CCMenuItemExt::createSpriteExtra(
-                createGeodeButton("From", 40, false, true),
+                createOpenGeodeButton("From"),
                 [modID](CCMenuItemSpriteExtra*) { showInstallSource(modID); }
             );
             menu->addChild(item);
@@ -212,7 +214,7 @@ void ensureModPopupExtras(CCNode* popup) {
     if (!customMenu->getChildByID("opengeode-from-button"_spr) &&
         !modID.empty() && getInstalledModSource(modID) && isPopupInstalled(popup)) {
         auto from = CCMenuItemExt::createSpriteExtra(
-            createGeodeButton("From", 40, false, true),
+            createOpenGeodeButton("From"),
             [modID](CCMenuItemSpriteExtra*) { showInstallSource(modID); }
         );
         from->setID("opengeode-from-button"_spr);
@@ -221,7 +223,7 @@ void ensureModPopupExtras(CCNode* popup) {
 
     if (!customMenu->getChildByID("opengeode-more-button"_spr)) {
         auto more = CCMenuItemExt::createSpriteExtra(
-            createGeodeButton("More", 40, false, true),
+            createOpenGeodeButton("More"),
             [popup](CCMenuItemSpriteExtra*) { MoreManagePopup::create(popup)->show(); }
         );
         more->setID("opengeode-more-button"_spr);
