@@ -109,17 +109,9 @@ char const* getNativeButtonTexture(char const* id) {
 }
 
 CCNode* duplicateIcon(CCNode* icon) {
-    if (auto sprite = typeinfo_cast<CCSprite*>(icon)) {
-        auto texture = sprite->getTexture();
-        if (!texture) return nullptr;
-        return CCSprite::createWithTexture(
-            texture,
-            sprite->getTextureRect(),
-            sprite->isTextureRectRotated()
-        );
-    }
-
-    return nullptr;
+    auto sprite = typeinfo_cast<CCSprite*>(icon);
+    if (!sprite || !sprite->getTexture()) return nullptr;
+    return CCSprite::createWithTexture(sprite->getTexture(), sprite->getTextureRect());
 }
 
 IconButtonSprite* recreateNativeButton(char const* id, IconButtonSprite* source) {
