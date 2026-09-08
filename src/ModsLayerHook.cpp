@@ -165,6 +165,88 @@ void logMoreNodeDetails(char const* label, CCNode* node) {
     }
 }
 
+void logIconButtonDetails(char const* label, CCNode* node) {
+    auto button = typeinfo_cast<IconButtonSprite*>(node);
+    if (!button) {
+        log::debug("[OpenGeode][More] {}: not an IconButtonSprite", label);
+        return;
+    }
+
+    auto bg = button->getBg();
+    auto text = button->getLabel();
+    auto icon = button->getIcon();
+
+    log::debug(
+        "[OpenGeode][More] {} IconButtonSprite: ptr={} string='{}' bg={} label={} icon={} content={}x{} scale=({}, {}) position=({}, {})",
+        label,
+        static_cast<void*>(button),
+        button->getString(),
+        static_cast<void*>(bg),
+        static_cast<void*>(text),
+        static_cast<void*>(icon),
+        button->getContentSize().width,
+        button->getContentSize().height,
+        button->getScaleX(),
+        button->getScaleY(),
+        button->getPositionX(),
+        button->getPositionY()
+    );
+
+    if (bg) {
+        auto insets = bg->getInsets();
+        log::debug(
+            "[OpenGeode][More] {} background: ptr={} size={}x{} scale=({}, {}) position=({}, {}) multiplier={} repeat={} insets=(top={}, right={}, bottom={}, left={})",
+            label,
+            static_cast<void*>(bg),
+            bg->getContentSize().width,
+            bg->getContentSize().height,
+            bg->getScaleX(),
+            bg->getScaleY(),
+            bg->getPositionX(),
+            bg->getPositionY(),
+            bg->getScaleMultiplier(),
+            bg->getRepeatCenter(),
+            insets.top,
+            insets.right,
+            insets.bottom,
+            insets.left
+        );
+        logMoreNodeDetails("IconButton background", bg);
+    }
+
+    if (text) {
+        log::debug(
+            "[OpenGeode][More] {} label: ptr={} string='{}' size={}x{} scale=({}, {}) position=({}, {}) anchor=({}, {})",
+            label,
+            static_cast<void*>(text),
+            text->getString(),
+            text->getContentSize().width,
+            text->getContentSize().height,
+            text->getScaleX(),
+            text->getScaleY(),
+            text->getPositionX(),
+            text->getPositionY(),
+            text->getAnchorPoint().x,
+            text->getAnchorPoint().y
+        );
+    }
+
+    if (icon) {
+        logMoreNodeDetails("IconButton icon", icon);
+        if (auto sprite = typeinfo_cast<CCSprite*>(icon)) {
+            log::debug(
+                "[OpenGeode][More] {} icon sprite: texture={} displayFrame={} textureRect={} rectRotated={}",
+                label,
+                static_cast<void*>(sprite->getTexture()),
+                static_cast<void*>(sprite->getDisplayFrame()),
+                sprite->getTextureRect().size.width,
+                sprite->getTextureRect().size.height,
+                sprite->isTextureRectRotated()
+            );
+        }
+    }
+}
+
 class MoreManagePopup : public Popup {
     CCNode* m_modPopup = nullptr;
 
@@ -227,11 +309,21 @@ protected:
                 logMoreNodeDetails("toggler off", toggler->m_offButton);
                 if (toggler->m_onButton && toggler->m_onButton->isVisible()) visual = toggler->m_onButton;
                 else if (toggler->m_offButton && toggler->m_offButton->isVisible()) visual = toggler->m_offButton;
+
+                if (visual) {
+                    for (auto nested : CCArrayExt<CCNode*>(visual->getChildren())) {
+                        if (auto iconButton = typeinfo_cast<IconButtonSprite*>(nested)) {
+                            logIconButtonDetails("visible toggler IconButtonSprite", iconButton);
+                        }
+                    }
+                }
             }
             else if (auto spriteItem = typeinfo_cast<CCMenuItemSpriteExtra*>(action)) {
                 visual = spriteItem->getNormalImage();
                 logMoreNodeDetails("sprite-extra normal", visual);
                 logMoreNodeDetails("sprite-extra selected", spriteItem->getSelectedImage());
+                logIconButtonDetails("sprite-extra normal", visual);
+                logIconButtonDetails("sprite-extra selected", spriteItem->getSelectedImage());
             }
 
             if (!visual) {
@@ -240,6 +332,7 @@ protected:
             }
 
             logMoreNodeDetails("selected visual", visual);
+            logIconButtonDetails("selected visual", visual);
 
             log::debug(
                 "[OpenGeode][More] COPY TEST id='{}': attempting copyWithZone(nullptr) on visual={}",
