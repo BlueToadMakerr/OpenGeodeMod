@@ -59,10 +59,7 @@ struct NativeAction {
 
 NativeAction getNativeAction(CCNode* popup, char const* id) {
     auto node = popup->getChildByIDRecursive(id);
-    if (!node) {
-        log::debug("[OpenGeode] Native action '{}' not found", id);
-        return {};
-    }
+    if (!node || !node->isVisible()) return {};
 
     if (auto toggler = typeinfo_cast<CCMenuItemToggler*>(node)) {
         log::debug(
@@ -77,9 +74,7 @@ NativeAction getNativeAction(CCNode* popup, char const* id) {
         if (toggler->m_offButton && toggler->m_offButton->isVisible()) {
             return {toggler, toggler->m_offButton};
         }
-        if (toggler->m_offButton) return {toggler, toggler->m_offButton};
-        if (toggler->m_onButton) return {toggler, toggler->m_onButton};
-        return {toggler, nullptr};
+        return {};
     }
 
     auto item = typeinfo_cast<CCMenuItemSpriteExtra*>(node);
@@ -108,31 +103,15 @@ CCMenu* getNativeInstallMenu(CCNode* popup) {
         "update-button", "enable-button", "reenable-button", "unavailable-button",
         "install-button", "uninstall-button", "cancel-button"
     }) {
-        auto node = popup->getChildByIDRecursive(id);
-        if (!node) {
-            log::debug("[OpenGeode] Cannot locate '{}' while finding native install menu", id);
-            continue;
-        }
-        auto action = typeinfo_cast<CCMenuItem*>(node);
-        if (!action) {
-            log::debug("[OpenGeode] '{}' exists but is not a CCMenuItem", id);
-            continue;
-        }
-        auto parent = action->getParent();
-        log::debug(
-            "[OpenGeode] '{}' parent ptr={} id={} children={}",
-            id,
-            static_cast<void*>(parent),
-            parent ? parent->getID() : "<none>",
-            parent ? parent->getChildrenCount() : 0
-        );
-        auto menu = typeinfo_cast<CCMenu*>(parent);
+        auto native = getNativeAction(popup, id);
+        if (!native.action) continue;
+        auto menu = typeinfo_cast<CCMenu*>(native.action->getParent());
         if (menu) {
-            log::info("[OpenGeode] Found native install menu from '{}' ptr={} children={}", id, static_cast<void*>(menu), menu->getChildrenCount());
+            log::info("[OpenGeode] Using native management menu from visible '{}' button; children={}", id, menu->getChildrenCount());
             return menu;
         }
     }
-    log::error("[OpenGeode] Could not find Geode native install menu");
+    log::debug("[OpenGeode] Could not find visible native management button/menu yet");
     return nullptr;
 }
 
@@ -201,13 +180,13 @@ protected:
         auto item = CCMenuItemExt::createSpriteExtra(
             copy,
             [action, this](CCMenuItemSpriteExtra*) {
-                log::info("[OpenGeode] More popup activating native action ptr={}", static_cast<void*>(action));
+                log::info("[OpenGeode] More popup activating native action");
                 action->activate();
                 this->onClose(nullptr);
             }
         );
         menu->addChild(item);
-        log::debug("[OpenGeode] More popup added '{}' action={} visual={}", id, static_cast<void*>(action), static_cast<void*>(visual));
+        log::debug("[OpenGeode] More popup added '{}' from native management menu", id);
         return true;
     }
 
@@ -222,55 +201,43 @@ protected:
         menu->setLayout(ColumnLayout::create()->setGap(6.f)->setAxisAlignment(AxisAlignment::Center));
         m_mainLayer->addChildAtPosition(menu, Anchor::Center);
 
-        log::info("[OpenGeode] Building More popup");
+        log::info("[OpenGeode] Building More popup from native management menu");
 
-        auto modID = getPopupModID(modPopup);
-        if (!modID.empty() && getInstalledModSource(modID) && isPopupInstalled(modPopup)) {
-            if (auto sprite = createFixedManageButton("From", "GJ_downloadsIcon_001.png")) {
-                auto item = CCMenuItemExt::createSpriteExtra(
-                    sprite,
-                    [modID, this](CCMenuItemSpriteExtra*) {
-                        showInstallSource(modID);
-                        this->onClose(nullptr);
-                    }
-                );
-                menu->addChild(item);
-                log::debug("[OpenGeode] More popup added From button");
-            }
+        auto installMenu = getNativeInstallMenu(modPopup);
+        if (!installMenu) {
+            log::warn("[OpenGeode] More popup has no native management menu");
+            return true;
         }
 
-        for (auto const& id : {
-            "update-button", "enable-button", "reenable-button", "unavailable-button",
-            "install-button", "uninstall-button", "cancel-button"
-        }) {
-            auto node = modPopup->getChildByIDRecursive(id);
-            if (!node) {
-                log::warn("[OpenGeode] More popup could not find native button '{}'", id);
+        for (auto child : CCArrayExt<CCNode*>(installMenu->getChildren())) {
+            auto id = child->getID();
+            if (id == "opengeode-more-button") {
+                log::debug("[OpenGeode] Skipping OpenGeode More button");
                 continue;
             }
 
-            if (auto toggler = typeinfo_cast<CCMenuItemToggler*>(node)) {
+            if (auto toggler = typeinfo_cast<CCMenuItemToggler*>(child)) {
                 log::debug(
-                    "[OpenGeode] More popup toggler '{}': nodeVisible={}, on={}, off={}",
-                    id, toggler->isVisible(),
+                    "[OpenGeode] Reading toggler '{}' from native management menu: on={}, off={}",
+                    id,
                     toggler->m_onButton != nullptr,
                     toggler->m_offButton != nullptr
                 );
                 if (toggler->m_offButton) {
-                    addNativeVisual(menu, id, toggler, toggler->m_offButton);
+                    addNativeVisual(menu, id.c_str(), toggler, toggler->m_offButton);
                 }
                 if (toggler->m_onButton) {
-                    addNativeVisual(menu, id, toggler, toggler->m_onButton);
+                    addNativeVisual(menu, id.c_str(), toggler, toggler->m_onButton);
                 }
                 continue;
             }
 
-            auto item = typeinfo_cast<CCMenuItemSpriteExtra*>(node);
+            auto item = typeinfo_cast<CCMenuItemSpriteExtra*>(child);
             if (!item) {
-                log::warn("[OpenGeode] More popup '{}' is not a CCMenuItemSpriteExtra", id);
+                log::debug("[OpenGeode] Native management child '{}' is not a sprite menu item", id);
                 continue;
             }
-            addNativeVisual(menu, id, item, item->getNormalImage());
+            addNativeVisual(menu, id.c_str(), item, item->getNormalImage());
         }
 
         menu->updateLayout();
@@ -297,14 +264,14 @@ void ensureModPopupExtras(CCNode* popup) {
         return;
     }
 
+    // This intentionally uses the exact same visible-native-button detection that
+    // the old working build used. The parent of that visible button is the menu
+    // where Geode puts its management controls, so both OpenGeode controls belong there.
     auto installMenu = getNativeInstallMenu(popup);
     if (!installMenu) return;
 
-    auto installContainer = installMenu->getParent();
     log::info(
-        "[OpenGeode] Native management menu ptr={} parent={} size={}x{} children={}",
-        static_cast<void*>(installMenu),
-        static_cast<void*>(installContainer),
+        "[OpenGeode] Native management menu found: size={}x{} children={}",
         installMenu->getContentWidth(), installMenu->getContentHeight(),
         installMenu->getChildrenCount()
     );
@@ -319,7 +286,7 @@ void ensureModPopupExtras(CCNode* popup) {
             );
             from->setID("opengeode-from-button"_spr);
             installMenu->addChild(from);
-            log::info("[OpenGeode] Added From directly to native install menu");
+            log::info("[OpenGeode] Added From to the same native management menu");
         }
     }
 
@@ -333,7 +300,7 @@ void ensureModPopupExtras(CCNode* popup) {
             );
             more->setID("opengeode-more-button"_spr);
             installMenu->addChild(more);
-            log::info("[OpenGeode] Added More directly to native install menu");
+            log::info("[OpenGeode] Added More to the same native management menu");
         }
     }
 
@@ -377,79 +344,3 @@ protected:
         ensureAccountButton(scene);
         ensureModPopupExtras(scene);
     }
-
-    void ensureIndexSwitcherButton(CCNode* scene) {
-        auto actionsMenu = typeinfo_cast<CCMenu*>(scene->getChildByIDRecursive("actions-menu"));
-        if (!actionsMenu || actionsMenu->getChildByID("index-switcher-button"_spr)) return;
-        auto indexBtn = CCMenuItemExt::createSpriteExtra(
-            CircleButtonSprite::createWithSpriteFrameName("geode.loader/geode-logo.png", 0.85f, CircleBaseColor::Blue),
-            [](auto) { showIndexListPopup(); }
-        );
-        indexBtn->setScale(0.8f); indexBtn->m_baseScale = 0.8f; indexBtn->setID("index-switcher-button"_spr);
-        actionsMenu->addChild(indexBtn); actionsMenu->updateLayout();
-    }
-
-    void ensureFilterButton(CCMenu* filtersMenu) {
-        if (auto existingBtn = filtersMenu->getChildByID("index-filter-button"_spr)) existingBtn->removeFromParent();
-        auto filterBtn = CCMenuItemExt::createSpriteExtra(buildFilterButtonSprite(), [](auto) { showFilterPopup(); });
-        filterBtn->setID("index-filter-button"_spr); filtersMenu->addChild(filterBtn, -100); filtersMenu->updateLayout();
-    }
-
-    void ensureAccountButton(CCNode* scene) {
-        auto backMenu = typeinfo_cast<CCMenu*>(scene->getChildByIDRecursive("back-menu"));
-        if (!backMenu) return;
-        auto currentIndex = getIndexUrl();
-        if (currentIndex != m_capabilityIndex) {
-            m_capabilityIndex = currentIndex;
-            m_capabilityPending = false;
-            m_capabilityTask.cancel();
-            if (m_accountButton) { m_accountButton->removeFromParent(); m_accountButton = nullptr; }
-        }
-        if (m_accountButton || m_capabilityPending) return;
-        m_capabilityPending = true;
-
-        auto req = web::WebRequest();
-        req.header("Accept", "application/json");
-        m_capabilityTask.spawn(req.get(trimSlash(currentIndex) + "/OpenGeode"), [this, backMenu](web::WebResponse res) {
-            m_capabilityPending = false;
-            if (!res.ok()) return;
-            auto json = res.json().unwrapOr(matjson::Value());
-            if (!json["enabled"].asBool().unwrapOr(false) || !json["allowGdLogin"].asBool().unwrapOr(false)) return;
-            auto sprite = createProfileButtonSprite();
-            if (!sprite) return;
-            m_accountButton = CCMenuItemSpriteExtra::create(sprite, this, menu_selector(ModsLayerWatcher::onAccount));
-            m_accountButton->setScale(.8f); m_accountButton->m_baseScale = .8f;
-            m_accountButton->setID("opengeode-account-button"_spr);
-            backMenu->addChild(m_accountButton); backMenu->updateLayout();
-        });
-    }
-
-    void onAccount(CCObject*) { showAccountPopup(); }
-
-    static std::string trimSlash(std::string url) {
-        while (!url.empty() && url.back() == '/') url.pop_back();
-        return url;
-    }
-
-public:
-    static ModsLayerWatcher* create() {
-        auto ret = new ModsLayerWatcher();
-        if (ret && ret->init()) { ret->autorelease(); return ret; }
-        delete ret; return nullptr;
-    }
-};
-
-} // namespace
-
-$on_mod(Loaded) {
-    ensurePresetsExist();
-    SceneEvent().listen([](CCScene* scene) {
-        if (!scene) return ListenerResult::Propagate;
-        if (scene->getChildByID("OpenGeode.mods-layer-watcher"_spr)) return ListenerResult::Propagate;
-        auto watcher = ModsLayerWatcher::create();
-        if (watcher) scene->addChild(watcher);
-        return ListenerResult::Propagate;
-    }).leak();
-}
-
-} // namespace opengeode
