@@ -54,35 +54,27 @@ std::string getPopupModID(CCNode* popup) {
 
 struct NativeAction {
     CCMenuItem* action = nullptr;
-    char const* label = nullptr;
-    char const* icon = nullptr;
+    CCNode* visual = nullptr;
 };
 
 NativeAction getNativeAction(CCNode* popup, char const* id) {
     auto node = popup->getChildByIDRecursive(id);
-    if (!node || !node->isVisible()) return {};
+    if (!node) return {};
 
     if (auto toggler = typeinfo_cast<CCMenuItemToggler*>(node)) {
         if (toggler->m_onButton && toggler->m_onButton->isVisible()) {
-            if (std::string(id) == "enable-button") return {toggler, "Disable", "GJ_deleteIcon_001.png"};
-            return {toggler, "Re-Disable", "reset.png"};
+            return {toggler, toggler->m_onButton};
         }
         if (toggler->m_offButton && toggler->m_offButton->isVisible()) {
-            if (std::string(id) == "enable-button") return {toggler, "Enable", "GJ_completesIcon_001.png"};
-            return {toggler, "Re-Enable", "reset.png"};
+            return {toggler, toggler->m_offButton};
         }
         return {};
     }
 
     auto item = typeinfo_cast<CCMenuItemSpriteExtra*>(node);
-    if (!item) return {};
+    if (!item || !item->isVisible()) return {};
 
-    if (std::string(id) == "update-button") return {item, "Update", "update.png"};
-    if (std::string(id) == "unavailable-button") return {item, "Unavailable", "exclamation.png"};
-    if (std::string(id) == "install-button") return {item, "Install", "GJ_downloadsIcon_001.png"};
-    if (std::string(id) == "uninstall-button") return {item, "Uninstall", "delete-white.png"};
-    if (std::string(id) == "cancel-button") return {item, "Cancel", "GJ_deleteIcon_001.png"};
-    return {};
+    return {item, item->getNormalImage()};
 }
 
 bool isPopupInstalled(CCNode* popup) {
@@ -103,6 +95,15 @@ CCMenu* getNativeInstallMenu(CCNode* popup) {
         if (menu) return menu;
     }
     return nullptr;
+}
+
+CCNode* cloneNativeVisual(CCNode* visual) {
+    if (!visual) return nullptr;
+    auto copy = visual->copyWithZone(nullptr);
+    if (!copy) return nullptr;
+    copy->setPosition({0.f, 0.f});
+    copy->setScale(.5f);
+    return copy;
 }
 
 void showInstallSource(std::string const& modID) {
@@ -171,11 +172,11 @@ protected:
             "install-button", "uninstall-button", "cancel-button"
         }) {
             auto native = getNativeAction(modPopup, id);
-            if (!native.action || !native.label || !native.icon) continue;
-            auto sprite = createFixedManageButton(native.label, native.icon);
-            if (!sprite) continue;
+            if (!native.action || !native.visual) continue;
+            auto visual = cloneNativeVisual(native.visual);
+            if (!visual) continue;
             auto item = CCMenuItemExt::createSpriteExtra(
-                sprite,
+                visual,
                 [native, this](CCMenuItemSpriteExtra*) {
                     native.action->activate();
                     this->onClose(nullptr);
