@@ -97,21 +97,25 @@ IconButtonSprite* createThemedManageButton(char const* text, char const* iconFra
 
 char const* getNativeButtonTexture(char const* id) {
     if (std::string_view(id) == "enable-button" || std::string_view(id) == "reenable-button") {
-        return getButtonTexture("GJ_button_02.png");
+        return "GJ_button_02.png";
     }
     if (std::string_view(id) == "uninstall-button") {
-        return getButtonTexture("GJ_button_06.png");
+        return "GJ_button_06.png";
     }
     if (std::string_view(id) == "unavailable-button") {
-        return getButtonTexture("GJ_button_05.png");
+        return "GJ_button_05.png";
     }
-    return getButtonTexture("GJ_button_01.png");
+    return "GJ_button_01.png";
 }
 
 CCNode* duplicateIcon(CCNode* icon) {
     auto sprite = typeinfo_cast<CCSprite*>(icon);
     if (!sprite || !sprite->getTexture()) return nullptr;
-    return CCSprite::createWithTexture(sprite->getTexture(), sprite->getTextureRect());
+    auto duplicate = CCSprite::createWithTexture(sprite->getTexture(), sprite->getTextureRect());
+    if (!duplicate) return nullptr;
+    duplicate->setFlipX(sprite->isFlipX());
+    duplicate->setFlipY(sprite->isFlipY());
+    return duplicate;
 }
 
 IconButtonSprite* recreateNativeButton(char const* id, IconButtonSprite* source) {
@@ -154,10 +158,10 @@ protected:
             if (!child || child->getID() == "opengeode-more-button") continue;
 
             auto action = typeinfo_cast<CCMenuItem*>(child);
-            if (!action) continue;
+            if (!action || !action->isVisible()) continue;
 
             auto source = getVisibleIconButton(action);
-            if (!source) continue;
+            if (!source || !source->isVisible()) continue;
 
             auto button = recreateNativeButton(child->getID().c_str(), source);
             if (!button) continue;
