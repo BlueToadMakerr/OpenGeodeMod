@@ -25,26 +25,34 @@ std::string getPopupModID(CCNode* popup) {
 
 struct NativeAction {
     CCMenuItem* action = nullptr;
-    CCNode* visual = nullptr;
+    IconButtonSprite* visual = nullptr;
 };
+
+IconButtonSprite* getVisibleIconButton(CCMenuItem* item) {
+    if (auto toggler = typeinfo_cast<CCMenuItemToggler*>(item)) {
+        auto wrapper = toggler->m_onButton && toggler->m_onButton->isVisible()
+            ? toggler->m_onButton
+            : toggler->m_offButton;
+        if (!wrapper) return nullptr;
+        for (auto child : CCArrayExt<CCNode*>(wrapper->getChildren())) {
+            if (auto button = typeinfo_cast<IconButtonSprite*>(child)) return button;
+        }
+        return nullptr;
+    }
+
+    if (auto spriteItem = typeinfo_cast<CCMenuItemSpriteExtra*>(item)) {
+        return typeinfo_cast<IconButtonSprite*>(spriteItem->getNormalImage());
+    }
+
+    return nullptr;
+}
 
 NativeAction getVisibleNativeAction(CCNode* popup, char const* id) {
     auto node = popup->getChildByIDRecursive(id);
     if (!node || !node->isVisible()) return {};
-
-    if (auto toggler = typeinfo_cast<CCMenuItemToggler*>(node)) {
-        if (toggler->m_onButton && toggler->m_onButton->isVisible()) {
-            return {toggler, toggler->m_onButton};
-        }
-        if (toggler->m_offButton && toggler->m_offButton->isVisible()) {
-            return {toggler, toggler->m_offButton};
-        }
-        return {};
-    }
-
-    auto item = typeinfo_cast<CCMenuItemSpriteExtra*>(node);
-    if (!item) return {};
-    return {item, item->getNormalImage()};
+    auto action = typeinfo_cast<CCMenuItem*>(node);
+    if (!action) return {};
+    return {action, getVisibleIconButton(action)};
 }
 
 bool isPopupInstalled(CCNode* popup) {
@@ -87,134 +95,49 @@ IconButtonSprite* createThemedManageButton(char const* text, char const* iconFra
     return button;
 }
 
-void logMoreNodeDetails(char const* label, CCNode* node) {
-    if (!node) {
-        log::debug("[OpenGeode][More] {}: null", label);
-        return;
+char const* getNativeButtonTexture(char const* id) {
+    if (std::string_view(id) == "enable-button" || std::string_view(id) == "reenable-button") {
+        return getButtonTexture("GJ_button_02.png");
     }
-
-    auto size = node->getContentSize();
-    auto anchor = node->getAnchorPoint();
-    log::debug(
-        "[OpenGeode][More] {}: ptr={} id='{}' sprite={} iconButton={} visible={} children={} size={}x{} anchor=({}, {}) scale=({}, {}) parent={}",
-        label,
-        static_cast<void*>(node),
-        node->getID(),
-        typeinfo_cast<CCSprite*>(node) != nullptr,
-        typeinfo_cast<IconButtonSprite*>(node) != nullptr,
-        node->isVisible(),
-        node->getChildrenCount(),
-        size.width,
-        size.height,
-        anchor.x,
-        anchor.y,
-        node->getScaleX(),
-        node->getScaleY(),
-        static_cast<void*>(node->getParent())
-    );
-
-    auto index = 0;
-    for (auto child : CCArrayExt<CCNode*>(node->getChildren())) {
-        if (!child) continue;
-        auto childSize = child->getContentSize();
-        log::debug(
-            "[OpenGeode][More] {} child[{}]: ptr={} id='{}' sprite={} iconButton={} visible={} children={} size={}x{} scale=({}, {})",
-            label,
-            index,
-            static_cast<void*>(child),
-            child->getID(),
-            typeinfo_cast<CCSprite*>(child) != nullptr,
-            typeinfo_cast<IconButtonSprite*>(child) != nullptr,
-            child->isVisible(),
-            child->getChildrenCount(),
-            childSize.width,
-            childSize.height,
-            child->getScaleX(),
-            child->getScaleY()
-        );
-        ++index;
+    if (std::string_view(id) == "uninstall-button") {
+        return getButtonTexture("GJ_button_06.png");
     }
+    if (std::string_view(id) == "unavailable-button") {
+        return getButtonTexture("GJ_button_05.png");
+    }
+    return getButtonTexture("GJ_button_01.png");
 }
 
-void logIconButtonDetails(char const* label, CCNode* node) {
-    auto button = typeinfo_cast<IconButtonSprite*>(node);
-    if (!button) {
-        log::debug("[OpenGeode][More] {}: not an IconButtonSprite", label);
-        return;
+CCNode* duplicateIcon(CCNode* icon) {
+    if (auto sprite = typeinfo_cast<CCSprite*>(icon)) {
+        auto texture = sprite->getTexture();
+        if (!texture) return nullptr;
+        return CCSprite::createWithTexture(
+            texture,
+            sprite->getTextureRect(),
+            sprite->isTextureRectRotated()
+        );
     }
 
-    auto bg = button->getBg();
-    auto text = button->getLabel();
-    auto icon = button->getIcon();
+    return nullptr;
+}
 
-    log::debug(
-        "[OpenGeode][More] {} IconButtonSprite: ptr={} string='{}' bg={} label={} icon={} content={}x{} scale=({}, {}) position=({}, {})",
-        label,
-        static_cast<void*>(button),
-        button->getString(),
-        static_cast<void*>(bg),
-        static_cast<void*>(text),
-        static_cast<void*>(icon),
-        button->getContentSize().width,
-        button->getContentSize().height,
-        button->getScaleX(),
-        button->getScaleY(),
-        button->getPositionX(),
-        button->getPositionY()
+IconButtonSprite* recreateNativeButton(char const* id, IconButtonSprite* source) {
+    if (!source) return nullptr;
+
+    auto icon = duplicateIcon(source->getIcon());
+    if (!icon) return nullptr;
+
+    auto button = IconButtonSprite::create(
+        getNativeButtonTexture(id),
+        icon,
+        source->getString(),
+        "bigFont.fnt"
     );
+    if (!button) return nullptr;
 
-    if (bg) {
-        auto insets = bg->getInsets();
-        log::debug(
-            "[OpenGeode][More] {} background: ptr={} size={}x{} scale=({}, {}) position=({}, {}) multiplier={} repeat={} insets=(top={}, right={}, bottom={}, left={})",
-            label,
-            static_cast<void*>(bg),
-            bg->getContentSize().width,
-            bg->getContentSize().height,
-            bg->getScaleX(),
-            bg->getScaleY(),
-            bg->getPositionX(),
-            bg->getPositionY(),
-            bg->getScaleMultiplier(),
-            bg->getRepeatCenter(),
-            insets.top,
-            insets.right,
-            insets.bottom,
-            insets.left
-        );
-        logMoreNodeDetails("IconButton background", bg);
-    }
-
-    if (text) {
-        log::debug(
-            "[OpenGeode][More] {} label: ptr={} string='{}' size={}x{} scale=({}, {}) position=({}, {}) anchor=({}, {})",
-            label,
-            static_cast<void*>(text),
-            text->getString(),
-            text->getContentSize().width,
-            text->getContentSize().height,
-            text->getScaleX(),
-            text->getScaleY(),
-            text->getPositionX(),
-            text->getPositionY(),
-            text->getAnchorPoint().x,
-            text->getAnchorPoint().y
-        );
-    }
-
-    if (icon) {
-        logMoreNodeDetails("IconButton icon", icon);
-        if (auto sprite = typeinfo_cast<CCSprite*>(icon)) {
-            log::debug(
-                "[OpenGeode][More] {} icon sprite: texture={} textureRect={} rectRotated={}",
-                label,
-                static_cast<void*>(sprite->getTexture()),
-                sprite->getTextureRect().size.width,
-                sprite->getTextureRect().size.height,
-                sprite->isTextureRectRotated()
-            );
-        }
-    }
+    button->setScale(source->getScale());
+    return button;
 }
 
 class MoreManagePopup : public Popup {
@@ -233,105 +156,28 @@ protected:
         m_mainLayer->addChildAtPosition(menu, Anchor::Center);
 
         auto managementMenu = getNativeManagementMenu(modPopup);
-        if (!managementMenu) {
-            log::debug("[OpenGeode][More] Cannot build More: native management menu was not found");
-            return true;
-        }
-
-        log::debug(
-            "[OpenGeode][More] Management menu: ptr={} children={} size={}x{} position=({}, {}) scale=({}, {})",
-            static_cast<void*>(managementMenu),
-            managementMenu->getChildrenCount(),
-            managementMenu->getContentSize().width,
-            managementMenu->getContentSize().height,
-            managementMenu->getPositionX(),
-            managementMenu->getPositionY(),
-            managementMenu->getScaleX(),
-            managementMenu->getScaleY()
-        );
+        if (!managementMenu) return true;
 
         for (auto child : CCArrayExt<CCNode*>(managementMenu->getChildren())) {
-            if (!child) continue;
-            auto id = child->getID();
-
-            if (id == "opengeode-more-button") continue;
+            if (!child || child->getID() == "opengeode-more-button") continue;
 
             auto action = typeinfo_cast<CCMenuItem*>(child);
-            if (!action) {
-                log::debug("[OpenGeode][More] Skip id='{}': child is not a CCMenuItem", id);
-                logMoreNodeDetails("non-action child", child);
-                continue;
-            }
+            if (!action) continue;
 
-            log::debug(
-                "[OpenGeode][More] Candidate id='{}': ptr={} toggler={} spriteExtra={} visible={} children={}",
-                id,
-                static_cast<void*>(action),
-                typeinfo_cast<CCMenuItemToggler*>(action) != nullptr,
-                typeinfo_cast<CCMenuItemSpriteExtra*>(action) != nullptr,
-                action->isVisible(),
-                action->getChildrenCount()
-            );
+            auto source = getVisibleIconButton(action);
+            if (!source) continue;
 
-            CCNode* visual = nullptr;
-            if (auto toggler = typeinfo_cast<CCMenuItemToggler*>(action)) {
-                logMoreNodeDetails("toggler on", toggler->m_onButton);
-                logMoreNodeDetails("toggler off", toggler->m_offButton);
-                if (toggler->m_onButton && toggler->m_onButton->isVisible()) visual = toggler->m_onButton;
-                else if (toggler->m_offButton && toggler->m_offButton->isVisible()) visual = toggler->m_offButton;
-
-                if (visual) {
-                    for (auto nested : CCArrayExt<CCNode*>(visual->getChildren())) {
-                        if (auto iconButton = typeinfo_cast<IconButtonSprite*>(nested)) {
-                            logIconButtonDetails("visible toggler IconButtonSprite", iconButton);
-                        }
-                    }
-                }
-            }
-            else if (auto spriteItem = typeinfo_cast<CCMenuItemSpriteExtra*>(action)) {
-                visual = spriteItem->getNormalImage();
-                logMoreNodeDetails("sprite-extra normal", visual);
-                logMoreNodeDetails("sprite-extra selected", spriteItem->getSelectedImage());
-                logIconButtonDetails("sprite-extra normal", visual);
-                logIconButtonDetails("sprite-extra selected", spriteItem->getSelectedImage());
-            }
-
-            if (!visual) {
-                log::debug("[OpenGeode][More] id='{}': no visual could be selected", id);
-                continue;
-            }
-
-            logMoreNodeDetails("selected visual", visual);
-            logIconButtonDetails("selected visual", visual);
-
-            log::debug(
-                "[OpenGeode][More] COPY TEST id='{}': attempting copyWithZone(nullptr) on visual={}",
-                id,
-                static_cast<void*>(visual)
-            );
-            auto copy = typeinfo_cast<CCNode*>(visual->copyWithZone(nullptr));
-            if (!copy) {
-                log::debug(
-                    "[OpenGeode][More] COPY FAILED id='{}': copyWithZone(nullptr) returned null",
-                    id
-                );
-                continue;
-            }
-
-            logMoreNodeDetails("copied visual", copy);
-
-            copy->setPosition({0.f, 0.f});
-            copy->setScale(.5f);
+            auto button = recreateNativeButton(child->getID().c_str(), source);
+            if (!button) continue;
 
             auto item = CCMenuItemExt::createSpriteExtra(
-                copy,
+                button,
                 [action, this](CCMenuItemSpriteExtra*) {
                     action->activate();
                     this->onClose(nullptr);
                 }
             );
             menu->addChild(item);
-            log::debug("[OpenGeode][More] Added id='{}' to More", id);
         }
 
         menu->updateLayout();
