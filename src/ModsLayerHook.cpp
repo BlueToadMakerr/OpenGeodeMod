@@ -99,7 +99,7 @@ CCMenu* getNativeInstallMenu(CCNode* popup) {
 
 CCNode* cloneNativeVisual(CCNode* visual) {
     if (!visual) return nullptr;
-    auto copy = visual->copyWithZone(nullptr);
+    auto copy = typeinfo_cast<CCNode*>(visual->copyWithZone(nullptr));
     if (!copy) return nullptr;
     copy->setPosition({0.f, 0.f});
     copy->setScale(.5f);
