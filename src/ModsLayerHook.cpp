@@ -116,6 +116,55 @@ IconButtonSprite* createThemedManageButton(char const* text, char const* iconFra
     return button;
 }
 
+void logMoreNodeDetails(char const* label, CCNode* node) {
+    if (!node) {
+        log::debug("[OpenGeode][More] {}: null", label);
+        return;
+    }
+
+    auto size = node->getContentSize();
+    auto anchor = node->getAnchorPoint();
+    log::debug(
+        "[OpenGeode][More] {}: ptr={} id='{}' sprite={} iconButton={} visible={} children={} size={}x{} anchor=({}, {}) scale=({}, {}) parent={}",
+        label,
+        static_cast<void*>(node),
+        node->getID(),
+        typeinfo_cast<CCSprite*>(node) != nullptr,
+        typeinfo_cast<IconButtonSprite*>(node) != nullptr,
+        node->isVisible(),
+        node->getChildrenCount(),
+        size.width,
+        size.height,
+        anchor.x,
+        anchor.y,
+        node->getScaleX(),
+        node->getScaleY(),
+        static_cast<void*>(node->getParent())
+    );
+
+    auto index = 0;
+    for (auto child : CCArrayExt<CCNode*>(node->getChildren())) {
+        if (!child) continue;
+        auto childSize = child->getContentSize();
+        log::debug(
+            "[OpenGeode][More] {} child[{}]: ptr={} id='{}' sprite={} iconButton={} visible={} children={} size={}x{} scale=({}, {})",
+            label,
+            index,
+            static_cast<void*>(child),
+            child->getID(),
+            typeinfo_cast<CCSprite*>(child) != nullptr,
+            typeinfo_cast<IconButtonSprite*>(child) != nullptr,
+            child->isVisible(),
+            child->getChildrenCount(),
+            childSize.width,
+            childSize.height,
+            child->getScaleX(),
+            child->getScaleY()
+        );
+        ++index;
+    }
+}
+
 class MoreManagePopup : public Popup {
     CCNode* m_modPopup = nullptr;
 
@@ -137,7 +186,18 @@ protected:
             return true;
         }
 
-        log::debug("[OpenGeode][More] Reading {} management-menu children", managementMenu->getChildrenCount());
+        log::debug(
+            "[OpenGeode][More] Management menu: ptr={} children={} size={}x{} position=({}, {}) scale=({}, {})",
+            static_cast<void*>(managementMenu),
+            managementMenu->getChildrenCount(),
+            managementMenu->getContentSize().width,
+            managementMenu->getContentSize().height,
+            managementMenu->getPositionX(),
+            managementMenu->getPositionY(),
+            managementMenu->getScaleX(),
+            managementMenu->getScaleY()
+        );
+
         for (auto child : CCArrayExt<CCNode*>(managementMenu->getChildren())) {
             if (!child) continue;
             auto id = child->getID();
@@ -147,16 +207,31 @@ protected:
             auto action = typeinfo_cast<CCMenuItem*>(child);
             if (!action) {
                 log::debug("[OpenGeode][More] Skip id='{}': child is not a CCMenuItem", id);
+                logMoreNodeDetails("non-action child", child);
                 continue;
             }
 
+            log::debug(
+                "[OpenGeode][More] Candidate id='{}': ptr={} toggler={} spriteExtra={} visible={} children={}",
+                id,
+                static_cast<void*>(action),
+                typeinfo_cast<CCMenuItemToggler*>(action) != nullptr,
+                typeinfo_cast<CCMenuItemSpriteExtra*>(action) != nullptr,
+                action->isVisible(),
+                action->getChildrenCount()
+            );
+
             CCNode* visual = nullptr;
             if (auto toggler = typeinfo_cast<CCMenuItemToggler*>(action)) {
+                logMoreNodeDetails("toggler on", toggler->m_onButton);
+                logMoreNodeDetails("toggler off", toggler->m_offButton);
                 if (toggler->m_onButton && toggler->m_onButton->isVisible()) visual = toggler->m_onButton;
                 else if (toggler->m_offButton && toggler->m_offButton->isVisible()) visual = toggler->m_offButton;
             }
             else if (auto spriteItem = typeinfo_cast<CCMenuItemSpriteExtra*>(action)) {
                 visual = spriteItem->getNormalImage();
+                logMoreNodeDetails("sprite-extra normal", visual);
+                logMoreNodeDetails("sprite-extra selected", spriteItem->getSelectedImage());
             }
 
             if (!visual) {
@@ -164,41 +239,23 @@ protected:
                 continue;
             }
 
-            auto size = visual->getContentSize();
-            auto scale = visual->getScale();
-            log::debug(
-                "[OpenGeode][More] COPY TEST id='{}': visual={} type={}; visible={} children={}; size={}x{}; scale={}; sprite={}; parent={}",
-                id,
-                static_cast<void*>(visual),
-                typeinfo_cast<CCSprite*>(visual) ? "CCSprite" : "CCNode",
-                visual->isVisible(),
-                visual->getChildrenCount(),
-                size.width,
-                size.height,
-                scale,
-                typeinfo_cast<CCSprite*>(visual) != nullptr,
-                static_cast<void*>(visual->getParent())
-            );
+            logMoreNodeDetails("selected visual", visual);
 
+            log::debug(
+                "[OpenGeode][More] COPY TEST id='{}': attempting copyWithZone(nullptr) on visual={}",
+                id,
+                static_cast<void*>(visual)
+            );
             auto copy = typeinfo_cast<CCNode*>(visual->copyWithZone(nullptr));
             if (!copy) {
                 log::debug(
-                    "[OpenGeode][More] COPY FAILED id='{}': copyWithZone(nullptr) returned null for visual={}",
-                    id,
-                    static_cast<void*>(visual)
+                    "[OpenGeode][More] COPY FAILED id='{}': copyWithZone(nullptr) returned null",
+                    id
                 );
                 continue;
             }
 
-            log::debug(
-                "[OpenGeode][More] COPY OK id='{}': copy={} type={}; children={}; size={}x{}",
-                id,
-                static_cast<void*>(copy),
-                typeinfo_cast<CCSprite*>(copy) ? "CCSprite" : "CCNode",
-                copy->getChildrenCount(),
-                copy->getContentSize().width,
-                copy->getContentSize().height
-            );
+            logMoreNodeDetails("copied visual", copy);
 
             copy->setPosition({0.f, 0.f});
             copy->setScale(.5f);
