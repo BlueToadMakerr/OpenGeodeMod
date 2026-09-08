@@ -22,29 +22,33 @@ $on_mod(Loaded) {
             }
 
             std::string givenUrl = req.getUrl().data();
-            if (!string::contains(givenUrl, "api.geode-sdk.org")) {
-                return ListenerResult::Propagate;
-            }
 
-            // Geode performs mod installs/updates through this endpoint. The
-            // version is deliberately parsed from the request rather than
-            // hard-coded because Geode only keeps one version of a mod
-            // installed at a time.
-            auto downloadPrefix = std::string("https://api.geode-sdk.org/v1/mods/");
-            if (givenUrl.starts_with(downloadPrefix)) {
-                auto modStart = downloadPrefix.size();
-                auto versionsPos = givenUrl.find("/versions/", modStart);
-                if (versionsPos != std::string::npos && versionsPos > modStart) {
-                    auto versionStart = versionsPos + std::string("/versions/").size();
+            // Geode follows redirects for downloads. Depending on where the
+            // intercept runs, the request we see can therefore already be
+            // pointed at the selected index instead of api.geode-sdk.org.
+            // Track the download path independently of the hostname so both
+            // the original API request and the redirected index request are
+            // captured.
+            auto modsPath = std::string("/v1/mods/");
+            auto versionsPos = givenUrl.find(modsPath);
+            if (versionsPos != std::string::npos) {
+                auto modStart = versionsPos + modsPath.size();
+                auto versionMarker = givenUrl.find("/versions/", modStart);
+                if (versionMarker != std::string::npos && versionMarker > modStart) {
+                    auto versionStart = versionMarker + std::string("/versions/").size();
                     auto downloadPos = givenUrl.find("/download", versionStart);
                     if (downloadPos != std::string::npos && downloadPos > versionStart) {
-                        auto modID = givenUrl.substr(modStart, versionsPos - modStart);
+                        auto modID = givenUrl.substr(modStart, versionMarker - modStart);
                         auto version = givenUrl.substr(versionStart, downloadPos - versionStart);
                         if (!modID.empty() && !version.empty()) {
                             setInstalledModSource(modID, version);
                         }
                     }
                 }
+            }
+
+            if (!string::contains(givenUrl, "api.geode-sdk.org")) {
+                return ListenerResult::Propagate;
             }
 
             auto const modListPrefix = std::string("https://api.geode-sdk.org/v1/mods");
