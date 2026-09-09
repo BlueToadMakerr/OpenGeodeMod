@@ -12,6 +12,8 @@ namespace opengeode {
 
 namespace {
 
+constexpr char const* MORE_HIDDEN_MARKER_ID = "opengeode-more-hidden-marker";
+
 std::string getPopupModID(CCNode* popup) {
     auto label = typeinfo_cast<CCLabelBMFont*>(popup->getChildByIDRecursive("mod-id-label"));
     if (!label) return "";
@@ -114,7 +116,8 @@ void debugNativeButton(char const* id, IconButtonSprite* button) {
         id,
         button->getString(),
         button->getScale(),
-        button->getContentSize().width, button->getContentSize().height,
+        button->getContentSize().width,
+        button->getContentSize().height,
         fmt::ptr(button->getBg()),
         fmt::ptr(button->getIcon())
     );
@@ -225,6 +228,59 @@ CCMenu* getNativeManagementMenu(CCNode* popup) {
     return nullptr;
 }
 
+bool isMoreHidden(CCMenuItem* action) {
+    return action && action->getChildByID(MORE_HIDDEN_MARKER_ID);
+}
+
+void setMoreHidden(CCMenuItem* action, bool hidden) {
+    if (!action) return;
+
+    auto marker = action->getChildByID(MORE_HIDDEN_MARKER_ID);
+    if (hidden) {
+        if (!marker) {
+            marker = CCNode::create();
+            marker->setID(MORE_HIDDEN_MARKER_ID);
+            marker->setVisible(false);
+            action->addChild(marker);
+        }
+        action->setVisible(false);
+    }
+    else {
+        if (marker) marker->removeFromParentAndCleanup(true);
+    }
+}
+
+void resetMoreHiddenButtons(CCMenu* managementMenu) {
+    for (auto child : CCArrayExt<CCNode*>(managementMenu->getChildren())) {
+        auto action = typeinfo_cast<CCMenuItem*>(child);
+        if (!action || !isMoreHidden(action)) continue;
+        setMoreHidden(action, false);
+        action->setVisible(true);
+    }
+}
+
+void applyManagementButtonLimit(CCMenu* managementMenu) {
+    resetMoreHiddenButtons(managementMenu);
+
+    auto maxButtons = Mod::get()->getSettingValue<int64_t>("max-management-buttons");
+    auto visibleBeforeMore = std::vector<CCMenuItem*>();
+
+    for (auto child : CCArrayExt<CCNode*>(managementMenu->getChildren())) {
+        if (!child || child->getID() == "opengeode-more-button") continue;
+        auto action = typeinfo_cast<CCMenuItem*>(child);
+        if (!action || !action->isVisible()) continue;
+        visibleBeforeMore.push_back(action);
+    }
+
+    auto keepCount = maxButtons > 1 ? static_cast<size_t>(maxButtons - 1) : 0u;
+    if (visibleBeforeMore.size() <= keepCount) return;
+
+    for (auto it = visibleBeforeMore.rbegin(); it != visibleBeforeMore.rend() && visibleBeforeMore.size() > keepCount; ++it) {
+        setMoreHidden(*it, true);
+        visibleBeforeMore.pop_back();
+    }
+}
+
 void showInstallSource(std::string const& modID) {
     auto source = getInstalledModSource(modID);
     if (!source) return;
@@ -319,7 +375,7 @@ protected:
             if (!child || child->getID() == "opengeode-more-button") continue;
 
             auto action = typeinfo_cast<CCMenuItem*>(child);
-            if (!action || !action->isVisible()) continue;
+            if (!action || (!action->isVisible() && !isMoreHidden(action))) continue;
 
             auto source = getVisibleIconButton(action);
             if (!source || !source->isVisible()) continue;
@@ -375,17 +431,21 @@ void ensureModPopupExtras(CCNode* popup) {
         }
     }
 
-    if (!managementMenu->getChildByID("opengeode-more-button"_spr)) {
-        if (auto sprite = createThemedManageButton("More", "GJ_filterIcon_001.png")) {
-            auto more = CCMenuItemExt::createSpriteExtra(
-                sprite,
-                [popup](CCMenuItemSpriteExtra*) {
-                    MoreManagePopup::create(popup)->show();
-                }
-            );
-            more->setID("opengeode-more-button"_spr);
-            managementMenu->addChild(more);
-        }
+    if (auto more = managementMenu->getChildByID("opengeode-more-button"_spr)) {
+        more->removeFromParentAndCleanup(true);
+    }
+
+    applyManagementButtonLimit(managementMenu);
+
+    if (auto sprite = createThemedManageButton("More", "GJ_filterIcon_001.png")) {
+        auto more = CCMenuItemExt::createSpriteExtra(
+            sprite,
+            [popup](CCMenuItemSpriteExtra*) {
+                MoreManagePopup::create(popup)->show();
+            }
+        );
+        more->setID("opengeode-more-button"_spr);
+        managementMenu->addChild(more);
     }
 
     managementMenu->updateLayout();
