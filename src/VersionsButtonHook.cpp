@@ -46,24 +46,23 @@ IconButtonSprite* createVersionsButtonSprite() {
     return button;
 }
 
-void ensureVersionsButton(CCNode* popup) {
+bool ensureVersionsButton(CCNode* popup) {
     auto menu = getManagementMenu(popup);
-    if (!menu) return;
-
-    if (auto existing = menu->getChildByID("opengeode-versions-button"_spr)) {
-        existing->removeFromParentAndCleanup(true);
-    }
+    if (!menu) return false;
+    if (menu->getChildByID("opengeode-versions-button"_spr)) return false;
 
     auto modID = getPopupModID(popup);
-    if (modID.empty()) return;
+    if (modID.empty()) return false;
     auto sprite = createVersionsButtonSprite();
-    if (!sprite) return;
+    if (!sprite) return false;
 
     auto button = CCMenuItemExt::createSpriteExtra(sprite, [modID](CCMenuItemSpriteExtra*) {
         showVersionsPopup(nullptr, modID);
     });
     button->setID("opengeode-versions-button"_spr);
     menu->addChild(button);
+    menu->updateLayout();
+    return true;
 }
 
 class VersionsButtonWatcher : public CCNode {
@@ -83,9 +82,9 @@ protected:
         auto modList = listFrame->getChildByID("ModList");
         if (!modList || !modList->getChildByID("top-container")) return;
 
-        ensureVersionsButton(scene);
-        ensureModPopupExtras(scene);
-        if (auto menu = getManagementMenu(scene)) menu->updateLayout();
+        if (ensureVersionsButton(scene)) {
+            ensureModPopupExtras(scene);
+        }
     }
 
 public:
