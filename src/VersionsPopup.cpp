@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <ctime>
 
 using namespace geode::prelude;
 
@@ -37,7 +38,6 @@ std::string formatDate(matjson::Value const& version) {
     auto raw = version["created_at"];
     auto iso = raw.asString().unwrapOr("");
     if (!iso.empty()) {
-        // API timestamps are ISO-8601, e.g. 2026-09-07T20:34:23Z.
         if (iso.size() >= 10) return iso.substr(0, 10);
         return iso;
     }
@@ -74,28 +74,6 @@ std::string currentPlatformKey() {
 #else
     return "";
 #endif
-}
-
-std::string currentPlatformName() {
-#ifdef GEODE_IS_WINDOWS
-    return "Windows";
-#elif defined(GEODE_IS_MACOS)
-    return "Mac";
-#elif defined(GEODE_IS_IOS)
-    return "iOS";
-#elif defined(GEODE_IS_ANDROID64)
-    return "Android64";
-#elif defined(GEODE_IS_ANDROID32)
-    return "Android32";
-#else
-    return GEODE_PLATFORM_NAME;
-#endif
-}
-
-std::string currentGameMajor() {
-    auto version = Loader::get()->getGameVersion();
-    auto dot = version.find('.');
-    return dot == std::string::npos ? version : version.substr(0, dot);
 }
 
 std::string versionMajor(std::string value) {
@@ -249,7 +227,6 @@ public:
         m_modID = std::move(modID);
         m_modPopup = modPopup;
 
-        // Keep enough room for five rows while staying comfortably inside the screen.
         if (!Popup::init(300.f, 292.f, getPopupBackground())) return false;
         if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .8f);
 
@@ -280,24 +257,20 @@ public:
         navigation->setPosition({width / 2.f, 22.f});
         m_mainLayer->addChild(navigation);
 
-        auto makeArrow = [](bool right) -> CCMenuItemSpriteExtra* {
-            auto sprite = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
-            if (!sprite) return nullptr;
-            sprite->setScale(.65f);
-            if (right) sprite->setRotation(180.f);
-            return CCMenuItemExt::createSpriteExtra(sprite, [](CCObject*) {});
-        };
-
-        m_prevButton = makeArrow(false);
-        m_nextButton = makeArrow(true);
-        if (m_prevButton) {
+        auto prevSprite = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
+        if (prevSprite) {
+            prevSprite->setScale(.65f);
+            m_prevButton = CCMenuItemExt::createSpriteExtra(prevSprite, [this](CCObject* obj) { previousPage(obj); });
             m_prevButton->setPosition({13.f, 15.f});
-            m_prevButton->setCallback([this](CCObject* obj) { previousPage(obj); });
             navigation->addChild(m_prevButton);
         }
-        if (m_nextButton) {
+
+        auto nextSprite = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
+        if (nextSprite) {
+            nextSprite->setScale(.65f);
+            nextSprite->setRotation(180.f);
+            m_nextButton = CCMenuItemExt::createSpriteExtra(nextSprite, [this](CCObject* obj) { nextPage(obj); });
             m_nextButton->setPosition({width - 13.f, 15.f});
-            m_nextButton->setCallback([this](CCObject* obj) { nextPage(obj); });
             navigation->addChild(m_nextButton);
         }
 
@@ -391,7 +364,6 @@ void VersionPage::rebuild() {
     removeAllChildrenWithCleanup(true);
 
     const auto currentGD = Loader::get()->getGameVersion();
-    const auto currentGameMajorVersion = currentGameMajor();
     const auto currentGeode = Loader::get()->getVersion().toNonVString();
     const auto currentGeodeMajor = versionMajor(currentGeode);
     const auto currentKey = currentPlatformKey();
