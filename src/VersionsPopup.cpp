@@ -13,36 +13,29 @@ namespace opengeode {
 namespace {
 
 std::string versionStatusText(std::string const& status) {
-    if (status == "accepted" || status.empty()) return "";
+    if (status.empty() || status == "accepted") return "";
     return fmt::format(" ({})", status);
 }
 
 class VersionsPopup;
 
-class VersionRow : public CCNode {
+class VersionContainer : public CCNode {
     std::string m_modID;
     std::string m_version;
     CCNode* m_modPopup = nullptr;
     VersionsPopup* m_versionsPopup = nullptr;
-    CCMenuItemSpriteExtra* m_downloadButton = nullptr;
 
     void downloadVersion(CCObject*);
 
 public:
-    static VersionRow* create(
-        std::string modID,
-        std::string name,
-        std::string version,
-        std::string status,
-        std::string createdAt,
-        CCNode* modPopup,
-        VersionsPopup* versionsPopup
+    static VersionContainer* create(
+        std::string modID, std::string name, std::string version,
+        std::string status, std::string createdAt,
+        CCNode* modPopup, VersionsPopup* versionsPopup
     ) {
-        auto ret = new VersionRow();
-        if (ret && ret->init(
-            std::move(modID), std::move(name), std::move(version), std::move(status),
-            std::move(createdAt), modPopup, versionsPopup
-        )) {
+        auto ret = new VersionContainer();
+        if (ret && ret->init(std::move(modID), std::move(name), std::move(version),
+            std::move(status), std::move(createdAt), modPopup, versionsPopup)) {
             ret->autorelease();
             return ret;
         }
@@ -50,15 +43,9 @@ public:
         return nullptr;
     }
 
-    bool init(
-        std::string modID,
-        std::string name,
-        std::string version,
-        std::string status,
-        std::string createdAt,
-        CCNode* modPopup,
-        VersionsPopup* versionsPopup
-    );
+    bool init(std::string modID, std::string name, std::string version,
+        std::string status, std::string createdAt,
+        CCNode* modPopup, VersionsPopup* versionsPopup);
 };
 
 class VersionsPopup : public Popup {
@@ -75,9 +62,7 @@ class VersionsPopup : public Popup {
     }
 
 public:
-    void closeVersionsPopup() {
-        onClose(nullptr);
-    }
+    void closeVersionsPopup() { onClose(nullptr); }
 
     static VersionsPopup* create(std::string modID, CCNode* modPopup) {
         auto ret = new VersionsPopup();
@@ -94,27 +79,19 @@ public:
         setTitle("Versions");
         if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .8f);
 
-        auto scrollBackground = NineSlice::createWithSpriteFrameName(
-            getSectionBackground(), {10.f, 10.f, 10.f, 10.f}
-        );
-        if (scrollBackground) {
-            scrollBackground->setContentSize({268.f, 250.f});
-            m_mainLayer->addChildAtPosition(scrollBackground, Anchor::Center, ccp(0.f, -3.f));
-        }
-
-        auto scroll = ScrollLayer::create({260.f, 242.f});
-        scroll->setPosition({15.f, 30.f});
-        scroll->m_contentLayer->setLayout(ScrollLayer::createDefaultListLayout(5.f));
+        auto scroll = ScrollLayer::create({260.f, 250.f});
+        scroll->setPosition({15.f, 25.f});
+        scroll->m_contentLayer->setLayout(ScrollLayer::createDefaultListLayout(4.f));
         m_mainLayer->addChild(scroll);
 
         m_loadingLabel = CCLabelBMFont::create("Loading...", "goldFont.fnt");
         m_loadingLabel->setScale(.32f);
-        m_mainLayer->addChildAtPosition(m_loadingLabel, Anchor::Center, ccp(0.f, -3.f));
+        m_mainLayer->addChildAtPosition(m_loadingLabel, Anchor::Center, ccp(0.f, -5.f));
 
         m_errorLabel = CCLabelBMFont::create("", "goldFont.fnt");
         m_errorLabel->setScale(.26f);
         m_errorLabel->setVisible(false);
-        m_mainLayer->addChildAtPosition(m_errorLabel, Anchor::Center, ccp(0.f, -22.f));
+        m_mainLayer->addChildAtPosition(m_errorLabel, Anchor::Center, ccp(0.f, -25.f));
 
         m_requestTask.spawn(
             "OpenGeode version list",
@@ -131,13 +108,10 @@ public:
                     showError("The server returned invalid JSON.");
                     return;
                 }
+
                 auto payload = (*json)["payload"];
-                if (!payload.isObject()) {
-                    showError("The server response did not contain version data.");
-                    return;
-                }
                 auto versions = payload["versions"];
-                if (!versions.isArray()) {
+                if (!payload.isObject() || !versions.isArray()) {
                     showError("The server response did not contain a versions list.");
                     return;
                 }
@@ -145,94 +119,87 @@ public:
                 m_loadingLabel->setVisible(false);
                 for (auto const& version : versions) {
                     if (!version.isObject()) continue;
-                    auto row = VersionRow::create(
+                    auto row = VersionContainer::create(
                         modID,
                         version["name"].asString().unwrapOr(modID),
                         version["version"].asString().unwrapOr("unknown"),
                         version["status"].asString().unwrapOr("accepted"),
                         version["created_at"].asString().unwrapOr("unknown"),
-                        modPopup,
-                        this
+                        modPopup, this
                     );
                     if (row) scroll->m_contentLayer->addChild(row);
                 }
+
                 scroll->m_contentLayer->updateLayout();
                 scroll->scrollToTop();
             }
         );
+
         return true;
     }
 };
 
-bool VersionRow::init(
-    std::string modID,
-    std::string name,
-    std::string version,
-    std::string status,
-    std::string createdAt,
-    CCNode* modPopup,
-    VersionsPopup* versionsPopup
+bool VersionContainer::init(
+    std::string modID, std::string name, std::string version,
+    std::string status, std::string createdAt,
+    CCNode* modPopup, VersionsPopup* versionsPopup
 ) {
     if (!CCNode::init()) return false;
+
     m_modID = std::move(modID);
     m_version = std::move(version);
     m_modPopup = modPopup;
     m_versionsPopup = versionsPopup;
-    setContentSize({245.f, 62.f});
 
-    auto background = NineSlice::createWithSpriteFrameName(
-        getSectionBackground(), {8.f, 8.f, 8.f, 8.f}
-    );
-    if (background) {
-        background->setContentSize({245.f, 62.f});
-        addChildAtPosition(background, Anchor::Center);
-    }
+    // One simple row matching the scroll layer width.
+    setContentSize({260.f, 62.f});
 
     auto title = CCLabelBMFont::create(
         fmt::format("{}{}", name, versionStatusText(status)).c_str(), "bigFont.fnt"
     );
     title->setScale(.34f);
     title->setAnchorPoint({0.f, .5f});
-    addChildAtPosition(title, Anchor::Left, ccp(8.f, 43.f));
+    addChildAtPosition(title, Anchor::Left, ccp(6.f, 45.f));
 
     auto versionLabel = CCLabelBMFont::create(
         fmt::format("Version {}", m_version).c_str(), "goldFont.fnt"
     );
     versionLabel->setScale(.28f);
     versionLabel->setAnchorPoint({0.f, .5f});
-    addChildAtPosition(versionLabel, Anchor::Left, ccp(8.f, 24.f));
+    addChildAtPosition(versionLabel, Anchor::Left, ccp(6.f, 28.f));
 
-    auto released = CCLabelBMFont::create(
+    auto dateLabel = CCLabelBMFont::create(
         fmt::format("Released {}", createdAt).c_str(), "goldFont.fnt"
     );
-    released->setScale(.25f);
-    released->setAnchorPoint({0.f, .5f});
-    addChildAtPosition(released, Anchor::Left, ccp(8.f, 9.f));
+    dateLabel->setScale(.25f);
+    dateLabel->setAnchorPoint({0.f, .5f});
+    addChildAtPosition(dateLabel, Anchor::Left, ccp(6.f, 12.f));
 
     auto installed = getInstalledModSource(m_modID);
     bool isInstalled = installed && installed->version == m_version;
+
     auto buttonSprite = ButtonSprite::create(
         isInstalled ? "Installed" : "Download",
         "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .65f
     );
     buttonSprite->setScale(.48f);
-    m_downloadButton = CCMenuItemSpriteExtra::create(
-        buttonSprite,
-        this,
-        menu_selector(VersionRow::downloadVersion)
+
+    auto button = CCMenuItemSpriteExtra::create(
+        buttonSprite, this, menu_selector(VersionContainer::downloadVersion)
     );
-    if (isInstalled) m_downloadButton->setEnabled(false);
+    if (isInstalled) button->setEnabled(false);
 
     auto menu = CCMenu::create();
-    menu->addChild(m_downloadButton);
-    menu->setContentSize({72.f, 45.f});
-    addChildAtPosition(menu, Anchor::Right, ccp(-3.f, 0.f));
+    menu->addChild(button);
+    menu->setContentSize({76.f, 45.f});
+    addChildAtPosition(menu, Anchor::Right, ccp(-2.f, 0.f));
 
     return true;
 }
 
-void VersionRow::downloadVersion(CCObject*) {
+void VersionContainer::downloadVersion(CCObject*) {
     if (!m_modPopup) return;
+
     auto install = m_modPopup->getChildByIDRecursive("install-button");
     auto action = typeinfo_cast<CCMenuItem*>(install);
     if (!action) return;
