@@ -23,10 +23,7 @@ class VersionContainer : public CCNode {
     void installVersion(CCObject*);
 
 public:
-    static VersionContainer* create(
-        std::string modID, std::string version,
-        CCNode* modPopup, VersionsPopup* versionsPopup
-    ) {
+    static VersionContainer* create(std::string modID, std::string version, CCNode* modPopup, VersionsPopup* versionsPopup) {
         auto ret = new VersionContainer();
         if (ret && ret->init(std::move(modID), std::move(version), modPopup, versionsPopup)) {
             ret->autorelease();
@@ -36,10 +33,7 @@ public:
         return nullptr;
     }
 
-    bool init(
-        std::string modID, std::string version,
-        CCNode* modPopup, VersionsPopup* versionsPopup
-    );
+    bool init(std::string modID, std::string version, CCNode* modPopup, VersionsPopup* versionsPopup);
 };
 
 class VersionsPopup : public Popup {
@@ -157,22 +151,14 @@ public:
 
                 for (auto const& version : versions) {
                     if (!version.isObject()) continue;
-
                     auto versionString = version["version"].asString().unwrapOr("unknown");
                     log::info("[OpenGeode][VersionsDebug] Creating row for version={}", versionString);
-
-                    auto row = VersionContainer::create(
-                        modID,
-                        versionString,
-                        modPopup,
-                        this
-                    );
+                    auto row = VersionContainer::create(modID, versionString, modPopup, this);
                     if (row) scroll->m_contentLayer->addChild(row);
                 }
 
                 scroll->m_contentLayer->updateLayout(true);
                 scroll->scrollToTop();
-
                 log::info(
                     "[OpenGeode][VersionsDebug] Layout complete: contentSize=({}, {}) children={}",
                     scroll->m_contentLayer->getContentSize().width,
@@ -186,10 +172,7 @@ public:
     }
 };
 
-bool VersionContainer::init(
-    std::string modID, std::string version,
-    CCNode* modPopup, VersionsPopup* versionsPopup
-) {
+bool VersionContainer::init(std::string modID, std::string version, CCNode* modPopup, VersionsPopup* versionsPopup) {
     if (!CCNode::init()) return false;
 
     m_modID = std::move(modID);
@@ -221,11 +204,10 @@ bool VersionContainer::init(
 
     auto button = CCMenuItemExt::createSpriteExtra(buttonSprite, [this](CCObject*) {
         log::info(
-            "[OpenGeode][VersionsDebug] INSTALL CALLBACK FIRED version={} node={} visible={} enabled={}",
+            "[OpenGeode][VersionsDebug] INSTALL CALLBACK FIRED version={} row={} visible={}",
             m_version,
             static_cast<void*>(this),
-            this->isVisible(),
-            this->isEnabled()
+            this->isVisible()
         );
         installVersion(nullptr);
     });
@@ -284,7 +266,6 @@ void VersionContainer::installVersion(CCObject*) {
 
     log::info("[OpenGeode][VersionsDebug] Setting pending version install: {}", m_version);
     setPendingVersionInstall(m_modID, m_version);
-
     log::info("[OpenGeode][VersionsDebug] Activating native install-button");
     action->activate();
     log::info("[OpenGeode][VersionsDebug] Native install-button activate() returned");
