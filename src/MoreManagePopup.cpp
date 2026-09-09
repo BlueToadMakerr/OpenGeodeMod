@@ -26,24 +26,16 @@ std::string getPopupModID(CCNode* popup) {
     return value;
 }
 
-struct NativeAction {
-    CCMenuItem* action = nullptr;
-    IconButtonSprite* visual = nullptr;
-};
+struct NativeAction { CCMenuItem* action = nullptr; IconButtonSprite* visual = nullptr; };
 
 void debugTextureKey(char const* label, CCTexture2D* texture) {
-    if (!texture) {
-        log::info("[OpenGeode][MoreDebug] {}: no texture", label);
-        return;
-    }
+    if (!texture) { log::info("[OpenGeode][MoreDebug] {}: no texture", label); return; }
     auto cache = CCTextureCache::sharedTextureCache();
     auto textures = cache ? cache->snapshotTextures() : nullptr;
     if (!textures) return;
-    for (auto key : CCArrayExt<CCString*>(textures->allKeys())) {
-        if (key && textures->objectForKey(key->getCString()) == texture) {
+    for (auto key : CCArrayExt<CCString*>(textures->allKeys()))
+        if (key && textures->objectForKey(key->getCString()) == texture)
             log::info("[OpenGeode][MoreDebug] {}: texture={} cacheKey=\"{}\"", label, texture->getName(), key->getCString());
-        }
-    }
 }
 
 std::string getTextureCacheKey(CCTexture2D* texture) {
@@ -51,22 +43,15 @@ std::string getTextureCacheKey(CCTexture2D* texture) {
     auto cache = CCTextureCache::sharedTextureCache();
     auto textures = cache ? cache->snapshotTextures() : nullptr;
     if (!textures) return "";
-    for (auto key : CCArrayExt<CCString*>(textures->allKeys())) {
+    for (auto key : CCArrayExt<CCString*>(textures->allKeys()))
         if (key && textures->objectForKey(key->getCString()) == texture) return key->getCString();
-    }
     return "";
 }
 
 void debugSprite(char const* label, CCSprite* sprite) {
     if (!sprite) return;
     auto rect = sprite->getTextureRect();
-    log::info(
-        "[OpenGeode][MoreDebug] {}: texture={} rect=({}, {}, {}, {}) rotated={} flipX={} flipY={}",
-        label,
-        sprite->getTexture() ? sprite->getTexture()->getName() : 0,
-        rect.origin.x, rect.origin.y, rect.size.width, rect.size.height,
-        sprite->isTextureRectRotated(), sprite->isFlipX(), sprite->isFlipY()
-    );
+    log::info("[OpenGeode][MoreDebug] {}: texture={} rect=({}, {}, {}, {}) rotated={} flipX={} flipY={}", label, sprite->getTexture() ? sprite->getTexture()->getName() : 0, rect.origin.x, rect.origin.y, rect.size.width, rect.size.height, sprite->isTextureRectRotated(), sprite->isFlipX(), sprite->isFlipY());
     debugTextureKey(label, sprite->getTexture());
 }
 
@@ -74,12 +59,7 @@ IconButtonSprite* getVisibleIconButton(CCMenuItem* item);
 
 void debugNativeButton(char const* id, IconButtonSprite* button) {
     if (!button) return;
-    log::info(
-        "[OpenGeode][MoreDebug] {}: string=\"{}\" scale={} size=({}, {}) bg={} icon={}",
-        id, button->getString(), button->getScale(),
-        button->getContentSize().width, button->getContentSize().height,
-        fmt::ptr(button->getBg()), fmt::ptr(button->getIcon())
-    );
+    log::info("[OpenGeode][MoreDebug] {}: string=\"{}\" scale={} size=({}, {}) bg={} icon={}", id, button->getString(), button->getScale(), button->getContentSize().width, button->getContentSize().height, fmt::ptr(button->getBg()), fmt::ptr(button->getIcon()));
     debugSprite("  icon", typeinfo_cast<CCSprite*>(button->getIcon()));
     auto bg = button->getBg();
     if (!bg) return;
@@ -98,11 +78,7 @@ void debugManagementChild(CCNode* child) {
     if (!child) return;
     auto id = child->getID();
     auto action = typeinfo_cast<CCMenuItem*>(child);
-    log::info(
-        "[OpenGeode][MoreDebug] management child id=\"{}\" visible={} enabled={} menuItem={} toggler={}",
-        id, child->isVisible(), action ? action->isEnabled() : false,
-        action != nullptr, typeinfo_cast<CCMenuItemToggler*>(action) != nullptr
-    );
+    log::info("[OpenGeode][MoreDebug] management child id=\"{}\" visible={} enabled={} menuItem={} toggler={}", id, child->isVisible(), action ? action->isEnabled() : false, action != nullptr, typeinfo_cast<CCMenuItemToggler*>(action) != nullptr);
     if (!action) return;
     auto visual = getVisibleIconButton(action);
     if (visual) debugNativeButton(id.c_str(), visual);
@@ -110,17 +86,13 @@ void debugManagementChild(CCNode* child) {
 
 IconButtonSprite* getVisibleIconButton(CCMenuItem* item) {
     if (auto toggler = typeinfo_cast<CCMenuItemToggler*>(item)) {
-        auto wrapper = toggler->m_onButton && toggler->m_onButton->isVisible()
-            ? toggler->m_onButton : toggler->m_offButton;
+        auto wrapper = toggler->m_onButton && toggler->m_onButton->isVisible() ? toggler->m_onButton : toggler->m_offButton;
         if (!wrapper) return nullptr;
-        for (auto child : CCArrayExt<CCNode*>(wrapper->getChildren())) {
+        for (auto child : CCArrayExt<CCNode*>(wrapper->getChildren()))
             if (auto button = typeinfo_cast<IconButtonSprite*>(child)) return button;
-        }
         return nullptr;
     }
-    if (auto spriteItem = typeinfo_cast<CCMenuItemSpriteExtra*>(item)) {
-        return typeinfo_cast<IconButtonSprite*>(spriteItem->getNormalImage());
-    }
+    if (auto spriteItem = typeinfo_cast<CCMenuItemSpriteExtra*>(item)) return typeinfo_cast<IconButtonSprite*>(spriteItem->getNormalImage());
     return nullptr;
 }
 
@@ -133,17 +105,11 @@ NativeAction getVisibleNativeAction(CCNode* popup, char const* id) {
 }
 
 bool isPopupInstalled(CCNode* popup) {
-    return getVisibleNativeAction(popup, "uninstall-button").action ||
-        getVisibleNativeAction(popup, "update-button").action ||
-        getVisibleNativeAction(popup, "enable-button").action ||
-        getVisibleNativeAction(popup, "reenable-button").action;
+    return getVisibleNativeAction(popup, "uninstall-button").action || getVisibleNativeAction(popup, "update-button").action || getVisibleNativeAction(popup, "enable-button").action || getVisibleNativeAction(popup, "reenable-button").action;
 }
 
 CCMenu* getNativeManagementMenu(CCNode* popup) {
-    for (auto const& id : {
-        "update-button", "enable-button", "reenable-button", "unavailable-button",
-        "install-button", "uninstall-button", "cancel-button"
-    }) {
+    for (auto const& id : {"update-button", "enable-button", "reenable-button", "unavailable-button", "install-button", "uninstall-button", "cancel-button"}) {
         auto native = getVisibleNativeAction(popup, id);
         if (!native.action) continue;
         auto menu = typeinfo_cast<CCMenu*>(native.action->getParent());
@@ -152,25 +118,15 @@ CCMenu* getNativeManagementMenu(CCNode* popup) {
     return nullptr;
 }
 
-bool isMoreHidden(CCMenuItem* action) {
-    return action && action->getChildByID(MORE_HIDDEN_MARKER_ID);
-}
+bool isMoreHidden(CCMenuItem* action) { return action && action->getChildByID(MORE_HIDDEN_MARKER_ID); }
 
 void setMoreHidden(CCMenuItem* action, bool hidden) {
     if (!action) return;
     auto marker = action->getChildByID(MORE_HIDDEN_MARKER_ID);
     if (hidden) {
-        if (!marker) {
-            marker = CCNode::create();
-            marker->setID(MORE_HIDDEN_MARKER_ID);
-            marker->setVisible(false);
-            action->addChild(marker);
-        }
+        if (!marker) { marker = CCNode::create(); marker->setID(MORE_HIDDEN_MARKER_ID); marker->setVisible(false); action->addChild(marker); }
         action->setVisible(false);
-    }
-    else if (marker) {
-        marker->removeFromParentAndCleanup(true);
-    }
+    } else if (marker) marker->removeFromParentAndCleanup(true);
 }
 
 void resetMoreHiddenButtons(CCMenu* managementMenu) {
@@ -195,20 +151,14 @@ bool applyManagementButtonLimit(CCMenu* managementMenu) {
     auto keepCount = maxButtons > 1 ? static_cast<size_t>(maxButtons - 1) : 0u;
     if (visibleBeforeMore.size() <= keepCount) return false;
     auto hiddenCount = visibleBeforeMore.size() - keepCount;
-    for (size_t i = 0; i < hiddenCount; ++i) {
-        setMoreHidden(visibleBeforeMore[visibleBeforeMore.size() - 1 - i], true);
-    }
+    for (size_t i = 0; i < hiddenCount; ++i) setMoreHidden(visibleBeforeMore[visibleBeforeMore.size() - 1 - i], true);
     return true;
 }
 
 void showInstallSource(std::string const& modID) {
     auto source = getInstalledModSource(modID);
     if (!source) return;
-    auto description = fmt::format(
-        "Installed from <cy>{}</c>\nVersion: <cg>{}</c>\n{}",
-        source->indexName.empty() ? source->indexUrl : source->indexName,
-        source->version, source->indexUrl
-    );
+    auto description = fmt::format("Installed from <cy>{}</c>\nVersion: <cg>{}</c>\n{}", source->indexName.empty() ? source->indexUrl : source->indexName, source->version, source->indexUrl);
     FLAlertLayer::create("Install Source", description, "OK")->show();
 }
 
@@ -276,6 +226,11 @@ protected:
             auto button = recreateNativeButton(child->getID().c_str(), source);
             if (!button) continue;
             auto item = CCMenuItemExt::createSpriteExtra(button, [action, this](CCMenuItemSpriteExtra*) {
+                if (action->getID() == "opengeode-versions-button") {
+                    this->onClose(nullptr);
+                    action->activate();
+                    return;
+                }
                 action->activate();
                 this->onClose(nullptr);
             });
@@ -287,10 +242,7 @@ protected:
 public:
     static MoreManagePopup* create(CCNode* modPopup) {
         auto ret = new MoreManagePopup();
-        if (ret && ret->init(modPopup)) {
-            ret->autorelease();
-            return ret;
-        }
+        if (ret && ret->init(modPopup)) { ret->autorelease(); return ret; }
         delete ret;
         return nullptr;
     }
@@ -307,16 +259,13 @@ void ensureModPopupExtras(CCNode* popup) {
 
     if (!managementMenu->getChildByID("opengeode-versions-button"_spr) && !modID.empty()) {
         if (auto sprite = createThemedManageButton("Versions", "GJ_timeIcon_001.png")) {
-            auto versions = CCMenuItemExt::createSpriteExtra(sprite, [modID, popup](CCMenuItemSpriteExtra*) {
-                showVersionsPopup(modID, popup);
-            });
+            auto versions = CCMenuItemExt::createSpriteExtra(sprite, [modID, popup](CCMenuItemSpriteExtra*) { showVersionsPopup(modID, popup); });
             versions->setID("opengeode-versions-button"_spr);
             managementMenu->addChild(versions);
         }
     }
 
-    if (!managementMenu->getChildByID("opengeode-from-button"_spr) &&
-        !modID.empty() && getInstalledModSource(modID) && isPopupInstalled(popup)) {
+    if (!managementMenu->getChildByID("opengeode-from-button"_spr) && !modID.empty() && getInstalledModSource(modID) && isPopupInstalled(popup)) {
         if (auto sprite = createThemedManageButton("From", "GJ_downloadsIcon_001.png")) {
             auto from = CCMenuItemExt::createSpriteExtra(sprite, [modID](CCMenuItemSpriteExtra*) { showInstallSource(modID); });
             from->setID("opengeode-from-button"_spr);
@@ -324,14 +273,10 @@ void ensureModPopupExtras(CCNode* popup) {
         }
     }
 
-    if (auto more = managementMenu->getChildByID("opengeode-more-button"_spr)) {
-        more->removeFromParentAndCleanup(true);
-    }
+    if (auto more = managementMenu->getChildByID("opengeode-more-button"_spr)) more->removeFromParentAndCleanup(true);
     if (applyManagementButtonLimit(managementMenu)) {
         if (auto sprite = createThemedManageButton("More", "GJ_filterIcon_001.png")) {
-            auto more = CCMenuItemExt::createSpriteExtra(sprite, [popup](CCMenuItemSpriteExtra*) {
-                MoreManagePopup::create(popup)->show();
-            });
+            auto more = CCMenuItemExt::createSpriteExtra(sprite, [popup](CCMenuItemSpriteExtra*) { MoreManagePopup::create(popup)->show(); });
             more->setID("opengeode-more-button"_spr);
             managementMenu->addChild(more);
         }
