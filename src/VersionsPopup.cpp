@@ -117,11 +117,7 @@ class VersionPage : public CCNode {
     void rebuild();
 
 public:
-    static VersionPage* create(
-        VersionsPopup* popup,
-        std::vector<VersionData> versions,
-        size_t start
-    ) {
+    static VersionPage* create(VersionsPopup* popup, std::vector<VersionData> versions, size_t start) {
         auto ret = new VersionPage();
         if (ret && ret->init(popup, std::move(versions), start)) {
             ret->autorelease();
@@ -131,11 +127,7 @@ public:
         return nullptr;
     }
 
-    bool init(
-        VersionsPopup* popup,
-        std::vector<VersionData> versions,
-        size_t start
-    );
+    bool init(VersionsPopup* popup, std::vector<VersionData> versions, size_t start);
 
     void setStart(size_t start) {
         m_start = start;
@@ -188,6 +180,8 @@ class VersionsPopup : public Popup {
     }
 
 public:
+    std::string const& getModID() const { return m_modID; }
+
     void installVersion(std::string const& version) {
         if (!m_modPopup) return;
 
@@ -302,7 +296,6 @@ public:
                     return;
                 }
 
-                // The API returns versions newest first, so keep that order.
                 m_modName = m_modName.empty() ? m_modID : m_modName;
                 setTitle(fmt::format("{} Versions", m_modName));
                 m_loadingLabel->setVisible(false);
@@ -320,11 +313,7 @@ public:
     }
 };
 
-bool VersionPage::init(
-    VersionsPopup* popup,
-    std::vector<VersionData> versions,
-    size_t start
-) {
+bool VersionPage::init(VersionsPopup* popup, std::vector<VersionData> versions, size_t start) {
     if (!CCNode::init()) return false;
     m_popup = popup;
     m_versions = std::move(versions);
@@ -410,7 +399,7 @@ void VersionPage::rebuild() {
             m_popup->installVersion(version.version);
         });
 
-        auto installed = getInstalledModSource(m_popup->m_modID);
+        auto installed = getInstalledModSource(m_popup->getModID());
         if (installed && installed->version == version.version) install->setEnabled(false);
 
         auto menu = CCMenu::create();
