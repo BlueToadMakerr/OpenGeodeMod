@@ -10,10 +10,10 @@
 using namespace geode::prelude;
 
 namespace opengeode {
-
 namespace {
-
 constexpr char const* MORE_HIDDEN_MARKER_ID = "opengeode-more-hidden-marker";
+class MoreManagePopup;
+MoreManagePopup* g_morePopup = nullptr;
 
 std::string getPopupModID(CCNode* popup) {
     auto label = typeinfo_cast<CCLabelBMFont*>(popup->getChildByIDRecursive("mod-id-label"));
@@ -27,8 +27,6 @@ std::string getPopupModID(CCNode* popup) {
 }
 
 struct NativeAction { CCMenuItem* action = nullptr; IconButtonSprite* visual = nullptr; };
-
-IconButtonSprite* getVisibleIconButton(CCMenuItem* item);
 
 IconButtonSprite* getVisibleIconButton(CCMenuItem* item) {
     if (auto toggler = typeinfo_cast<CCMenuItemToggler*>(item)) {
@@ -58,8 +56,7 @@ CCMenu* getNativeManagementMenu(CCNode* popup) {
     for (auto const& id : {"update-button", "enable-button", "reenable-button", "unavailable-button", "install-button", "uninstall-button", "cancel-button"}) {
         auto native = getVisibleNativeAction(popup, id);
         if (!native.action) continue;
-        auto menu = typeinfo_cast<CCMenu*>(native.action->getParent());
-        if (menu) return menu;
+        if (auto menu = typeinfo_cast<CCMenu*>(native.action->getParent())) return menu;
     }
     return nullptr;
 }
@@ -70,7 +67,12 @@ void setMoreHidden(CCMenuItem* action, bool hidden) {
     if (!action) return;
     auto marker = action->getChildByID(MORE_HIDDEN_MARKER_ID);
     if (hidden) {
-        if (!marker) { marker = CCNode::create(); marker->setID(MORE_HIDDEN_MARKER_ID); marker->setVisible(false); action->addChild(marker); }
+        if (!marker) {
+            marker = CCNode::create();
+            marker->setID(MORE_HIDDEN_MARKER_ID);
+            marker->setVisible(false);
+            action->addChild(marker);
+        }
         action->setVisible(false);
     } else if (marker) marker->removeFromParentAndCleanup(true);
 }
@@ -87,17 +89,15 @@ void resetMoreHiddenButtons(CCMenu* managementMenu) {
 bool applyManagementButtonLimit(CCMenu* managementMenu) {
     resetMoreHiddenButtons(managementMenu);
     auto maxButtons = Mod::get()->getSettingValue<int>("max-management-buttons");
-    std::vector<CCMenuItem*> visibleBeforeMore;
+    std::vector<CCMenuItem*> visible;
     for (auto child : CCArrayExt<CCNode*>(managementMenu->getChildren())) {
         if (!child || child->getID() == "opengeode-more-button") continue;
         auto action = typeinfo_cast<CCMenuItem*>(child);
-        if (!action || !action->isVisible()) continue;
-        visibleBeforeMore.push_back(action);
+        if (action && action->isVisible()) visible.push_back(action);
     }
-    auto keepCount = maxButtons > 1 ? static_cast<size_t>(maxButtons - 1) : 0u;
-    if (visibleBeforeMore.size() <= keepCount) return false;
-    auto hiddenCount = visibleBeforeMore.size() - keepCount;
-    for (size_t i = 0; i < hiddenCount; ++i) setMoreHidden(visibleBeforeMore[visibleBeforeMore.size() - 1 - i], true);
+    auto keep = maxButtons > 1 ? static_cast<size_t>(maxButtons - 1) : 0u;
+    if (visible.size() <= keep) return false;
+    for (size_t i = 0; i < visible.size() - keep; ++i) setMoreHidden(visible[visible.size() - 1 - i], true);
     return true;
 }
 
@@ -140,7 +140,7 @@ CCNode* duplicateIcon(CCNode* icon) {
     return duplicate;
 }
 
-IconButtonSprite* recreateNativeButton(char const* id, IconButtonSprite* source) {
+IconButtonSprite* recreateNativeButton(IconButtonSprite* source) {
     if (!source) return nullptr;
     auto icon = duplicateIcon(source->getIcon());
     if (!icon) return nullptr;
@@ -158,6 +158,8 @@ protected:
     bool init(CCNode* modPopup) {
         if (!Popup::init(190.f, 255.f, getPopupBackground())) return false;
         m_modPopup = modPopup;
+        g_morePopup = this;
+        scheduleUpdate();
         setTitle("More");
         if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .8f);
         auto menu = CCMenu::create();
@@ -172,9 +174,10 @@ protected:
             if (!action || (!action->isVisible() && !isMoreHidden(action))) continue;
             auto source = getVisibleIconButton(action);
             if (!source || !source->isVisible()) continue;
-            auto button = recreateNativeButton(child->getID().c_str(), source);
+            auto button = recreateNativeButton(source);
             if (!button) continue;
-            auto item = CCMenuItemExt::createSpriteExtra(button, [action](CCMenuItemSpriteExtra*) {
+            auto item = CCMenuItemExt::createSpriteExtra(button, [action, this](CCMenuItemSpriteExtra*) {
+                this->setVisible(false);
                 action->activate();
             });
             menu->addChild(item);
@@ -182,8 +185,21 @@ protected:
         menu->updateLayout();
         return true;
     }
+
+    void update(float) override {
+        if (m_modPopup && !m_modPopup->getParent()) removeFromParentAndCleanup(true);
+    }
+
 public:
+    ~MoreManagePopup() override {
+        if (g_morePopup == this) g_morePopup = nullptr;
+    }
+
     static MoreManagePopup* create(CCNode* modPopup) {
+        if (g_morePopup) {
+            g_morePopup->removeFromParentAndCleanup(true);
+            g_morePopup = nullptr;
+        }
         auto ret = new MoreManagePopup();
         if (ret && ret->init(modPopup)) { ret->autorelease(); return ret; }
         delete ret;
