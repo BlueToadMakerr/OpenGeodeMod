@@ -307,8 +307,8 @@ void ensureModPopupExtras(CCNode* popup) {
 
     if (!managementMenu->getChildByID("opengeode-versions-button"_spr) && !modID.empty()) {
         if (auto sprite = createThemedManageButton("Versions", "GJ_timeIcon_001.png")) {
-            auto versions = CCMenuItemExt::createSpriteExtra(sprite, [modID](CCMenuItemSpriteExtra*) {
-                showVersionsPopup(modID);
+            auto versions = CCMenuItemExt::createSpriteExtra(sprite, [modID, popup](CCMenuItemSpriteExtra*) {
+                showVersionsPopup(modID, popup);
             });
             versions->setID("opengeode-versions-button"_spr);
             managementMenu->addChild(versions);
