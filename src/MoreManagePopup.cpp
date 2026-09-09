@@ -87,6 +87,41 @@ void debugNativeButton(char const* id, IconButtonSprite* button) {
     debugSprite("  bg center", bg->getCenter());
 }
 
+void debugManagementChild(CCNode* child) {
+    if (!child) return;
+
+    auto id = child->getID();
+    auto action = typeinfo_cast<CCMenuItem*>(child);
+    log::info(
+        "[OpenGeode][MoreDebug] management child id=\"{}\" type={} visible={} enabled={} menuItem={}",
+        id,
+        typeid(*child).name(),
+        child->isVisible(),
+        action ? action->isEnabled() : false,
+        action != nullptr
+    );
+
+    if (!action) return;
+
+    if (auto toggler = typeinfo_cast<CCMenuItemToggler*>(action)) {
+        log::info(
+            "[OpenGeode][MoreDebug]   toggler onVisible={} offVisible={} on={} off={}",
+            toggler->m_onButton ? toggler->m_onButton->isVisible() : false,
+            toggler->m_offButton ? toggler->m_offButton->isVisible() : false,
+            fmt::ptr(toggler->m_onButton),
+            fmt::ptr(toggler->m_offButton)
+        );
+    }
+
+    auto visual = getVisibleIconButton(action);
+    if (visual) {
+        debugNativeButton(id.c_str(), visual);
+    }
+    else {
+        log::info("[OpenGeode][MoreDebug]   no visible IconButtonSprite");
+    }
+}
+
 IconButtonSprite* getVisibleIconButton(CCMenuItem* item) {
     if (auto toggler = typeinfo_cast<CCMenuItemToggler*>(item)) {
         auto wrapper = toggler->m_onButton && toggler->m_onButton->isVisible()
@@ -170,10 +205,40 @@ char const* getNativeButtonTexture(char const* id) {
 CCNode* duplicateIcon(CCNode* icon) {
     auto sprite = typeinfo_cast<CCSprite*>(icon);
     if (!sprite || !sprite->getTexture()) return nullptr;
-    auto duplicate = CCSprite::createWithTexture(sprite->getTexture(), sprite->getTextureRect());
-    if (!duplicate) return nullptr;
+
+    auto texture = sprite->getTexture();
+    auto rect = sprite->getTextureRect();
+    auto rotated = sprite->isTextureRectRotated();
+
+    log::info(
+        "[OpenGeode][MoreDebug] duplicateIcon: preserving texture={} rect=({}, {}, {}, {}) rotated={} flipX={} flipY={}",
+        texture->getName(),
+        rect.origin.x, rect.origin.y, rect.size.width, rect.size.height,
+        rotated,
+        sprite->isFlipX(), sprite->isFlipY()
+    );
+
+    auto frame = CCSpriteFrame::createWithTexture(
+        texture,
+        rect,
+        rotated,
+        {0.f, 0.f},
+        rect.size
+    );
+    if (!frame) {
+        log::info("[OpenGeode][MoreDebug] duplicateIcon: failed to create sprite frame");
+        return nullptr;
+    }
+
+    auto duplicate = CCSprite::createWithSpriteFrame(frame);
+    if (!duplicate) {
+        log::info("[OpenGeode][MoreDebug] duplicateIcon: failed to create sprite from frame");
+        return nullptr;
+    }
+
     duplicate->setFlipX(sprite->isFlipX());
     duplicate->setFlipY(sprite->isFlipY());
+    debugSprite("duplicateIcon result", duplicate);
     return duplicate;
 }
 
@@ -216,6 +281,9 @@ protected:
         if (!managementMenu) return true;
 
         log::info("[OpenGeode][MoreDebug] Native management menu children={}", managementMenu->getChildrenCount());
+        for (auto child : CCArrayExt<CCNode*>(managementMenu->getChildren())) {
+            debugManagementChild(child);
+        }
 
         for (auto child : CCArrayExt<CCNode*>(managementMenu->getChildren())) {
             if (!child || child->getID() == "opengeode-more-button") continue;
