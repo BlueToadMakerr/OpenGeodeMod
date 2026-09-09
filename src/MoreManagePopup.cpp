@@ -1,6 +1,7 @@
 #include "MoreManagePopup.hpp"
 #include "InstalledMods.hpp"
 #include "PopupSectionUtils.hpp"
+#include "VersionsPopup.hpp"
 
 #include <Geode/Geode.hpp>
 #include <Geode/ui/IconButtonSprite.hpp>
@@ -303,6 +304,17 @@ void ensureModPopupExtras(CCNode* popup) {
     auto managementMenu = getNativeManagementMenu(popup);
     if (!managementMenu) return;
     auto modID = getPopupModID(popup);
+
+    if (!managementMenu->getChildByID("opengeode-versions-button"_spr) && !modID.empty()) {
+        if (auto sprite = createThemedManageButton("Versions", "GJ_timeIcon_001.png")) {
+            auto versions = CCMenuItemExt::createSpriteExtra(sprite, [modID](CCMenuItemSpriteExtra*) {
+                showVersionsPopup(modID);
+            });
+            versions->setID("opengeode-versions-button"_spr);
+            managementMenu->addChild(versions);
+        }
+    }
+
     if (!managementMenu->getChildByID("opengeode-from-button"_spr) &&
         !modID.empty() && getInstalledModSource(modID) && isPopupInstalled(popup)) {
         if (auto sprite = createThemedManageButton("From", "GJ_downloadsIcon_001.png")) {
@@ -311,6 +323,7 @@ void ensureModPopupExtras(CCNode* popup) {
             managementMenu->addChild(from);
         }
     }
+
     if (auto more = managementMenu->getChildByID("opengeode-more-button"_spr)) {
         more->removeFromParentAndCleanup(true);
     }
