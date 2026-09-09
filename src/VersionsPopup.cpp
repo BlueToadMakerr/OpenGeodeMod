@@ -148,9 +148,8 @@ public:
         setTitle("Versions");
         if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .8f);
 
-        auto scrollBackground = CCScale9Sprite::create(
-            isGeodeTheme() ? "geode.loader/GE_square02.png" : "square02b_001.png",
-            CCRect(12.f, 12.f, 26.f, 26.f)
+        auto scrollBackground = NineSlice::createWithSpriteFrameName(
+            getSectionBackground(), {10.f, 10.f, 10.f, 10.f}
         );
         if (scrollBackground) {
             scrollBackground->setContentSize({268.f, 250.f});
