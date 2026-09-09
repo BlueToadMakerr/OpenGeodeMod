@@ -14,8 +14,6 @@ using namespace geode::prelude;
 namespace opengeode {
 namespace {
 
-using WebTask = decltype(web::WebRequest().get(std::string{}));
-
 std::string versionStatusText(std::string const& status) {
     if (status == "accepted") return "";
     return fmt::format("Status: {}", status);
@@ -24,52 +22,44 @@ std::string versionStatusText(std::string const& status) {
 class VersionRow : public CCNode {
     std::string m_modID;
     std::string m_version;
-    EventListener<WebTask> m_listener;
+    async::TaskHolder<web::WebResponse> m_downloadTask;
     CCMenuItemSpriteExtra* m_installButton = nullptr;
 
-    void onDownload(WebTask::Event* event) {
-        if (event->isCancelled()) {
+    void finishDownload(web::WebResponse response) {
+        if (!response.ok()) {
             m_installButton->setEnabled(true);
+            FLAlertLayer::create("Versions", fmt::format("Download failed: {}", response.errorMessage()), "OK")->show();
             return;
         }
-        if (event->getProgress()) {
-            m_installButton->setEnabled(false);
+
+        auto modsDir = dirs::getGameDir() / "geode" / "mods";
+        std::error_code ec;
+        std::filesystem::create_directories(modsDir, ec);
+        if (ec) {
+            m_installButton->setEnabled(true);
+            FLAlertLayer::create("Versions", "Could not create the Geode mods folder.", "OK")->show();
             return;
         }
-        if (auto response = event->getValue()) {
-            if (!response->ok()) {
-                m_installButton->setEnabled(true);
-                FLAlertLayer::create("Versions", fmt::format("Download failed: {}", response->errorMessage()), "OK")->show();
-                return;
-            }
 
-            auto modsDir = dirs::getGameDir() / "geode" / "mods";
-            std::error_code ec;
-            std::filesystem::create_directories(modsDir, ec);
-            if (ec) {
-                m_installButton->setEnabled(true);
-                FLAlertLayer::create("Versions", "Could not create the Geode mods folder.", "OK")->show();
-                return;
-            }
-
-            auto path = modsDir / fmt::format("{}.geode", m_modID);
-            auto result = response->into(path);
-            if (!result) {
-                m_installButton->setEnabled(true);
-                FLAlertLayer::create("Versions", fmt::format("Could not install the mod: {}", result.unwrapErr()), "OK")->show();
-                return;
-            }
-
-            setInstalledModSource(m_modID, m_version);
+        auto path = modsDir / fmt::format("{}.geode", m_modID);
+        auto result = response.into(path);
+        if (!result) {
             m_installButton->setEnabled(true);
-            FLAlertLayer::create("Versions", fmt::format("Installed {} {}.", m_modID, m_version), "OK")->show();
+            FLAlertLayer::create("Versions", fmt::format("Could not install the mod: {}", result.unwrapErr()), "OK")->show();
+            return;
         }
+
+        setInstalledModSource(m_modID, m_version);
+        m_installButton->setEnabled(true);
+        FLAlertLayer::create("Versions", fmt::format("Installed {} {}.", m_modID, m_version), "OK")->show();
     }
 
     void startDownload(CCObject*) {
         auto url = fmt::format("https://api.geode-sdk.org/v1/mods/{}/versions/{}/download", m_modID, m_version);
         m_installButton->setEnabled(false);
-        m_listener.setFilter(web::WebRequest().get(url));
+        m_downloadTask.spawn("OpenGeode version download", web::WebRequest().get(url), [this](web::WebResponse response) {
+            this->finishDownload(std::move(response));
+        });
     }
 
 public:
@@ -125,13 +115,12 @@ public:
         menu->setContentSize({62.f, 45.f});
         this->addChildAtPosition(menu, Anchor::Right, ccp(-2.f, 0.f));
 
-        m_listener.bind(this, &VersionRow::onDownload);
         return true;
     }
 };
 
 class VersionsPopup : public Popup {
-    EventListener<WebTask> m_listener;
+    async::TaskHolder<web::WebResponse> m_requestTask;
 
 public:
     static VersionsPopup* create(std::string modID) {
@@ -154,11 +143,9 @@ public:
         m_mainLayer->addChildAtPosition(scroll, Anchor::Center, ccp(0.f, -3.f));
 
         auto task = web::WebRequest().get(fmt::format("https://api.geode-sdk.org/v1/mods/{}", modID));
-        m_listener.bind([scroll, modID](WebTask::Event* event) {
-            if (event->isCancelled()) return;
-            auto response = event->getValue();
-            if (!response || !response->ok()) return;
-            auto json = response->json();
+        m_requestTask.spawn("OpenGeode version list", task, [scroll, modID](web::WebResponse response) {
+            if (!response.ok()) return;
+            auto json = response.json();
             if (!json) return;
             auto payload = (*json)["payload"];
             if (!payload.isObject()) return;
@@ -179,7 +166,6 @@ public:
             }
             scroll->m_contentLayer->updateLayout();
         });
-        m_listener.setFilter(task);
         return true;
     }
 };
