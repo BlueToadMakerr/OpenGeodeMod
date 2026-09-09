@@ -4,6 +4,6 @@
 
 namespace opengeode {
 
-void showVersionsPopup(std::string const& modID, CCNode* modPopup);
+void showVersionsPopup(std::string const& modID, cocos2d::CCNode* modPopup);
 
 } // namespace opengeode
