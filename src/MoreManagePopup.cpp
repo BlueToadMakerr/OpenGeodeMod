@@ -87,41 +87,6 @@ void debugNativeButton(char const* id, IconButtonSprite* button) {
     debugSprite("  bg center", bg->getCenter());
 }
 
-void debugManagementChild(CCNode* child) {
-    if (!child) return;
-
-    auto id = child->getID();
-    auto action = typeinfo_cast<CCMenuItem*>(child);
-    log::info(
-        "[OpenGeode][MoreDebug] management child id=\"{}\" type={} visible={} enabled={} menuItem={}",
-        id,
-        typeid(*child).name(),
-        child->isVisible(),
-        action ? action->isEnabled() : false,
-        action != nullptr
-    );
-
-    if (!action) return;
-
-    if (auto toggler = typeinfo_cast<CCMenuItemToggler*>(action)) {
-        log::info(
-            "[OpenGeode][MoreDebug]   toggler onVisible={} offVisible={} on={} off={}",
-            toggler->m_onButton ? toggler->m_onButton->isVisible() : false,
-            toggler->m_offButton ? toggler->m_offButton->isVisible() : false,
-            fmt::ptr(toggler->m_onButton),
-            fmt::ptr(toggler->m_offButton)
-        );
-    }
-
-    auto visual = getVisibleIconButton(action);
-    if (visual) {
-        debugNativeButton(id.c_str(), visual);
-    }
-    else {
-        log::info("[OpenGeode][MoreDebug]   no visible IconButtonSprite");
-    }
-}
-
 IconButtonSprite* getVisibleIconButton(CCMenuItem* item) {
     if (auto toggler = typeinfo_cast<CCMenuItemToggler*>(item)) {
         auto wrapper = toggler->m_onButton && toggler->m_onButton->isVisible()
@@ -139,6 +104,42 @@ IconButtonSprite* getVisibleIconButton(CCMenuItem* item) {
     }
 
     return nullptr;
+}
+
+void debugManagementChild(CCNode* child) {
+    if (!child) return;
+
+    auto id = child->getID();
+    auto action = typeinfo_cast<CCMenuItem*>(child);
+    auto toggler = typeinfo_cast<CCMenuItemToggler*>(action);
+    log::info(
+        "[OpenGeode][MoreDebug] management child id=\"{}\" visible={} enabled={} menuItem={} toggler={}",
+        id,
+        child->isVisible(),
+        action ? action->isEnabled() : false,
+        action != nullptr,
+        toggler != nullptr
+    );
+
+    if (!action) return;
+
+    if (toggler) {
+        log::info(
+            "[OpenGeode][MoreDebug]   toggler onVisible={} offVisible={} on={} off={}",
+            toggler->m_onButton ? toggler->m_onButton->isVisible() : false,
+            toggler->m_offButton ? toggler->m_offButton->isVisible() : false,
+            fmt::ptr(toggler->m_onButton),
+            fmt::ptr(toggler->m_offButton)
+        );
+    }
+
+    auto visual = getVisibleIconButton(action);
+    if (visual) {
+        debugNativeButton(id.c_str(), visual);
+    }
+    else {
+        log::info("[OpenGeode][MoreDebug]   no visible IconButtonSprite");
+    }
 }
 
 NativeAction getVisibleNativeAction(CCNode* popup, char const* id) {
