@@ -64,6 +64,23 @@ void debugTextureKey(char const* label, CCTexture2D* texture) {
     }
 }
 
+std::string getTextureCacheKey(CCTexture2D* texture) {
+    if (!texture) return "";
+
+    auto cache = CCTextureCache::sharedTextureCache();
+    auto textures = cache ? cache->snapshotTextures() : nullptr;
+    if (!textures) return "";
+
+    for (auto key : CCArrayExt<CCString*>(textures->allKeys())) {
+        if (!key) continue;
+        if (textures->objectForKey(key->getCString()) == texture) {
+            return key->getCString();
+        }
+    }
+
+    return "";
+}
+
 void debugSprite(char const* label, CCSprite* sprite) {
     if (!sprite) {
         log::info("[OpenGeode][MoreDebug] {}: null", label);
@@ -83,6 +100,8 @@ void debugSprite(char const* label, CCSprite* sprite) {
     );
     debugTextureKey(label, sprite->getTexture());
 }
+
+IconButtonSprite* getVisibleIconButton(CCMenuItem* item);
 
 void debugNativeButton(char const* id, IconButtonSprite* button) {
     if (!button) {
@@ -123,8 +142,6 @@ void debugNativeButton(char const* id, IconButtonSprite* button) {
     debugSprite("  bg right", bg->getRight());
     debugSprite("  bg center", bg->getCenter());
 }
-
-IconButtonSprite* getVisibleIconButton(CCMenuItem* item);
 
 void debugManagementChild(CCNode* child) {
     if (!child) return;
@@ -228,24 +245,26 @@ IconButtonSprite* createThemedManageButton(char const* text, char const* iconFra
     return button;
 }
 
-char const* getNativeButtonTexture(char const* id) {
-    if (std::string_view(id) == "enable-button" || std::string_view(id) == "reenable-button") {
-        return "GJ_button_02.png";
-    }
-    if (std::string_view(id) == "uninstall-button") {
-        return "GJ_button_06.png";
-    }
-    if (std::string_view(id) == "unavailable-button") {
-        return "GJ_button_05.png";
-    }
-    return "GJ_button_01.png";
+std::string getNativeButtonTexture(IconButtonSprite* source) {
+    if (!source || !source->getBg()) return "";
+    auto texture = source->getBg()->getTopLeft()->getTexture();
+    return getTextureCacheKey(texture);
 }
 
 CCNode* duplicateIcon(CCNode* icon) {
     auto sprite = typeinfo_cast<CCSprite*>(icon);
     if (!sprite || !sprite->getTexture()) return nullptr;
-    auto duplicate = CCSprite::createWithTexture(sprite->getTexture(), sprite->getTextureRect());
+
+    auto rect = sprite->getTextureRect();
+    auto rotated = sprite->isTextureRectRotated();
+    auto untrimmedSize = rotated
+        ? CCSize{rect.size.height, rect.size.width}
+        : rect.size;
+
+    auto duplicate = CCSprite::createWithTexture(sprite->getTexture(), rect);
     if (!duplicate) return nullptr;
+
+    duplicate->setTextureRect(rect, rotated, untrimmedSize);
     duplicate->setFlipX(sprite->isFlipX());
     duplicate->setFlipY(sprite->isFlipY());
     return duplicate;
@@ -259,8 +278,11 @@ IconButtonSprite* recreateNativeButton(char const* id, IconButtonSprite* source)
     auto icon = duplicateIcon(source->getIcon());
     if (!icon) return nullptr;
 
+    auto texture = getNativeButtonTexture(source);
+    if (texture.empty()) return nullptr;
+
     auto button = IconButtonSprite::create(
-        getNativeButtonTexture(id),
+        texture.c_str(),
         icon,
         source->getString(),
         "bigFont.fnt"
