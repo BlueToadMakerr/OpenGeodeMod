@@ -73,7 +73,7 @@ public:
         setTitle("Versions");
         if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .8f);
 
-        // Follow the same scroll/background construction used by Mod Profiles.
+        // Keep this construction identical to the proven Mod Profiles ScrollLayer setup.
         const float widthCS = 290.f;
         const float heightCS = 310.f;
         auto scrollSize = CCSize{widthCS - 17.5f, heightCS - 120.f};
@@ -169,8 +169,8 @@ bool VersionContainer::init(
     m_modPopup = modPopup;
     m_versionsPopup = versionsPopup;
 
-    // Same simple row model as Mod Profiles: content width + a fixed row height.
-    auto width = 260.f - 12.5f;
+    // Match Mod Profiles exactly: the row spans the full content width of the ScrollLayer.
+    auto width = 260.f;
     setContentSize({width, 40.f});
 
     auto versionLabel = CCLabelBMFont::create(
@@ -192,13 +192,15 @@ bool VersionContainer::init(
     );
     buttonSprite->setScale(.8f);
 
-    auto button = CCMenuItemSpriteExtra::create(
-        buttonSprite, this, menu_selector(VersionContainer::installVersion)
-    );
+    // Use the same CCMenuItemExt path as Mod Profiles. This gives the button the
+    // standard Geode/Cocos touch handling instead of relying on a raw menu item.
+    auto button = CCMenuItemExt::createSpriteExtra(buttonSprite, [this](CCObject*) {
+        installVersion(nullptr);
+    });
     if (isInstalled) button->setEnabled(false);
 
     auto itemMenu = CCMenu::create();
-    itemMenu->setPosition({getContentSize().width - 45.f, getContentSize().height / 2.f});
+    itemMenu->setPosition({width - 35.f, getContentSize().height / 2.f});
     itemMenu->addChild(button);
     addChild(itemMenu);
 
@@ -224,4 +226,4 @@ void showVersionsPopup(std::string const& modID, cocos2d::CCNode* modPopup) {
     VersionsPopup::create(modID, modPopup)->show();
 }
 
-} // namespace opengeode
+} // namespace opengeodeMod
