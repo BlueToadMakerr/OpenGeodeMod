@@ -57,7 +57,7 @@ bool ensureVersionsButton(CCNode* popup) {
     if (!sprite) return false;
 
     auto button = CCMenuItemExt::createSpriteExtra(sprite, [modID](CCMenuItemSpriteExtra*) {
-        showVersionsPopup(nullptr, modID);
+        showVersionsPopup(modID);
     });
     button->setID("opengeode-versions-button"_spr);
     menu->addChild(button);
