@@ -177,6 +177,11 @@ protected:
             auto button = recreateNativeButton(source);
             if (!button) continue;
             auto item = CCMenuItemExt::createSpriteExtra(button, [action, this](CCMenuItemSpriteExtra*) {
+                if (action->getID() == "opengeode-versions-button") {
+                    action->activate();
+                    this->onClose(nullptr);
+                    return;
+                }
                 this->setVisible(false);
                 action->activate();
             });
