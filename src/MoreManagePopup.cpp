@@ -28,61 +28,7 @@ std::string getPopupModID(CCNode* popup) {
 
 struct NativeAction { CCMenuItem* action = nullptr; IconButtonSprite* visual = nullptr; };
 
-void debugTextureKey(char const* label, CCTexture2D* texture) {
-    if (!texture) { log::info("[OpenGeode][MoreDebug] {}: no texture", label); return; }
-    auto cache = CCTextureCache::sharedTextureCache();
-    auto textures = cache ? cache->snapshotTextures() : nullptr;
-    if (!textures) return;
-    for (auto key : CCArrayExt<CCString*>(textures->allKeys()))
-        if (key && textures->objectForKey(key->getCString()) == texture)
-            log::info("[OpenGeode][MoreDebug] {}: texture={} cacheKey=\"{}\"", label, texture->getName(), key->getCString());
-}
-
-std::string getTextureCacheKey(CCTexture2D* texture) {
-    if (!texture) return "";
-    auto cache = CCTextureCache::sharedTextureCache();
-    auto textures = cache ? cache->snapshotTextures() : nullptr;
-    if (!textures) return "";
-    for (auto key : CCArrayExt<CCString*>(textures->allKeys()))
-        if (key && textures->objectForKey(key->getCString()) == texture) return key->getCString();
-    return "";
-}
-
-void debugSprite(char const* label, CCSprite* sprite) {
-    if (!sprite) return;
-    auto rect = sprite->getTextureRect();
-    log::info("[OpenGeode][MoreDebug] {}: texture={} rect=({}, {}, {}, {}) rotated={} flipX={} flipY={}", label, sprite->getTexture() ? sprite->getTexture()->getName() : 0, rect.origin.x, rect.origin.y, rect.size.width, rect.size.height, sprite->isTextureRectRotated(), sprite->isFlipX(), sprite->isFlipY());
-    debugTextureKey(label, sprite->getTexture());
-}
-
 IconButtonSprite* getVisibleIconButton(CCMenuItem* item);
-
-void debugNativeButton(char const* id, IconButtonSprite* button) {
-    if (!button) return;
-    log::info("[OpenGeode][MoreDebug] {}: string=\"{}\" scale={} size=({}, {}) bg={} icon={}", id, button->getString(), button->getScale(), button->getContentSize().width, button->getContentSize().height, fmt::ptr(button->getBg()), fmt::ptr(button->getIcon()));
-    debugSprite("  icon", typeinfo_cast<CCSprite*>(button->getIcon()));
-    auto bg = button->getBg();
-    if (!bg) return;
-    debugSprite("  bg topLeft", bg->getTopLeft());
-    debugSprite("  bg topRight", bg->getTopRight());
-    debugSprite("  bg bottomLeft", bg->getBottomLeft());
-    debugSprite("  bg bottomRight", bg->getBottomRight());
-    debugSprite("  bg top", bg->getTop());
-    debugSprite("  bg bottom", bg->getBottom());
-    debugSprite("  bg left", bg->getLeft());
-    debugSprite("  bg right", bg->getRight());
-    debugSprite("  bg center", bg->getCenter());
-}
-
-void debugManagementChild(CCNode* child) {
-    if (!child) return;
-    auto id = child->getID();
-    auto action = typeinfo_cast<CCMenuItem*>(child);
-    log::info("[OpenGeode][MoreDebug] management child id=\"{}\" visible={} enabled={} menuItem={} toggler={}", id, child->isVisible(), action ? action->isEnabled() : false, action != nullptr, typeinfo_cast<CCMenuItemToggler*>(action) != nullptr);
-    if (!action) return;
-    auto visual = getVisibleIconButton(action);
-    if (visual) debugNativeButton(id.c_str(), visual);
-}
 
 IconButtonSprite* getVisibleIconButton(CCMenuItem* item) {
     if (auto toggler = typeinfo_cast<CCMenuItemToggler*>(item)) {
@@ -170,9 +116,14 @@ IconButtonSprite* createThemedManageButton(char const* text, char const* iconFra
     return button;
 }
 
-std::string getNativeButtonTexture(IconButtonSprite* source) {
-    if (!source || !source->getBg()) return "";
-    return getTextureCacheKey(source->getBg()->getTopLeft()->getTexture());
+std::string getTextureCacheKey(CCTexture2D* texture) {
+    if (!texture) return "";
+    auto cache = CCTextureCache::sharedTextureCache();
+    auto textures = cache ? cache->snapshotTextures() : nullptr;
+    if (!textures) return "";
+    for (auto key : CCArrayExt<CCString*>(textures->allKeys()))
+        if (key && textures->objectForKey(key->getCString()) == texture) return key->getCString();
+    return "";
 }
 
 CCNode* duplicateIcon(CCNode* icon) {
@@ -191,10 +142,9 @@ CCNode* duplicateIcon(CCNode* icon) {
 
 IconButtonSprite* recreateNativeButton(char const* id, IconButtonSprite* source) {
     if (!source) return nullptr;
-    debugNativeButton(id, source);
     auto icon = duplicateIcon(source->getIcon());
     if (!icon) return nullptr;
-    auto texture = getNativeButtonTexture(source);
+    auto texture = source->getBg() ? getTextureCacheKey(source->getBg()->getTopLeft()->getTexture()) : "";
     if (texture.empty()) return nullptr;
     auto button = IconButtonSprite::create(texture.c_str(), icon, source->getString(), "bigFont.fnt");
     if (!button) return nullptr;
@@ -217,7 +167,6 @@ protected:
         auto managementMenu = getNativeManagementMenu(modPopup);
         if (!managementMenu) return true;
         for (auto child : CCArrayExt<CCNode*>(managementMenu->getChildren())) {
-            debugManagementChild(child);
             if (!child || child->getID() == "opengeode-more-button") continue;
             auto action = typeinfo_cast<CCMenuItem*>(child);
             if (!action || (!action->isVisible() && !isMoreHidden(action))) continue;
@@ -225,17 +174,8 @@ protected:
             if (!source || !source->isVisible()) continue;
             auto button = recreateNativeButton(child->getID().c_str(), source);
             if (!button) continue;
-            auto item = CCMenuItemExt::createSpriteExtra(button, [action, this](CCMenuItemSpriteExtra*) {
-                if (action->getID() == "opengeode-versions-button") {
-                    // Diagnostic: bypass the native Versions action so More's activation
-                    // path cannot affect the popup that is being opened.
-                    log::info("[OpenGeode][MoreDebug] Versions selected from More; closing More and opening test alert");
-                    this->onClose(nullptr);
-                    FLAlertLayer::create("Versions Test", "Versions button was clicked from More.", "OK")->show();
-                    return;
-                }
+            auto item = CCMenuItemExt::createSpriteExtra(button, [action](CCMenuItemSpriteExtra*) {
                 action->activate();
-                this->onClose(nullptr);
             });
             menu->addChild(item);
         }
