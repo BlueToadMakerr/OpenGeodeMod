@@ -10,7 +10,7 @@ bool addManagementButton(
     cocos2d::CCNode* popup,
     char const* id,
     cocos2d::CCNode* sprite,
-    std::function<void(cocos2d::CCMenuItemSpriteExtra*)> callback
+    std::function<void(CCMenuItemSpriteExtra*)> callback
 );
 
 }
