@@ -21,6 +21,7 @@ class VersionRow : public CCNode {
     std::string m_modID;
     std::string m_version;
     CCNode* m_modPopup = nullptr;
+    Popup* m_versionsPopup = nullptr;
     CCMenuItemSpriteExtra* m_installButton = nullptr;
 
     void installVersion(CCObject*) {
@@ -31,9 +32,7 @@ class VersionRow : public CCNode {
 
         setPendingVersionInstall(m_modID, m_version);
         action->activate();
-        if (auto popup = typeinfo_cast<Popup*>(getParent()->getParent())) {
-            popup->onClose(nullptr);
-        }
+        if (m_versionsPopup) m_versionsPopup->onClose(nullptr);
     }
 
 public:
@@ -44,12 +43,13 @@ public:
         int downloadCount,
         std::string status,
         std::string createdAt,
-        CCNode* modPopup
+        CCNode* modPopup,
+        Popup* versionsPopup
     ) {
         auto ret = new VersionRow();
         if (ret && ret->init(
             std::move(modID), std::move(name), std::move(version), downloadCount,
-            std::move(status), std::move(createdAt), modPopup
+            std::move(status), std::move(createdAt), modPopup, versionsPopup
         )) {
             ret->autorelease();
             return ret;
@@ -65,12 +65,14 @@ public:
         int downloadCount,
         std::string status,
         std::string createdAt,
-        CCNode* modPopup
+        CCNode* modPopup,
+        Popup* versionsPopup
     ) {
         if (!CCNode::init()) return false;
         m_modID = std::move(modID);
         m_version = std::move(version);
         m_modPopup = modPopup;
+        m_versionsPopup = versionsPopup;
         setContentSize({245.f, 72.f});
 
         auto title = CCLabelBMFont::create(
@@ -205,7 +207,8 @@ public:
                         version["download_count"].asInt().unwrapOr(0),
                         version["status"].asString().unwrapOr("accepted"),
                         version["created_at"].asString().unwrapOr("unknown"),
-                        modPopup
+                        modPopup,
+                        this
                     );
                     if (row) scroll->m_contentLayer->addChild(row);
                 }
