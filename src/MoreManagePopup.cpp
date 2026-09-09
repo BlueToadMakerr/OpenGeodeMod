@@ -28,6 +28,42 @@ struct NativeAction {
     IconButtonSprite* visual = nullptr;
 };
 
+void debugTextureKey(char const* label, CCTexture2D* texture) {
+    if (!texture) {
+        log::info("[OpenGeode][MoreDebug] {}: no texture", label);
+        return;
+    }
+
+    auto cache = CCTextureCache::sharedTextureCache();
+    auto textures = cache ? cache->snapshotTextures() : nullptr;
+    if (!textures) {
+        log::info("[OpenGeode][MoreDebug] {}: texture={} cache unavailable", label, texture->getName());
+        return;
+    }
+
+    bool found = false;
+    for (auto key : CCArrayExt<CCString*>(textures->allKeys())) {
+        if (!key) continue;
+        if (textures->objectForKey(key) == texture) {
+            log::info(
+                "[OpenGeode][MoreDebug] {}: texture={} cacheKey=\"{}\"",
+                label,
+                texture->getName(),
+                key->getCString()
+            );
+            found = true;
+        }
+    }
+
+    if (!found) {
+        log::info(
+            "[OpenGeode][MoreDebug] {}: texture={} has no matching cache key",
+            label,
+            texture->getName()
+        );
+    }
+}
+
 void debugSprite(char const* label, CCSprite* sprite) {
     if (!sprite) {
         log::info("[OpenGeode][MoreDebug] {}: null", label);
@@ -45,6 +81,7 @@ void debugSprite(char const* label, CCSprite* sprite) {
         sprite->isFlipX(), sprite->isFlipY(),
         size.width, size.height
     );
+    debugTextureKey(label, sprite->getTexture());
 }
 
 void debugNativeButton(char const* id, IconButtonSprite* button) {
@@ -85,6 +122,41 @@ void debugNativeButton(char const* id, IconButtonSprite* button) {
     debugSprite("  bg left", bg->getLeft());
     debugSprite("  bg right", bg->getRight());
     debugSprite("  bg center", bg->getCenter());
+}
+
+void debugManagementChild(CCNode* child) {
+    if (!child) return;
+
+    auto id = child->getID();
+    auto action = typeinfo_cast<CCMenuItem*>(child);
+    log::info(
+        "[OpenGeode][MoreDebug] management child id=\"{}\" visible={} enabled={} menuItem={} toggler={}",
+        id,
+        child->isVisible(),
+        action ? action->isEnabled() : false,
+        action != nullptr,
+        typeinfo_cast<CCMenuItemToggler*>(action) != nullptr
+    );
+
+    if (!action) return;
+
+    if (auto toggler = typeinfo_cast<CCMenuItemToggler*>(action)) {
+        log::info(
+            "[OpenGeode][MoreDebug]   toggler onVisible={} offVisible={} on={} off={}",
+            toggler->m_onButton ? toggler->m_onButton->isVisible() : false,
+            toggler->m_offButton ? toggler->m_offButton->isVisible() : false,
+            fmt::ptr(toggler->m_onButton),
+            fmt::ptr(toggler->m_offButton)
+        );
+    }
+
+    auto visual = getVisibleIconButton(action);
+    if (visual) {
+        debugNativeButton(id.c_str(), visual);
+    }
+    else {
+        log::info("[OpenGeode][MoreDebug]   no visible IconButtonSprite");
+    }
 }
 
 IconButtonSprite* getVisibleIconButton(CCMenuItem* item) {
@@ -218,6 +290,8 @@ protected:
         log::info("[OpenGeode][MoreDebug] Native management menu children={}", managementMenu->getChildrenCount());
 
         for (auto child : CCArrayExt<CCNode*>(managementMenu->getChildren())) {
+            debugManagementChild(child);
+
             if (!child || child->getID() == "opengeode-more-button") continue;
 
             auto action = typeinfo_cast<CCMenuItem*>(child);
