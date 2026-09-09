@@ -12,11 +12,6 @@ using namespace geode::prelude;
 namespace opengeode {
 namespace {
 
-std::string versionStatusText(std::string const& status) {
-    if (status.empty() || status == "accepted") return "";
-    return fmt::format(" ({})", status);
-}
-
 class VersionsPopup;
 
 class VersionContainer : public CCNode {
@@ -25,17 +20,15 @@ class VersionContainer : public CCNode {
     CCNode* m_modPopup = nullptr;
     VersionsPopup* m_versionsPopup = nullptr;
 
-    void downloadVersion(CCObject*);
+    void installVersion(CCObject*);
 
 public:
     static VersionContainer* create(
-        std::string modID, std::string name, std::string version,
-        std::string status, std::string createdAt,
+        std::string modID, std::string version,
         CCNode* modPopup, VersionsPopup* versionsPopup
     ) {
         auto ret = new VersionContainer();
-        if (ret && ret->init(std::move(modID), std::move(name), std::move(version),
-            std::move(status), std::move(createdAt), modPopup, versionsPopup)) {
+        if (ret && ret->init(std::move(modID), std::move(version), modPopup, versionsPopup)) {
             ret->autorelease();
             return ret;
         }
@@ -43,9 +36,10 @@ public:
         return nullptr;
     }
 
-    bool init(std::string modID, std::string name, std::string version,
-        std::string status, std::string createdAt,
-        CCNode* modPopup, VersionsPopup* versionsPopup);
+    bool init(
+        std::string modID, std::string version,
+        CCNode* modPopup, VersionsPopup* versionsPopup
+    );
 };
 
 class VersionsPopup : public Popup {
@@ -79,9 +73,35 @@ public:
         setTitle("Versions");
         if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .8f);
 
-        auto scroll = ScrollLayer::create({260.f, 250.f});
-        scroll->setPosition({15.f, 25.f});
-        scroll->m_contentLayer->setLayout(ScrollLayer::createDefaultListLayout(4.f));
+        // Follow the same scroll/background construction used by Mod Profiles.
+        const float widthCS = 290.f;
+        const float heightCS = 310.f;
+        auto scrollSize = CCSize{widthCS - 17.5f, heightCS - 120.f};
+
+        auto scrollBG = CCScale9Sprite::create(getSectionBackground());
+        scrollBG->setContentSize(scrollSize);
+        scrollBG->setAnchorPoint({0.5f, 0.5f});
+        scrollBG->ignoreAnchorPointForPosition(false);
+        scrollBG->setPosition({widthCS / 2.f, (heightCS / 2.f) - 15.f});
+        scrollBG->setColor({0, 0, 0});
+        scrollBG->setOpacity(100);
+        m_mainLayer->addChild(scrollBG);
+
+        auto scrollLayerLayout = ColumnLayout::create()
+            ->setAxisAlignment(AxisAlignment::Start)
+            ->setAutoGrowAxis(scrollSize.height - 12.5f)
+            ->setGrowCrossAxis(false)
+            ->setGap(5.f);
+
+        auto scrollLayerSize = CCSize{scrollSize.width - 12.5f, scrollSize.height - 12.5f};
+        auto scroll = ScrollLayer::create(scrollLayerSize);
+        scroll->setAnchorPoint({0.f, 0.f});
+        scroll->ignoreAnchorPointForPosition(true);
+        scroll->setPosition({
+            scrollBG->getPositionX() - scrollLayerSize.width / 2.f,
+            scrollBG->getPositionY() - scrollLayerSize.height / 2.f
+        });
+        scroll->m_contentLayer->setLayout(scrollLayerLayout);
         m_mainLayer->addChild(scroll);
 
         m_loadingLabel = CCLabelBMFont::create("Loading...", "goldFont.fnt");
@@ -119,18 +139,17 @@ public:
                 m_loadingLabel->setVisible(false);
                 for (auto const& version : versions) {
                     if (!version.isObject()) continue;
+
                     auto row = VersionContainer::create(
                         modID,
-                        version["name"].asString().unwrapOr(modID),
                         version["version"].asString().unwrapOr("unknown"),
-                        version["status"].asString().unwrapOr("accepted"),
-                        version["created_at"].asString().unwrapOr("unknown"),
-                        modPopup, this
+                        modPopup,
+                        this
                     );
                     if (row) scroll->m_contentLayer->addChild(row);
                 }
 
-                scroll->m_contentLayer->updateLayout();
+                scroll->m_contentLayer->updateLayout(true);
                 scroll->scrollToTop();
             }
         );
@@ -140,8 +159,7 @@ public:
 };
 
 bool VersionContainer::init(
-    std::string modID, std::string name, std::string version,
-    std::string status, std::string createdAt,
+    std::string modID, std::string version,
     CCNode* modPopup, VersionsPopup* versionsPopup
 ) {
     if (!CCNode::init()) return false;
@@ -151,53 +169,43 @@ bool VersionContainer::init(
     m_modPopup = modPopup;
     m_versionsPopup = versionsPopup;
 
-    // One simple row matching the scroll layer width.
-    setContentSize({260.f, 62.f});
-
-    auto title = CCLabelBMFont::create(
-        fmt::format("{}{}", name, versionStatusText(status)).c_str(), "bigFont.fnt"
-    );
-    title->setScale(.34f);
-    title->setAnchorPoint({0.f, .5f});
-    addChildAtPosition(title, Anchor::Left, ccp(6.f, 45.f));
+    // Same simple row model as Mod Profiles: content width + a fixed row height.
+    auto width = 260.f - 12.5f;
+    setContentSize({width, 40.f});
 
     auto versionLabel = CCLabelBMFont::create(
-        fmt::format("Version {}", m_version).c_str(), "goldFont.fnt"
+        fmt::format("Version {}", m_version).c_str(), "bigFont.fnt"
     );
-    versionLabel->setScale(.28f);
+    versionLabel->setScale(.42f);
     versionLabel->setAnchorPoint({0.f, .5f});
-    addChildAtPosition(versionLabel, Anchor::Left, ccp(6.f, 28.f));
-
-    auto dateLabel = CCLabelBMFont::create(
-        fmt::format("Released {}", createdAt).c_str(), "goldFont.fnt"
-    );
-    dateLabel->setScale(.25f);
-    dateLabel->setAnchorPoint({0.f, .5f});
-    addChildAtPosition(dateLabel, Anchor::Left, ccp(6.f, 12.f));
+    versionLabel->setPosition({5.f, getContentSize().height / 2.f});
+    addChild(versionLabel);
 
     auto installed = getInstalledModSource(m_modID);
     bool isInstalled = installed && installed->version == m_version;
 
     auto buttonSprite = ButtonSprite::create(
-        isInstalled ? "Installed" : "Download",
-        "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .65f
+        isInstalled ? "Installed" : "Install",
+        "bigFont.fnt",
+        getButtonTexture("GJ_button_01.png"),
+        .4f
     );
-    buttonSprite->setScale(.48f);
+    buttonSprite->setScale(.8f);
 
     auto button = CCMenuItemSpriteExtra::create(
-        buttonSprite, this, menu_selector(VersionContainer::downloadVersion)
+        buttonSprite, this, menu_selector(VersionContainer::installVersion)
     );
     if (isInstalled) button->setEnabled(false);
 
-    auto menu = CCMenu::create();
-    menu->addChild(button);
-    menu->setContentSize({76.f, 45.f});
-    addChildAtPosition(menu, Anchor::Right, ccp(-2.f, 0.f));
+    auto itemMenu = CCMenu::create();
+    itemMenu->setPosition({getContentSize().width - 45.f, getContentSize().height / 2.f});
+    itemMenu->addChild(button);
+    addChild(itemMenu);
 
     return true;
 }
 
-void VersionContainer::downloadVersion(CCObject*) {
+void VersionContainer::installVersion(CCObject*) {
     if (!m_modPopup) return;
 
     auto install = m_modPopup->getChildByIDRecursive("install-button");
