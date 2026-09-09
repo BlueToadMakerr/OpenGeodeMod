@@ -18,39 +18,34 @@ $on_mod(Loaded) {
             }
 
             std::string givenUrl = req.getUrl().data();
+            auto modsPath = std::string("/v1/mods/");
 
             // When the native Geode install button is activated from the
             // Versions popup, replace its normal latest-version download with
             // the exact version selected by the user.
-            auto modsPath = std::string("/v1/mods/");
             auto modStart = givenUrl.find(modsPath);
             if (modStart != std::string::npos) {
                 modStart += modsPath.size();
                 auto modEnd = givenUrl.find('/', modStart);
                 if (modEnd != std::string::npos && modEnd > modStart) {
                     auto modID = givenUrl.substr(modStart, modEnd - modStart);
-                    auto overrideVersion = takePendingVersionInstall(modID);
-                    if (overrideVersion) {
-                        auto downloadPath = fmt::format(
-                            "/v1/mods/{}/versions/{}/download", modID, *overrideVersion
-                        );
-                        auto apiPos = givenUrl.find("/v1/mods/");
-                        givenUrl.replace(apiPos, givenUrl.size() - apiPos, downloadPath);
-                        req.url(givenUrl);
+                    auto endpoint = givenUrl.substr(modEnd);
+                    if (endpoint.starts_with("/download")) {
+                        auto overrideVersion = takePendingVersionInstall(modID);
+                        if (overrideVersion) {
+                            auto downloadPath = fmt::format(
+                                "/v1/mods/{}/versions/{}/download", modID, *overrideVersion
+                            );
+                            auto apiPos = givenUrl.find(modsPath);
+                            givenUrl.replace(apiPos, givenUrl.size() - apiPos, downloadPath);
+                            req.url(givenUrl);
+                        }
                     }
                 }
             }
 
-            // Requests such as the index stats request can explicitly opt out
-            // of the global index override. Check the request parameters
-            // themselves rather than relying on the serialized URL, since the
-            // intercept can run before WebRequest has appended them to the URL.
-            if (req.getUrlParams().count("no_override") > 0) {
-                return ListenerResult::Propagate;
-            }
-
-            // Track versioned downloads, including those created by the
-            // native Geode install flow after a pending-version override.
+            // Track versioned downloads, including those created by the native
+            // Geode install flow after a pending-version override.
             auto versionedPos = givenUrl.find(modsPath);
             if (versionedPos != std::string::npos) {
                 auto versionedModStart = versionedPos + modsPath.size();
