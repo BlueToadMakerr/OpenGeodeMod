@@ -14,7 +14,7 @@ namespace {
 
 std::string versionStatusText(std::string const& status) {
     if (status == "accepted" || status.empty()) return "";
-    return fmt::format("({})", status);
+    return fmt::format(" ({})", status);
 }
 
 class VersionsPopup;
@@ -24,16 +24,15 @@ class VersionRow : public CCNode {
     std::string m_version;
     CCNode* m_modPopup = nullptr;
     VersionsPopup* m_versionsPopup = nullptr;
-    CCMenuItemSpriteExtra* m_installButton = nullptr;
+    CCMenuItemSpriteExtra* m_downloadButton = nullptr;
 
-    void installVersion(CCObject*);
+    void downloadVersion(CCObject*);
 
 public:
     static VersionRow* create(
         std::string modID,
         std::string name,
         std::string version,
-        int downloadCount,
         std::string status,
         std::string createdAt,
         CCNode* modPopup,
@@ -41,8 +40,8 @@ public:
     ) {
         auto ret = new VersionRow();
         if (ret && ret->init(
-            std::move(modID), std::move(name), std::move(version), downloadCount,
-            std::move(status), std::move(createdAt), modPopup, versionsPopup
+            std::move(modID), std::move(name), std::move(version), std::move(status),
+            std::move(createdAt), modPopup, versionsPopup
         )) {
             ret->autorelease();
             return ret;
@@ -55,7 +54,6 @@ public:
         std::string modID,
         std::string name,
         std::string version,
-        int downloadCount,
         std::string status,
         std::string createdAt,
         CCNode* modPopup,
@@ -106,7 +104,7 @@ public:
 
         auto scroll = ScrollLayer::create({260.f, 242.f});
         scroll->setPosition({15.f, 30.f});
-        scroll->m_contentLayer->setLayout(ScrollLayer::createDefaultListLayout(4.f));
+        scroll->m_contentLayer->setLayout(ScrollLayer::createDefaultListLayout(5.f));
         m_mainLayer->addChild(scroll);
 
         m_loadingLabel = CCLabelBMFont::create("Loading...", "goldFont.fnt");
@@ -151,7 +149,6 @@ public:
                         modID,
                         version["name"].asString().unwrapOr(modID),
                         version["version"].asString().unwrapOr("unknown"),
-                        version["download_count"].asInt().unwrapOr(0),
                         version["status"].asString().unwrapOr("accepted"),
                         version["created_at"].asString().unwrapOr("unknown"),
                         modPopup,
@@ -171,7 +168,6 @@ bool VersionRow::init(
     std::string modID,
     std::string name,
     std::string version,
-    int downloadCount,
     std::string status,
     std::string createdAt,
     CCNode* modPopup,
@@ -182,57 +178,60 @@ bool VersionRow::init(
     m_version = std::move(version);
     m_modPopup = modPopup;
     m_versionsPopup = versionsPopup;
-    setContentSize({245.f, 72.f});
+    setContentSize({245.f, 62.f});
 
-    auto title = CCLabelBMFont::create(name.c_str(), "bigFont.fnt");
-    title->setScale(.40f);
-    title->setAnchorPoint({0.f, .5f});
-    addChildAtPosition(title, Anchor::Left, ccp(4.f, 48.f));
-
-    auto downloads = CCLabelBMFont::create(
-        fmt::format("Downloads: {}", downloadCount).c_str(), "goldFont.fnt"
+    auto background = NineSlice::createWithSpriteFrameName(
+        getSectionBackground(), {8.f, 8.f, 8.f, 8.f}
     );
-    downloads->setScale(.28f);
-    downloads->setAnchorPoint({1.f, .5f});
-    addChildAtPosition(downloads, Anchor::Right, ccp(-72.f, 48.f));
+    if (background) {
+        background->setContentSize({245.f, 62.f});
+        addChildAtPosition(background, Anchor::Center);
+    }
+
+    auto title = CCLabelBMFont::create(
+        fmt::format("{}{}", name, versionStatusText(status)).c_str(), "bigFont.fnt"
+    );
+    title->setScale(.34f);
+    title->setAnchorPoint({0.f, .5f});
+    addChildAtPosition(title, Anchor::Left, ccp(8.f, 43.f));
 
     auto versionLabel = CCLabelBMFont::create(
-        fmt::format("{} {}", m_version, versionStatusText(status)).c_str(), "goldFont.fnt"
+        fmt::format("Version {}", m_version).c_str(), "goldFont.fnt"
     );
-    versionLabel->setScale(.30f);
+    versionLabel->setScale(.28f);
     versionLabel->setAnchorPoint({0.f, .5f});
-    addChildAtPosition(versionLabel, Anchor::Left, ccp(4.f, 29.f));
+    addChildAtPosition(versionLabel, Anchor::Left, ccp(8.f, 24.f));
 
     auto released = CCLabelBMFont::create(
-        fmt::format("Released: {}", createdAt).c_str(), "goldFont.fnt"
+        fmt::format("Released {}", createdAt).c_str(), "goldFont.fnt"
     );
-    released->setScale(.28f);
+    released->setScale(.25f);
     released->setAnchorPoint({0.f, .5f});
-    addChildAtPosition(released, Anchor::Left, ccp(4.f, 11.f));
+    addChildAtPosition(released, Anchor::Left, ccp(8.f, 9.f));
 
     auto installed = getInstalledModSource(m_modID);
     bool isInstalled = installed && installed->version == m_version;
     auto buttonSprite = ButtonSprite::create(
-        isInstalled ? "Installed" : "Install",
+        isInstalled ? "Installed" : "Download",
         "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .65f
     );
-    buttonSprite->setScale(.50f);
-    m_installButton = CCMenuItemSpriteExtra::create(
+    buttonSprite->setScale(.48f);
+    m_downloadButton = CCMenuItemSpriteExtra::create(
         buttonSprite,
         this,
-        menu_selector(VersionRow::installVersion)
+        menu_selector(VersionRow::downloadVersion)
     );
-    if (isInstalled) m_installButton->setEnabled(false);
+    if (isInstalled) m_downloadButton->setEnabled(false);
 
     auto menu = CCMenu::create();
-    menu->addChild(m_installButton);
-    menu->setContentSize({66.f, 45.f});
-    addChildAtPosition(menu, Anchor::Right, ccp(-2.f, 0.f));
+    menu->addChild(m_downloadButton);
+    menu->setContentSize({72.f, 45.f});
+    addChildAtPosition(menu, Anchor::Right, ccp(-3.f, 0.f));
 
     return true;
 }
 
-void VersionRow::installVersion(CCObject*) {
+void VersionRow::downloadVersion(CCObject*) {
     if (!m_modPopup) return;
     auto install = m_modPopup->getChildByIDRecursive("install-button");
     auto action = typeinfo_cast<CCMenuItem*>(install);
