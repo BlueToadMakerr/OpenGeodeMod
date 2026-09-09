@@ -17,23 +17,16 @@ std::string versionStatusText(std::string const& status) {
     return fmt::format("({})", status);
 }
 
+class VersionsPopup;
+
 class VersionRow : public CCNode {
     std::string m_modID;
     std::string m_version;
     CCNode* m_modPopup = nullptr;
-    Popup* m_versionsPopup = nullptr;
+    VersionsPopup* m_versionsPopup = nullptr;
     CCMenuItemSpriteExtra* m_installButton = nullptr;
 
-    void installVersion(CCObject*) {
-        if (!m_modPopup) return;
-        auto install = m_modPopup->getChildByIDRecursive("install-button");
-        auto action = typeinfo_cast<CCMenuItem*>(install);
-        if (!action) return;
-
-        setPendingVersionInstall(m_modID, m_version);
-        action->activate();
-        if (m_versionsPopup) m_versionsPopup->onClose(nullptr);
-    }
+    void installVersion(CCObject*);
 
 public:
     static VersionRow* create(
@@ -44,7 +37,7 @@ public:
         std::string status,
         std::string createdAt,
         CCNode* modPopup,
-        Popup* versionsPopup
+        VersionsPopup* versionsPopup
     ) {
         auto ret = new VersionRow();
         if (ret && ret->init(
@@ -66,62 +59,8 @@ public:
         std::string status,
         std::string createdAt,
         CCNode* modPopup,
-        Popup* versionsPopup
-    ) {
-        if (!CCNode::init()) return false;
-        m_modID = std::move(modID);
-        m_version = std::move(version);
-        m_modPopup = modPopup;
-        m_versionsPopup = versionsPopup;
-        setContentSize({245.f, 72.f});
-
-        auto title = CCLabelBMFont::create(name.c_str(), "bigFont.fnt");
-        title->setScale(.40f);
-        title->setAnchorPoint({0.f, .5f});
-        addChildAtPosition(title, Anchor::Left, ccp(4.f, 48.f));
-
-        auto downloads = CCLabelBMFont::create(
-            fmt::format("Downloads: {}", downloadCount).c_str(), "goldFont.fnt"
-        );
-        downloads->setScale(.28f);
-        downloads->setAnchorPoint({1.f, .5f});
-        addChildAtPosition(downloads, Anchor::Right, ccp(-72.f, 48.f));
-
-        auto versionLabel = CCLabelBMFont::create(
-            fmt::format("{} {}", m_version, versionStatusText(status)).c_str(), "goldFont.fnt"
-        );
-        versionLabel->setScale(.30f);
-        versionLabel->setAnchorPoint({0.f, .5f});
-        addChildAtPosition(versionLabel, Anchor::Left, ccp(4.f, 29.f));
-
-        auto released = CCLabelBMFont::create(
-            fmt::format("Released: {}", createdAt).c_str(), "goldFont.fnt"
-        );
-        released->setScale(.28f);
-        released->setAnchorPoint({0.f, .5f});
-        addChildAtPosition(released, Anchor::Left, ccp(4.f, 11.f));
-
-        auto installed = getInstalledModSource(m_modID);
-        bool isInstalled = installed && installed->version == m_version;
-        auto buttonSprite = ButtonSprite::create(
-            isInstalled ? "Installed" : "Install",
-            "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .65f
-        );
-        buttonSprite->setScale(.50f);
-        m_installButton = CCMenuItemSpriteExtra::create(
-            buttonSprite,
-            this,
-            menu_selector(VersionRow::installVersion)
-        );
-        if (isInstalled) m_installButton->setEnabled(false);
-
-        auto menu = CCMenu::create();
-        menu->addChild(m_installButton);
-        menu->setContentSize({66.f, 45.f});
-        addChildAtPosition(menu, Anchor::Right, ccp(-2.f, 0.f));
-
-        return true;
-    }
+        VersionsPopup* versionsPopup
+    );
 };
 
 class VersionsPopup : public Popup {
@@ -138,6 +77,10 @@ class VersionsPopup : public Popup {
     }
 
 public:
+    void closeVersionsPopup() {
+        onClose(nullptr);
+    }
+
     static VersionsPopup* create(std::string modID, CCNode* modPopup) {
         auto ret = new VersionsPopup();
         if (ret && ret->init(std::move(modID), modPopup)) {
@@ -181,7 +124,7 @@ public:
             [this, scroll, modID, modPopup](web::WebResponse response) {
                 if (!response.ok()) {
                     auto reason = response.errorMessage();
-                    showError(reason.empty() ? "Request failed." : reason);
+                    showError(reason.empty() ? std::string("Request failed.") : std::string(reason));
                     return;
                 }
 
@@ -224,9 +167,85 @@ public:
     }
 };
 
+bool VersionRow::init(
+    std::string modID,
+    std::string name,
+    std::string version,
+    int downloadCount,
+    std::string status,
+    std::string createdAt,
+    CCNode* modPopup,
+    VersionsPopup* versionsPopup
+) {
+    if (!CCNode::init()) return false;
+    m_modID = std::move(modID);
+    m_version = std::move(version);
+    m_modPopup = modPopup;
+    m_versionsPopup = versionsPopup;
+    setContentSize({245.f, 72.f});
+
+    auto title = CCLabelBMFont::create(name.c_str(), "bigFont.fnt");
+    title->setScale(.40f);
+    title->setAnchorPoint({0.f, .5f});
+    addChildAtPosition(title, Anchor::Left, ccp(4.f, 48.f));
+
+    auto downloads = CCLabelBMFont::create(
+        fmt::format("Downloads: {}", downloadCount).c_str(), "goldFont.fnt"
+    );
+    downloads->setScale(.28f);
+    downloads->setAnchorPoint({1.f, .5f});
+    addChildAtPosition(downloads, Anchor::Right, ccp(-72.f, 48.f));
+
+    auto versionLabel = CCLabelBMFont::create(
+        fmt::format("{} {}", m_version, versionStatusText(status)).c_str(), "goldFont.fnt"
+    );
+    versionLabel->setScale(.30f);
+    versionLabel->setAnchorPoint({0.f, .5f});
+    addChildAtPosition(versionLabel, Anchor::Left, ccp(4.f, 29.f));
+
+    auto released = CCLabelBMFont::create(
+        fmt::format("Released: {}", createdAt).c_str(), "goldFont.fnt"
+    );
+    released->setScale(.28f);
+    released->setAnchorPoint({0.f, .5f});
+    addChildAtPosition(released, Anchor::Left, ccp(4.f, 11.f));
+
+    auto installed = getInstalledModSource(m_modID);
+    bool isInstalled = installed && installed->version == m_version;
+    auto buttonSprite = ButtonSprite::create(
+        isInstalled ? "Installed" : "Install",
+        "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .65f
+    );
+    buttonSprite->setScale(.50f);
+    m_installButton = CCMenuItemSpriteExtra::create(
+        buttonSprite,
+        this,
+        menu_selector(VersionRow::installVersion)
+    );
+    if (isInstalled) m_installButton->setEnabled(false);
+
+    auto menu = CCMenu::create();
+    menu->addChild(m_installButton);
+    menu->setContentSize({66.f, 45.f});
+    addChildAtPosition(menu, Anchor::Right, ccp(-2.f, 0.f));
+
+    return true;
+}
+
+void VersionRow::installVersion(CCObject*) {
+    if (!m_modPopup) return;
+    auto install = m_modPopup->getChildByIDRecursive("install-button");
+    auto action = typeinfo_cast<CCMenuItem*>(install);
+    if (!action) return;
+
+    setPendingVersionInstall(m_modID, m_version);
+    action->activate();
+    if (m_versionsPopup) m_versionsPopup->closeVersionsPopup();
+}
+
 } // namespace
 
-void showVersionsPopup(std::string const& modID, CCNode* modPopup) {
+void showVersionsPopup(std::string const& modID, cocos2d::CCNode* modPopup) {
     if (modID.empty() || !modPopup) return;
     VersionsPopup::create(modID, modPopup)->show();
 }
