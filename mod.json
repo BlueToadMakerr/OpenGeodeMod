@@ -15,6 +15,18 @@
 		"geode.node-ids": ">=v1.23.0",
 		"alphalaneous.alphas_geode_utils": ">=v1.2.1"
 	},
+	"settings": {
+		"developer-title": {
+			"type": "title",
+			"name": "Developer"
+		},
+		"max-management-buttons": {
+			"type": "int",
+			"name": "Max Management Buttons",
+			"description": "Maximum number of management buttons shown before using More. No minimum or maximum value is enforced.",
+			"default": 3
+		}
+	},
 	"resources": {
 		"sprites": [
             "resources/*"
