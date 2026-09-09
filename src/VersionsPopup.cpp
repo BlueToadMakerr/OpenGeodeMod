@@ -176,8 +176,8 @@ class VersionsPopup : public Popup {
         if (m_page >= count) m_page = count - 1;
         m_pageNode->setStart(m_page * 5);
         m_pageLabel->setString(fmt::format("{}/{}", m_page + 1, count).c_str());
-        m_prevButton->setVisible(m_page > 0);
-        m_nextButton->setVisible(m_page + 1 < count);
+        if (m_prevButton) m_prevButton->setVisible(m_page > 0);
+        if (m_nextButton) m_nextButton->setVisible(m_page + 1 < count);
     }
 
     void nextPage(CCObject*) {
@@ -234,50 +234,55 @@ public:
         const float contentWidth = 270.f;
         const float contentHeight = 218.f;
 
-        auto section = createSectionContainer({contentWidth, contentHeight});
-        section->setPosition({width / 2.f, 153.f});
-        m_mainLayer->addChild(section);
+        m_content = CCNode::create();
+        m_content->setContentSize({contentWidth, contentHeight});
+        m_content->setAnchorPoint({.5f, .5f});
+        m_content->setPosition({width / 2.f, 153.f});
+        m_mainLayer->addChild(m_content);
 
         m_loadingLabel = CCLabelBMFont::create("Loading...", "goldFont.fnt");
         m_loadingLabel->setScale(.32f);
-        section->addChildAtPosition(m_loadingLabel, Anchor::Center);
+        m_content->addChildAtPosition(m_loadingLabel, Anchor::Center);
 
         m_errorLabel = CCLabelBMFont::create("", "goldFont.fnt");
         m_errorLabel->setScale(.24f);
         m_errorLabel->setVisible(false);
-        section->addChildAtPosition(m_errorLabel, Anchor::Center);
+        m_content->addChildAtPosition(m_errorLabel, Anchor::Center);
 
-        m_content = CCNode::create();
-        m_content->setContentSize({contentWidth - 6.f, contentHeight - 6.f});
-        m_content->setAnchorPoint({.5f, .5f});
-        section->addChildAtPosition(m_content, Anchor::Center);
-
-        auto navigation = CCMenu::create();
-        navigation->setContentSize({width, 30.f});
-        navigation->setPosition({width / 2.f, 22.f});
-        m_mainLayer->addChild(navigation);
+        auto prevMenu = CCMenu::create();
+        prevMenu->setContentSize({32.f, 32.f});
+        prevMenu->setPosition({-9.f, 131.f});
+        m_mainLayer->addChild(prevMenu);
 
         auto prevSprite = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
         if (prevSprite) {
             prevSprite->setScale(.65f);
             m_prevButton = CCMenuItemExt::createSpriteExtra(prevSprite, [this](CCObject* obj) { previousPage(obj); });
-            m_prevButton->setPosition({13.f, 15.f});
-            navigation->addChild(m_prevButton);
+            prevMenu->addChild(m_prevButton);
         }
+
+        auto nextMenu = CCMenu::create();
+        nextMenu->setContentSize({32.f, 32.f});
+        nextMenu->setPosition({width + 9.f, 131.f});
+        m_mainLayer->addChild(nextMenu);
 
         auto nextSprite = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
         if (nextSprite) {
             nextSprite->setScale(.65f);
             nextSprite->setRotation(180.f);
             m_nextButton = CCMenuItemExt::createSpriteExtra(nextSprite, [this](CCObject* obj) { nextPage(obj); });
-            m_nextButton->setPosition({width - 13.f, 15.f});
-            navigation->addChild(m_nextButton);
+            nextMenu->addChild(m_nextButton);
         }
+
+        auto pageMenu = CCMenu::create();
+        pageMenu->setContentSize({width, 30.f});
+        pageMenu->setPosition({width / 2.f, 22.f});
+        m_mainLayer->addChild(pageMenu);
 
         m_pageLabel = CCLabelBMFont::create("1/1", "bigFont.fnt");
         m_pageLabel->setScale(.5f);
         m_pageLabel->setPosition({width / 2.f, 15.f});
-        navigation->addChild(m_pageLabel);
+        pageMenu->addChild(m_pageLabel);
 
         m_requestTask.spawn(
             "OpenGeode version list",
@@ -327,8 +332,6 @@ public:
                             break;
                         }
                     }
-                    if (data.gd.empty() && gd.isObject())
-                        data.gd = gd["win"].asString().unwrapOr("");
 
                     m_versions.push_back(std::move(data));
                     if (m_modName.empty()) m_modName = m_versions.back().name;
@@ -349,7 +352,7 @@ public:
 
                 m_pageNode = VersionPage::create(this, m_versions);
                 if (m_pageNode) {
-                    m_pageNode->setPosition({3.f, 3.f});
+                    m_pageNode->setPosition({0.f, 0.f});
                     m_content->addChild(m_pageNode);
                     rebuildPage();
                 }
@@ -390,30 +393,34 @@ void VersionPage::rebuild() {
         makeLabel(versionText, .38f, {255, 255, 255}, row, {6.f, 31.f});
 
         auto statusText = version.status.empty() ? "Unknown" : version.status;
-        std::transform(statusText.begin(), statusText.end(), statusText.begin(), [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
-        makeLabel(statusText, .24f, statusColor(version.status), row, {6.f, 20.f});
+        std::transform(statusText.begin(), statusText.end(), statusText.begin(), [](unsigned char c) {
+            return static_cast<char>(std::toupper(c));
+        });
+        auto status = makeLabel(statusText, .24f, statusColor(version.status), row, {0.f, 31.f});
+        status->setAnchorPoint({1.f, .5f});
+        status->setPosition({204.f, 31.f});
 
         auto downloadsIcon = CCSprite::createWithSpriteFrameName("GJ_downloadsIcon_001.png");
         if (downloadsIcon) {
             downloadsIcon->setScale(.32f);
-            downloadsIcon->setPosition({8.f, 9.f});
+            downloadsIcon->setPosition({8.f, 19.f});
             row->addChild(downloadsIcon);
         }
-        makeLabel(fmt::format("{}", version.downloads), .21f, {205, 205, 205}, row, {17.f, 9.f});
+        makeLabel(fmt::format("{}", version.downloads), .21f, {205, 205, 205}, row, {17.f, 19.f});
 
         auto timeIcon = CCSprite::createWithSpriteFrameName("GJ_timeIcon_001.png");
         if (timeIcon) {
             timeIcon->setScale(.30f);
-            timeIcon->setPosition({52.f, 9.f});
+            timeIcon->setPosition({52.f, 19.f});
             row->addChild(timeIcon);
         }
-        makeLabel(version.date, .19f, {205, 205, 205}, row, {62.f, 9.f});
+        makeLabel(version.date, .19f, {205, 205, 205}, row, {62.f, 19.f});
 
         bool gdCompatible = !version.gd.empty() && (version.gd == "*" || version.gd == currentGD);
         bool geodeCompatible = version.geode == "*" || versionMajor(version.geode) == currentGeodeMajor;
 
         auto gdText = version.gd.empty() ? "GD ?" : fmt::format("GD {}", version.gd);
-        makeLabel(gdText, .19f, gdCompatible ? ccColor3B{100, 255, 100} : ccColor3B{255, 70, 70}, row, {118.f, 9.f});
+        makeLabel(gdText, .18f, gdCompatible ? ccColor3B{100, 255, 100} : ccColor3B{255, 70, 70}, row, {6.f, 7.f});
 
         if (!currentKey.empty()) {
             bool hasPlatform = false;
@@ -430,26 +437,27 @@ void VersionPage::rebuild() {
                     if (!supported.empty()) supported += ", ";
                     supported += platformLabel(key);
                 }
-                makeLabel(supported, .16f, {255, 70, 70}, row, {118.f, 2.f});
+                makeLabel(supported, .14f, {255, 70, 70}, row, {70.f, 7.f});
             }
         }
 
         makeLabel(
             fmt::format("Geode {}", version.geode),
-            .19f,
+            .18f,
             geodeCompatible ? ccColor3B{100, 255, 100} : ccColor3B{255, 70, 70},
             row,
-            {188.f, 9.f}
+            {135.f, 7.f}
         );
 
-        auto installSprite = ButtonSprite::create("Install", "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .28f);
-        installSprite->setScale(.58f);
+        auto installed = getInstalledModSource(m_popup->getModID());
+        bool isInstalled = installed && installed->version == version.version;
+        auto installText = isInstalled ? "Installed" : "Install";
+        auto installSprite = ButtonSprite::create(installText, "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .28f);
+        installSprite->setScale(.65f);
         auto install = CCMenuItemExt::createSpriteExtra(installSprite, [this, version](CCObject*) {
             m_popup->installVersion(version.version);
         });
-
-        auto installed = getInstalledModSource(m_popup->getModID());
-        if (installed && installed->version == version.version) install->setEnabled(false);
+        if (isInstalled) install->setEnabled(false);
 
         auto menu = CCMenu::create();
         menu->setPosition({246.f, 20.f});
