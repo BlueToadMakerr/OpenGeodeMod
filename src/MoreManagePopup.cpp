@@ -227,8 +227,11 @@ protected:
             if (!button) continue;
             auto item = CCMenuItemExt::createSpriteExtra(button, [action, this](CCMenuItemSpriteExtra*) {
                 if (action->getID() == "opengeode-versions-button") {
+                    // Diagnostic: bypass the native Versions action so More's activation
+                    // path cannot affect the popup that is being opened.
+                    log::info("[OpenGeode][MoreDebug] Versions selected from More; closing More and opening test alert");
                     this->onClose(nullptr);
-                    action->activate();
+                    FLAlertLayer::create("Versions Test", "Versions button was clicked from More.", "OK")->show();
                     return;
                 }
                 action->activate();
