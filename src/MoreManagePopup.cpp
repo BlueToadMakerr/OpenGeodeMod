@@ -44,7 +44,7 @@ void debugTextureKey(char const* label, CCTexture2D* texture) {
     bool found = false;
     for (auto key : CCArrayExt<CCString*>(textures->allKeys())) {
         if (!key) continue;
-        if (textures->objectForKey(key) == texture) {
+        if (textures->objectForKey(key->getCString()) == texture) {
             log::info(
                 "[OpenGeode][MoreDebug] {}: texture={} cacheKey=\"{}\"",
                 label,
@@ -123,6 +123,8 @@ void debugNativeButton(char const* id, IconButtonSprite* button) {
     debugSprite("  bg right", bg->getRight());
     debugSprite("  bg center", bg->getCenter());
 }
+
+IconButtonSprite* getVisibleIconButton(CCMenuItem* item);
 
 void debugManagementChild(CCNode* child) {
     if (!child) return;
