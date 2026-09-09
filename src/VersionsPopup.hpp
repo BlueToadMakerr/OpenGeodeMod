@@ -4,6 +4,6 @@
 
 namespace opengeode {
 
-void showVersionsPopup(CCNode* popup, std::string const& modID);
+void showVersionsPopup(std::string const& modID);
 
 } // namespace opengeode
