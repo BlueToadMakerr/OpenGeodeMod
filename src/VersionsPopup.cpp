@@ -75,12 +75,17 @@ public:
         m_versionsPopup = versionsPopup;
         setContentSize({245.f, 72.f});
 
-        auto title = CCLabelBMFont::create(
-            fmt::format("{}  Downloads: {}", name, downloadCount).c_str(), "bigFont.fnt"
-        );
+        auto title = CCLabelBMFont::create(name.c_str(), "bigFont.fnt");
         title->setScale(.40f);
         title->setAnchorPoint({0.f, .5f});
         addChildAtPosition(title, Anchor::Left, ccp(4.f, 48.f));
+
+        auto downloads = CCLabelBMFont::create(
+            fmt::format("Downloads: {}", downloadCount).c_str(), "goldFont.fnt"
+        );
+        downloads->setScale(.28f);
+        downloads->setAnchorPoint({1.f, .5f});
+        addChildAtPosition(downloads, Anchor::Right, ccp(-72.f, 48.f));
 
         auto versionLabel = CCLabelBMFont::create(
             fmt::format("{} {}", m_version, versionStatusText(status)).c_str(), "goldFont.fnt"
