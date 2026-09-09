@@ -142,30 +142,33 @@ public:
         scroll->m_contentLayer->setLayout(ScrollLayer::createDefaultListLayout(3.f));
         m_mainLayer->addChildAtPosition(scroll, Anchor::Center, ccp(0.f, -3.f));
 
-        auto task = web::WebRequest().get(fmt::format("https://api.geode-sdk.org/v1/mods/{}", modID));
-        m_requestTask.spawn("OpenGeode version list", task, [scroll, modID](web::WebResponse response) {
-            if (!response.ok()) return;
-            auto json = response.json();
-            if (!json) return;
-            auto payload = (*json)["payload"];
-            if (!payload.isObject()) return;
-            auto versions = payload["versions"];
-            if (!versions.isArray()) return;
+        m_requestTask.spawn(
+            "OpenGeode version list",
+            web::WebRequest().get(fmt::format("https://api.geode-sdk.org/v1/mods/{}", modID)),
+            [scroll, modID](web::WebResponse response) {
+                if (!response.ok()) return;
+                auto json = response.json();
+                if (!json) return;
+                auto payload = (*json)["payload"];
+                if (!payload.isObject()) return;
+                auto versions = payload["versions"];
+                if (!versions.isArray()) return;
 
-            for (auto const& version : versions) {
-                if (!version.isObject()) continue;
-                auto row = VersionRow::create(
-                    modID,
-                    version["name"].asString().unwrapOr(modID),
-                    version["version"].asString().unwrapOr("unknown"),
-                    version["download_count"].asInt().unwrapOr(0),
-                    version["status"].asString().unwrapOr("accepted"),
-                    version["created_at"].asString().unwrapOr("unknown")
-                );
-                if (row) scroll->m_contentLayer->addChild(row);
+                for (auto const& version : versions) {
+                    if (!version.isObject()) continue;
+                    auto row = VersionRow::create(
+                        modID,
+                        version["name"].asString().unwrapOr(modID),
+                        version["version"].asString().unwrapOr("unknown"),
+                        version["download_count"].asInt().unwrapOr(0),
+                        version["status"].asString().unwrapOr("accepted"),
+                        version["created_at"].asString().unwrapOr("unknown")
+                    );
+                    if (row) scroll->m_contentLayer->addChild(row);
+                }
+                scroll->m_contentLayer->updateLayout();
             }
-            scroll->m_contentLayer->updateLayout();
-        });
+        );
         return true;
     }
 };
