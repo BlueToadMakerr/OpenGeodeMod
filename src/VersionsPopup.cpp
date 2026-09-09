@@ -8,7 +8,6 @@
 
 #include <algorithm>
 #include <cctype>
-#include <ctime>
 
 using namespace geode::prelude;
 
@@ -20,7 +19,8 @@ struct VersionData {
     std::string name;
     std::string status;
     std::string geode;
-    std::string platformGD;
+    std::string gd;
+    std::vector<std::pair<std::string, std::string>> platforms;
     std::string date;
     int downloads = 0;
 };
@@ -34,21 +34,46 @@ int getInt(matjson::Value const& value, char const* key) {
 }
 
 std::string formatDate(matjson::Value const& version) {
-    auto timestamp = version["created_at"].asInt().unwrapOr(0);
-    if (timestamp <= 0) return "Unknown date";
+    auto raw = version["created_at"];
+    auto iso = raw.asString().unwrapOr("");
+    if (!iso.empty()) {
+        // API timestamps are ISO-8601, e.g. 2026-09-07T20:34:23Z.
+        if (iso.size() >= 10) return iso.substr(0, 10);
+        return iso;
+    }
 
+    auto timestamp = raw.asInt().unwrapOr(0);
+    if (timestamp <= 0) return "Unknown";
     std::time_t time = static_cast<std::time_t>(timestamp);
-    std::tm localTime{};
+    std::tm utc{};
 #ifdef _WIN32
-    localtime_s(&localTime, &time);
+    gmtime_s(&utc, &time);
 #else
-    localtime_r(&time, &localTime);
+    gmtime_r(&time, &utc);
 #endif
-
-    char buffer[64]{};
-    if (std::strftime(buffer, sizeof(buffer), "%b %d, %Y", &localTime) == 0)
-        return "Unknown date";
+    char buffer[32]{};
+    if (std::strftime(buffer, sizeof(buffer), "%Y-%m-%d", &utc) == 0) return "Unknown";
     return buffer;
+}
+
+std::string currentPlatformKey() {
+#ifdef GEODE_IS_WINDOWS
+    return "win";
+#elif defined(GEODE_IS_MACOS)
+    #ifdef GEODE_IS_ARM_MAC
+    return "mac-arm";
+    #else
+    return "mac-intel";
+    #endif
+#elif defined(GEODE_IS_IOS)
+    return "ios";
+#elif defined(GEODE_IS_ANDROID64)
+    return "android64";
+#elif defined(GEODE_IS_ANDROID32)
+    return "android32";
+#else
+    return "";
+#endif
 }
 
 std::string currentPlatformName() {
@@ -67,28 +92,34 @@ std::string currentPlatformName() {
 #endif
 }
 
-std::string platformGDKey() {
-#ifdef GEODE_IS_WINDOWS
-    return "win";
-#elif defined(GEODE_IS_MACOS)
-    #ifdef GEODE_IS_ARM_MAC
-    return "mac_arm";
-    #else
-    return "mac_intel";
-    #endif
-#elif defined(GEODE_IS_IOS)
-    return "ios";
-#elif defined(GEODE_IS_ANDROID64)
-    return "android64";
-#elif defined(GEODE_IS_ANDROID32)
-    return "android32";
-#else
-    return "";
-#endif
+std::string currentGameMajor() {
+    auto version = Loader::get()->getGameVersion();
+    auto dot = version.find('.');
+    return dot == std::string::npos ? version : version.substr(0, dot);
 }
 
-bool isCompatible(std::string const& required, std::string const& current) {
-    return required.empty() || required == "*" || required == current;
+std::string versionMajor(std::string value) {
+    if (!value.empty() && value.front() == 'v') value.erase(value.begin());
+    auto dot = value.find('.');
+    return dot == std::string::npos ? value : value.substr(0, dot);
+}
+
+std::string platformLabel(std::string const& key) {
+    if (key == "win") return "Windows";
+    if (key == "mac-arm") return "Mac ARM";
+    if (key == "mac-intel") return "Mac Intel";
+    if (key == "ios") return "iOS";
+    if (key == "android64") return "Android64";
+    if (key == "android32") return "Android32";
+    return key;
+}
+
+ccColor3B statusColor(std::string const& status) {
+    if (status == "accepted") return {100, 255, 100};
+    if (status == "rejected") return {255, 80, 80};
+    if (status == "pending") return {255, 220, 70};
+    if (status == "unlisted") return {190, 190, 190};
+    return {255, 255, 255};
 }
 
 CCLabelBMFont* makeLabel(
@@ -117,9 +148,9 @@ class VersionPage : public CCNode {
     void rebuild();
 
 public:
-    static VersionPage* create(VersionsPopup* popup, std::vector<VersionData> versions, size_t start) {
+    static VersionPage* create(VersionsPopup* popup, std::vector<VersionData> versions) {
         auto ret = new VersionPage();
-        if (ret && ret->init(popup, std::move(versions), start)) {
+        if (ret && ret->init(popup, std::move(versions))) {
             ret->autorelease();
             return ret;
         }
@@ -127,7 +158,14 @@ public:
         return nullptr;
     }
 
-    bool init(VersionsPopup* popup, std::vector<VersionData> versions, size_t start);
+    bool init(VersionsPopup* popup, std::vector<VersionData> versions) {
+        if (!CCNode::init()) return false;
+        m_popup = popup;
+        m_versions = std::move(versions);
+        setContentSize({270.f, 218.f});
+        rebuild();
+        return true;
+    }
 
     void setStart(size_t start) {
         m_start = start;
@@ -150,17 +188,22 @@ class VersionsPopup : public Popup {
     CCMenuItemSpriteExtra* m_nextButton = nullptr;
     CCNode* m_modPopup = nullptr;
 
+    size_t pageCount() const {
+        return std::max<size_t>(1, (m_versions.size() + 4) / 5);
+    }
+
     void rebuildPage() {
         if (!m_pageNode) return;
+        auto count = pageCount();
+        if (m_page >= count) m_page = count - 1;
         m_pageNode->setStart(m_page * 5);
-        auto pageCount = std::max<size_t>(1, (m_versions.size() + 4) / 5);
-        m_pageLabel->setString(fmt::format("{}/{}", m_page + 1, pageCount).c_str());
-        m_prevButton->setEnabled(m_page > 0);
-        m_nextButton->setEnabled(m_page + 1 < pageCount);
+        m_pageLabel->setString(fmt::format("{}/{}", m_page + 1, count).c_str());
+        m_prevButton->setVisible(m_page > 0);
+        m_nextButton->setVisible(m_page + 1 < count);
     }
 
     void nextPage(CCObject*) {
-        if ((m_page + 1) * 5 >= m_versions.size()) return;
+        if (m_page + 1 >= pageCount()) return;
         ++m_page;
         rebuildPage();
     }
@@ -184,11 +227,9 @@ public:
 
     void installVersion(std::string const& version) {
         if (!m_modPopup) return;
-
         auto install = m_modPopup->getChildByIDRecursive("install-button");
         auto action = typeinfo_cast<CCMenuItem*>(install);
         if (!action) return;
-
         setPendingVersionInstall(m_modID, version);
         action->activate();
         onClose(nullptr);
@@ -208,15 +249,16 @@ public:
         m_modID = std::move(modID);
         m_modPopup = modPopup;
 
-        if (!Popup::init(300.f, 315.f, getPopupBackground())) return false;
+        // Keep enough room for five rows while staying comfortably inside the screen.
+        if (!Popup::init(300.f, 292.f, getPopupBackground())) return false;
         if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .8f);
 
         const float width = 300.f;
-        const float contentWidth = 275.f;
-        const float contentHeight = 245.f;
+        const float contentWidth = 270.f;
+        const float contentHeight = 218.f;
 
         auto section = createSectionContainer({contentWidth, contentHeight});
-        section->setPosition({width / 2.f, 155.f});
+        section->setPosition({width / 2.f, 153.f});
         m_mainLayer->addChild(section);
 
         m_loadingLabel = CCLabelBMFont::create("Loading...", "goldFont.fnt");
@@ -224,30 +266,45 @@ public:
         section->addChildAtPosition(m_loadingLabel, Anchor::Center);
 
         m_errorLabel = CCLabelBMFont::create("", "goldFont.fnt");
-        m_errorLabel->setScale(.25f);
+        m_errorLabel->setScale(.24f);
         m_errorLabel->setVisible(false);
         section->addChildAtPosition(m_errorLabel, Anchor::Center);
 
         m_content = CCNode::create();
-        m_content->setContentSize({contentWidth - 10.f, contentHeight - 10.f});
+        m_content->setContentSize({contentWidth - 6.f, contentHeight - 6.f});
         m_content->setAnchorPoint({.5f, .5f});
         section->addChildAtPosition(m_content, Anchor::Center);
 
         auto navigation = CCMenu::create();
-        navigation->setContentSize({contentWidth - 20.f, 28.f});
-        navigation->setLayout(RowLayout::create()->setAxisAlignment(AxisAlignment::Center)->setGap(12.f));
-        m_mainLayer->addChildAtPosition(navigation, Anchor::Bottom, ccp(0.f, 17.f));
+        navigation->setContentSize({width, 30.f});
+        navigation->setPosition({width / 2.f, 22.f});
+        m_mainLayer->addChild(navigation);
 
-        auto prevSprite = ButtonSprite::create("<", "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .38f);
-        auto nextSprite = ButtonSprite::create(">", "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .38f);
-        m_prevButton = CCMenuItemExt::createSpriteExtra(prevSprite, [this](CCObject* obj) { previousPage(obj); });
-        m_nextButton = CCMenuItemExt::createSpriteExtra(nextSprite, [this](CCObject* obj) { nextPage(obj); });
+        auto makeArrow = [](bool right) -> CCMenuItemSpriteExtra* {
+            auto sprite = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
+            if (!sprite) return nullptr;
+            sprite->setScale(.65f);
+            if (right) sprite->setRotation(180.f);
+            return CCMenuItemExt::createSpriteExtra(sprite, [](CCObject*) {});
+        };
+
+        m_prevButton = makeArrow(false);
+        m_nextButton = makeArrow(true);
+        if (m_prevButton) {
+            m_prevButton->setPosition({13.f, 15.f});
+            m_prevButton->setCallback([this](CCObject* obj) { previousPage(obj); });
+            navigation->addChild(m_prevButton);
+        }
+        if (m_nextButton) {
+            m_nextButton->setPosition({width - 13.f, 15.f});
+            m_nextButton->setCallback([this](CCObject* obj) { nextPage(obj); });
+            navigation->addChild(m_nextButton);
+        }
+
         m_pageLabel = CCLabelBMFont::create("1/1", "bigFont.fnt");
-        m_pageLabel->setScale(.38f);
-        navigation->addChild(m_prevButton);
+        m_pageLabel->setScale(.5f);
+        m_pageLabel->setPosition({width / 2.f, 15.f});
         navigation->addChild(m_pageLabel);
-        navigation->addChild(m_nextButton);
-        navigation->updateLayout();
 
         m_requestTask.spawn(
             "OpenGeode version list",
@@ -283,13 +340,30 @@ public:
                     data.date = formatDate(version);
 
                     auto gd = version["gd"];
-                    auto key = platformGDKey();
-                    if (gd.isObject() && !key.empty())
-                        data.platformGD = gd[key].asString().unwrapOr("");
+                    if (gd.isObject()) {
+                        for (auto const& key : {"win", "mac-arm", "mac-intel", "ios", "android32", "android64"}) {
+                            auto value = gd[key].asString().unwrapOr("");
+                            if (!value.empty()) data.platforms.emplace_back(key, value);
+                        }
+                    }
+
+                    auto currentKey = currentPlatformKey();
+                    for (auto const& [key, value] : data.platforms) {
+                        if (key == currentKey) {
+                            data.gd = value;
+                            break;
+                        }
+                    }
+                    if (data.gd.empty() && gd.isObject())
+                        data.gd = gd["win"].asString().unwrapOr("");
 
                     m_versions.push_back(std::move(data));
                     if (m_modName.empty()) m_modName = m_versions.back().name;
                 }
+
+                std::stable_sort(m_versions.begin(), m_versions.end(), [](VersionData const& a, VersionData const& b) {
+                    return a.date > b.date;
+                });
 
                 if (m_versions.empty()) {
                     showError("No versions found.");
@@ -300,9 +374,9 @@ public:
                 setTitle(fmt::format("{} Versions", m_modName));
                 m_loadingLabel->setVisible(false);
 
-                m_pageNode = VersionPage::create(this, m_versions, 0);
+                m_pageNode = VersionPage::create(this, m_versions);
                 if (m_pageNode) {
-                    m_pageNode->setPosition({5.f, 5.f});
+                    m_pageNode->setPosition({3.f, 3.f});
                     m_content->addChild(m_pageNode);
                     rebuildPage();
                 }
@@ -313,32 +387,24 @@ public:
     }
 };
 
-bool VersionPage::init(VersionsPopup* popup, std::vector<VersionData> versions, size_t start) {
-    if (!CCNode::init()) return false;
-    m_popup = popup;
-    m_versions = std::move(versions);
-    m_start = start;
-    setContentSize({265.f, 235.f});
-    rebuild();
-    return true;
-}
-
 void VersionPage::rebuild() {
     removeAllChildrenWithCleanup(true);
 
     const auto currentGD = Loader::get()->getGameVersion();
+    const auto currentGameMajorVersion = currentGameMajor();
     const auto currentGeode = Loader::get()->getVersion().toNonVString();
-    const auto platform = currentPlatformName();
+    const auto currentGeodeMajor = versionMajor(currentGeode);
+    const auto currentKey = currentPlatformKey();
 
     auto end = std::min(m_start + 5, m_versions.size());
-    float y = 214.f;
+    float y = 197.f;
 
     for (size_t i = m_start; i < end; ++i) {
         auto const& version = m_versions[i];
         auto row = CCNode::create();
-        row->setContentSize({265.f, 40.f});
+        row->setContentSize({270.f, 40.f});
         row->setAnchorPoint({.5f, .5f});
-        row->setPosition({132.5f, y});
+        row->setPosition({135.f, y});
         addChild(row);
 
         auto bg = NineSlice::create(getSectionBackground());
@@ -351,50 +417,61 @@ void VersionPage::rebuild() {
         auto versionText = version.version.starts_with("v") ? version.version : "v" + version.version;
         makeLabel(versionText, .38f, {255, 255, 255}, row, {6.f, 31.f});
 
-        auto statusColor = ccColor3B{255, 255, 255};
-        if (version.status == "accepted") statusColor = {0, 255, 0};
-        else if (version.status == "rejected") statusColor = {255, 80, 80};
-        else if (version.status == "pending") statusColor = {255, 220, 70};
-        else if (version.status == "unlisted") statusColor = {180, 180, 180};
-
         auto statusText = version.status.empty() ? "Unknown" : version.status;
         std::transform(statusText.begin(), statusText.end(), statusText.begin(), [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
-        makeLabel(statusText, .27f, statusColor, row, {44.f, 31.f});
+        makeLabel(statusText, .24f, statusColor(version.status), row, {6.f, 20.f});
 
         auto downloadsIcon = CCSprite::createWithSpriteFrameName("GJ_downloadsIcon_001.png");
         if (downloadsIcon) {
-            downloadsIcon->setScale(.36f);
-            downloadsIcon->setPosition({8.f, 15.f});
+            downloadsIcon->setScale(.32f);
+            downloadsIcon->setPosition({8.f, 9.f});
             row->addChild(downloadsIcon);
         }
-        makeLabel(fmt::format("{}", version.downloads), .23f, {210, 210, 210}, row, {18.f, 15.f});
+        makeLabel(fmt::format("{}", version.downloads), .21f, {205, 205, 205}, row, {17.f, 9.f});
 
         auto timeIcon = CCSprite::createWithSpriteFrameName("GJ_timeIcon_001.png");
         if (timeIcon) {
-            timeIcon->setScale(.34f);
-            timeIcon->setPosition({66.f, 15.f});
+            timeIcon->setScale(.30f);
+            timeIcon->setPosition({52.f, 9.f});
             row->addChild(timeIcon);
         }
-        makeLabel(version.date, .21f, {210, 210, 210}, row, {76.f, 15.f});
+        makeLabel(version.date, .19f, {205, 205, 205}, row, {62.f, 9.f});
 
-        bool gdCompatible = isCompatible(version.platformGD, currentGD);
-        if (!version.platformGD.empty() && !gdCompatible) {
-            makeLabel(fmt::format("Not supported on {}", platform), .21f, {255, 70, 70}, row, {6.f, 3.f});
-        } else if (!version.platformGD.empty()) {
-            makeLabel(fmt::format("GD {}", version.platformGD), .21f, {100, 255, 100}, row, {6.f, 3.f});
+        bool gdCompatible = !version.gd.empty() && (version.gd == "*" || version.gd == currentGD);
+        bool geodeCompatible = version.geode == "*" || versionMajor(version.geode) == currentGeodeMajor;
+
+        auto gdText = version.gd.empty() ? "GD ?" : fmt::format("GD {}", version.gd);
+        makeLabel(gdText, .19f, gdCompatible ? ccColor3B{100, 255, 100} : ccColor3B{255, 70, 70}, row, {118.f, 9.f});
+
+        if (!currentKey.empty()) {
+            bool hasPlatform = false;
+            for (auto const& [key, value] : version.platforms) {
+                if (key == currentKey) {
+                    hasPlatform = true;
+                    break;
+                }
+            }
+
+            if (!hasPlatform && !version.platforms.empty()) {
+                std::string supported;
+                for (auto const& [key, value] : version.platforms) {
+                    if (!supported.empty()) supported += ", ";
+                    supported += platformLabel(key);
+                }
+                makeLabel(supported, .16f, {255, 70, 70}, row, {118.f, 2.f});
+            }
         }
 
-        auto geodeCompatible = isCompatible(version.geode, currentGeode);
         makeLabel(
             fmt::format("Geode {}", version.geode),
-            .21f,
+            .19f,
             geodeCompatible ? ccColor3B{100, 255, 100} : ccColor3B{255, 70, 70},
             row,
-            {118.f, 3.f}
+            {188.f, 9.f}
         );
 
-        auto installSprite = ButtonSprite::create("Install", "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .30f);
-        installSprite->setScale(.62f);
+        auto installSprite = ButtonSprite::create("Install", "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .28f);
+        installSprite->setScale(.58f);
         auto install = CCMenuItemExt::createSpriteExtra(installSprite, [this, version](CCObject*) {
             m_popup->installVersion(version.version);
         });
@@ -403,11 +480,11 @@ void VersionPage::rebuild() {
         if (installed && installed->version == version.version) install->setEnabled(false);
 
         auto menu = CCMenu::create();
-        menu->setPosition({237.f, 20.f});
+        menu->setPosition({246.f, 20.f});
         menu->addChild(install);
         row->addChild(menu);
 
-        y -= 45.f;
+        y -= 44.f;
     }
 }
 
