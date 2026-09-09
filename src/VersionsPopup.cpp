@@ -14,6 +14,8 @@ using namespace geode::prelude;
 namespace opengeode {
 namespace {
 
+using WebTask = decltype(web::WebRequest().get(std::string{}));
+
 std::string versionStatusText(std::string const& status) {
     if (status == "accepted") return "";
     return fmt::format("Status: {}", status);
@@ -22,10 +24,10 @@ std::string versionStatusText(std::string const& status) {
 class VersionRow : public CCNode {
     std::string m_modID;
     std::string m_version;
-    EventListener<web::WebTask> m_listener;
+    EventListener<WebTask> m_listener;
     CCMenuItemSpriteExtra* m_installButton = nullptr;
 
-    void onDownload(web::WebTask::Event* event) {
+    void onDownload(WebTask::Event* event) {
         if (event->isCancelled()) {
             m_installButton->setEnabled(true);
             return;
@@ -129,12 +131,12 @@ public:
 };
 
 class VersionsPopup : public Popup {
-    EventListener<web::WebTask> m_listener;
+    EventListener<WebTask> m_listener;
 
 public:
-    static VersionsPopup* create(CCNode* modPopup, std::string modID) {
+    static VersionsPopup* create(std::string modID) {
         auto ret = new VersionsPopup();
-        if (ret && ret->init(modPopup, std::move(modID))) {
+        if (ret && ret->init(std::move(modID))) {
             ret->autorelease();
             return ret;
         }
@@ -142,7 +144,7 @@ public:
         return nullptr;
     }
 
-    bool init(CCNode*, std::string modID) {
+    bool init(std::string modID) {
         if (!Popup::init(290.f, 310.f, getPopupBackground())) return false;
         setTitle("Versions");
         if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .8f);
@@ -152,7 +154,7 @@ public:
         m_mainLayer->addChildAtPosition(scroll, Anchor::Center, ccp(0.f, -3.f));
 
         auto task = web::WebRequest().get(fmt::format("https://api.geode-sdk.org/v1/mods/{}", modID));
-        m_listener.bind([scroll, modID](web::WebTask::Event* event) {
+        m_listener.bind([scroll, modID](WebTask::Event* event) {
             if (event->isCancelled()) return;
             auto response = event->getValue();
             if (!response || !response->ok()) return;
@@ -184,9 +186,9 @@ public:
 
 } // namespace
 
-void showVersionsPopup(CCNode*, std::string const& modID) {
+void showVersionsPopup(std::string const& modID) {
     if (modID.empty()) return;
-    VersionsPopup::create(nullptr, modID)->show();
+    VersionsPopup::create(modID)->show();
 }
 
 } // namespace opengeode
