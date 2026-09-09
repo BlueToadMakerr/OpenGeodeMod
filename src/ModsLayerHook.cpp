@@ -2,14 +2,10 @@
 #include "IndexListPopup.hpp"
 #include "ModsListUtils.hpp"
 #include "AccountPopup.hpp"
-#include "InstalledMods.hpp"
-#include "PopupSectionUtils.hpp"
+#include "MoreManagePopup.hpp"
 #include "Settings.hpp"
 
 #include <Geode/Geode.hpp>
-#include <Geode/ui/GeodeUI.hpp>
-#include <Geode/ui/IconButtonSprite.hpp>
-#include <Geode/ui/Popup.hpp>
 #include <Geode/ui/SceneEvent.hpp>
 #include <Geode/utils/web.hpp>
 
@@ -39,200 +35,6 @@ CCNode* createProfileButtonSprite() {
     root->setAnchorPoint({.5f, .5f});
     root->addChild(profile);
     return root;
-}
-
-std::string getPopupModID(CCNode* popup) {
-    auto label = typeinfo_cast<CCLabelBMFont*>(popup->getChildByIDRecursive("mod-id-label"));
-    if (!label) return "";
-    std::string value = label->getString();
-    auto prefix = std::string("(ID: ");
-    if (!value.starts_with(prefix) || value.size() <= prefix.size()) return "";
-    value.erase(0, prefix.size());
-    if (!value.empty() && value.back() == ')') value.pop_back();
-    return value;
-}
-
-struct NativeAction {
-    CCMenuItem* action = nullptr;
-    char const* label = nullptr;
-    char const* icon = nullptr;
-};
-
-NativeAction getNativeAction(CCNode* popup, char const* id) {
-    auto node = popup->getChildByIDRecursive(id);
-    if (!node || !node->isVisible()) return {};
-
-    if (auto toggler = typeinfo_cast<CCMenuItemToggler*>(node)) {
-        if (toggler->m_onButton && toggler->m_onButton->isVisible()) {
-            if (std::string(id) == "enable-button") return {toggler, "Disable", "GJ_deleteIcon_001.png"};
-            return {toggler, "Re-Disable", "reset.png"};
-        }
-        if (toggler->m_offButton && toggler->m_offButton->isVisible()) {
-            if (std::string(id) == "enable-button") return {toggler, "Enable", "GJ_completesIcon_001.png"};
-            return {toggler, "Re-Enable", "reset.png"};
-        }
-        return {};
-    }
-
-    auto item = typeinfo_cast<CCMenuItemSpriteExtra*>(node);
-    if (!item) return {};
-
-    if (std::string(id) == "update-button") return {item, "Update", "update.png"};
-    if (std::string(id) == "unavailable-button") return {item, "Unavailable", "exclamation.png"};
-    if (std::string(id) == "install-button") return {item, "Install", "GJ_downloadsIcon_001.png"};
-    if (std::string(id) == "uninstall-button") return {item, "Uninstall", "delete-white.png"};
-    if (std::string(id) == "cancel-button") return {item, "Cancel", "GJ_deleteIcon_001.png"};
-    return {};
-}
-
-bool isPopupInstalled(CCNode* popup) {
-    return getNativeAction(popup, "uninstall-button").action ||
-        getNativeAction(popup, "update-button").action ||
-        getNativeAction(popup, "enable-button").action ||
-        getNativeAction(popup, "reenable-button").action;
-}
-
-CCMenu* getNativeInstallMenu(CCNode* popup) {
-    for (auto const& id : {
-        "update-button", "enable-button", "reenable-button", "unavailable-button",
-        "install-button", "uninstall-button", "cancel-button"
-    }) {
-        auto action = getNativeAction(popup, id);
-        if (!action.action) continue;
-        auto menu = typeinfo_cast<CCMenu*>(action.action->getParent());
-        if (menu) return menu;
-    }
-    return nullptr;
-}
-
-void showInstallSource(std::string const& modID) {
-    auto source = getInstalledModSource(modID);
-    if (!source) return;
-    auto description = fmt::format(
-        "Installed from <cy>{}</c>\nVersion: <cg>{}</c>\n{}",
-        source->indexName.empty() ? source->indexUrl : source->indexName,
-        source->version,
-        source->indexUrl
-    );
-    FLAlertLayer::create("Install Source", description, "OK")->show();
-}
-
-IconButtonSprite* createFixedManageButton(char const* text, char const* iconFrame) {
-    auto icon = CCSprite::createWithSpriteFrameName(iconFrame);
-    if (!icon) return nullptr;
-    auto button = IconButtonSprite::create(
-        "GJ_button_01.png", icon, text, "bigFont.fnt"
-    );
-    if (button) button->setScale(.5f);
-    return button;
-}
-
-IconButtonSprite* createThemedManageButton(char const* text, char const* iconFrame) {
-    auto icon = CCSprite::createWithSpriteFrameName(iconFrame);
-    if (!icon) return nullptr;
-    auto button = IconButtonSprite::create(
-        getButtonTexture("GJ_button_01.png"), icon, text, "bigFont.fnt"
-    );
-    if (button) button->setScale(.5f);
-    return button;
-}
-
-class MoreManagePopup : public Popup {
-    CCNode* m_modPopup = nullptr;
-
-protected:
-    bool init(CCNode* modPopup) {
-        if (!Popup::init(190.f, 255.f, getPopupBackground())) return false;
-        m_modPopup = modPopup;
-        setTitle("More");
-        if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .8f);
-
-        auto menu = CCMenu::create();
-        menu->setContentSize({150.f, 190.f});
-        menu->setLayout(ColumnLayout::create()->setGap(6.f)->setAxisAlignment(AxisAlignment::Center));
-        m_mainLayer->addChildAtPosition(menu, Anchor::Center);
-
-        auto modID = getPopupModID(modPopup);
-        if (!modID.empty() && getInstalledModSource(modID) && isPopupInstalled(modPopup)) {
-            if (auto sprite = createFixedManageButton("From", "GJ_downloadsIcon_001.png")) {
-                auto item = CCMenuItemExt::createSpriteExtra(
-                    sprite,
-                    [modID, this](CCMenuItemSpriteExtra*) {
-                        showInstallSource(modID);
-                        this->onClose(nullptr);
-                    }
-                );
-                menu->addChild(item);
-            }
-        }
-
-        for (auto const& id : {
-            "update-button", "enable-button", "reenable-button", "unavailable-button",
-            "install-button", "uninstall-button", "cancel-button"
-        }) {
-            auto native = getNativeAction(modPopup, id);
-            if (!native.action || !native.label || !native.icon) continue;
-            auto sprite = createFixedManageButton(native.label, native.icon);
-            if (!sprite) continue;
-            auto item = CCMenuItemExt::createSpriteExtra(
-                sprite,
-                [native, this](CCMenuItemSpriteExtra*) {
-                    native.action->activate();
-                    this->onClose(nullptr);
-                }
-            );
-            menu->addChild(item);
-        }
-        menu->updateLayout();
-        return true;
-    }
-
-public:
-    static MoreManagePopup* create(CCNode* modPopup) {
-        auto ret = new MoreManagePopup();
-        if (ret && ret->init(modPopup)) {
-            ret->autorelease();
-            return ret;
-        }
-        delete ret;
-        return nullptr;
-    }
-};
-
-void ensureModPopupExtras(CCNode* popup) {
-    auto manageTitle = popup->getChildByIDRecursive("manage-title");
-    if (!manageTitle) return;
-
-    auto installMenu = getNativeInstallMenu(popup);
-    if (!installMenu) return;
-
-    auto modID = getPopupModID(popup);
-    if (!installMenu->getChildByID("opengeode-from-button"_spr) &&
-        !modID.empty() && getInstalledModSource(modID) && isPopupInstalled(popup)) {
-        if (auto sprite = createFixedManageButton("From", "GJ_downloadsIcon_001.png")) {
-            auto from = CCMenuItemExt::createSpriteExtra(
-                sprite,
-                [modID](CCMenuItemSpriteExtra*) { showInstallSource(modID); }
-            );
-            from->setID("opengeode-from-button"_spr);
-            installMenu->addChild(from);
-        }
-    }
-
-    if (!installMenu->getChildByID("opengeode-more-button"_spr)) {
-        if (auto sprite = createThemedManageButton("More", "GJ_filterIcon_001.png")) {
-            auto more = CCMenuItemExt::createSpriteExtra(
-                sprite,
-                [popup](CCMenuItemSpriteExtra*) {
-                    MoreManagePopup::create(popup)->show();
-                }
-            );
-            more->setID("opengeode-more-button"_spr);
-            installMenu->addChild(more);
-        }
-    }
-
-    installMenu->updateLayout();
 }
 
 class ModsLayerWatcher : public CCNode {
@@ -279,14 +81,19 @@ protected:
             CircleButtonSprite::createWithSpriteFrameName("geode.loader/geode-logo.png", 0.85f, CircleBaseColor::Blue),
             [](auto) { showIndexListPopup(); }
         );
-        indexBtn->setScale(0.8f); indexBtn->m_baseScale = 0.8f; indexBtn->setID("index-switcher-button"_spr);
-        actionsMenu->addChild(indexBtn); actionsMenu->updateLayout();
+        indexBtn->setScale(0.8f);
+        indexBtn->m_baseScale = 0.8f;
+        indexBtn->setID("index-switcher-button"_spr);
+        actionsMenu->addChild(indexBtn);
+        actionsMenu->updateLayout();
     }
 
     void ensureFilterButton(CCMenu* filtersMenu) {
         if (auto existingBtn = filtersMenu->getChildByID("index-filter-button"_spr)) existingBtn->removeFromParent();
         auto filterBtn = CCMenuItemExt::createSpriteExtra(buildFilterButtonSprite(), [](auto) { showFilterPopup(); });
-        filterBtn->setID("index-filter-button"_spr); filtersMenu->addChild(filterBtn, -100); filtersMenu->updateLayout();
+        filterBtn->setID("index-filter-button"_spr);
+        filtersMenu->addChild(filterBtn, -100);
+        filtersMenu->updateLayout();
     }
 
     void ensureAccountButton(CCNode* scene) {
@@ -297,7 +104,10 @@ protected:
             m_capabilityIndex = currentIndex;
             m_capabilityPending = false;
             m_capabilityTask.cancel();
-            if (m_accountButton) { m_accountButton->removeFromParent(); m_accountButton = nullptr; }
+            if (m_accountButton) {
+                m_accountButton->removeFromParent();
+                m_accountButton = nullptr;
+            }
         }
         if (m_accountButton || m_capabilityPending) return;
         m_capabilityPending = true;
@@ -312,9 +122,11 @@ protected:
             auto sprite = createProfileButtonSprite();
             if (!sprite) return;
             m_accountButton = CCMenuItemSpriteExtra::create(sprite, this, menu_selector(ModsLayerWatcher::onAccount));
-            m_accountButton->setScale(.8f); m_accountButton->m_baseScale = .8f;
+            m_accountButton->setScale(.8f);
+            m_accountButton->m_baseScale = .8f;
             m_accountButton->setID("opengeode-account-button"_spr);
-            backMenu->addChild(m_accountButton); backMenu->updateLayout();
+            backMenu->addChild(m_accountButton);
+            backMenu->updateLayout();
         });
     }
 
@@ -328,8 +140,12 @@ protected:
 public:
     static ModsLayerWatcher* create() {
         auto ret = new ModsLayerWatcher();
-        if (ret && ret->init()) { ret->autorelease(); return ret; }
-        delete ret; return nullptr;
+        if (ret && ret->init()) {
+            ret->autorelease();
+            return ret;
+        }
+        delete ret;
+        return nullptr;
     }
 };
 
