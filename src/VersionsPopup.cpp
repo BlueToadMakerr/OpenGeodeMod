@@ -7,6 +7,7 @@
 #include <Geode/utils/web.hpp>
 
 #include <algorithm>
+#include <cctype>
 #include <ctime>
 
 using namespace geode::prelude;
@@ -19,7 +20,6 @@ struct VersionData {
     std::string name;
     std::string status;
     std::string geode;
-    std::string gd;
     std::string platformGD;
     std::string date;
     int downloads = 0;
@@ -114,7 +114,6 @@ class VersionPage : public CCNode {
     std::vector<VersionData> m_versions;
     size_t m_start = 0;
 
-    void installVersion(std::string const& version);
     void rebuild();
 
 public:
@@ -157,6 +156,7 @@ class VersionsPopup : public Popup {
     CCLabelBMFont* m_pageLabel = nullptr;
     CCMenuItemSpriteExtra* m_prevButton = nullptr;
     CCMenuItemSpriteExtra* m_nextButton = nullptr;
+    CCNode* m_modPopup = nullptr;
 
     void rebuildPage() {
         if (!m_pageNode) return;
@@ -188,6 +188,18 @@ class VersionsPopup : public Popup {
     }
 
 public:
+    void installVersion(std::string const& version) {
+        if (!m_modPopup) return;
+
+        auto install = m_modPopup->getChildByIDRecursive("install-button");
+        auto action = typeinfo_cast<CCMenuItem*>(install);
+        if (!action) return;
+
+        setPendingVersionInstall(m_modID, version);
+        action->activate();
+        onClose(nullptr);
+    }
+
     static VersionsPopup* create(std::string modID, CCNode* modPopup) {
         auto ret = new VersionsPopup();
         if (ret && ret->init(std::move(modID), modPopup)) {
@@ -200,6 +212,7 @@ public:
 
     bool init(std::string modID, CCNode* modPopup) {
         m_modID = std::move(modID);
+        m_modPopup = modPopup;
 
         if (!Popup::init(300.f, 315.f, getPopupBackground())) return false;
         if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .8f);
@@ -245,7 +258,7 @@ public:
         m_requestTask.spawn(
             "OpenGeode version list",
             web::WebRequest().get(fmt::format("https://api.geode-sdk.org/v1/mods/{}", m_modID)),
-            [this, modPopup](web::WebResponse response) {
+            [this](web::WebResponse response) {
                 if (!response.ok()) {
                     auto reason = response.errorMessage();
                     showError(reason.empty() ? std::string("Request failed.") : std::string(reason));
@@ -276,14 +289,9 @@ public:
                     data.date = formatDate(version);
 
                     auto gd = version["gd"];
-                    auto platformKey = platformGDKey();
-                    if (gd.isObject() && !platformKey.empty()) {
-                        data.platformGD = gd[platformKey].asString().unwrapOr("");
-                    }
-                    data.gd = data.platformGD;
-                    if (data.gd.empty() && gd.isObject()) {
-                        data.gd = gd["win"].asString().unwrapOr("");
-                    }
+                    auto key = platformGDKey();
+                    if (gd.isObject() && !key.empty())
+                        data.platformGD = gd[key].asString().unwrapOr("");
 
                     m_versions.push_back(std::move(data));
                     if (m_modName.empty()) m_modName = m_versions.back().name;
@@ -294,7 +302,7 @@ public:
                     return;
                 }
 
-                // The API returns versions newest first. Keep that order for the pages.
+                // The API returns versions newest first, so keep that order.
                 m_modName = m_modName.empty() ? m_modID : m_modName;
                 setTitle(fmt::format("{} Versions", m_modName));
                 m_loadingLabel->setVisible(false);
@@ -332,15 +340,14 @@ void VersionPage::rebuild() {
     const auto currentGD = Loader::get()->getGameVersion();
     const auto currentGeode = Loader::get()->getVersion().toNonVString();
     const auto platform = currentPlatformName();
-    const auto platformKey = platformGDKey();
 
     auto end = std::min(m_start + 5, m_versions.size());
-    float y = 222.f;
+    float y = 214.f;
 
     for (size_t i = m_start; i < end; ++i) {
         auto const& version = m_versions[i];
         auto row = CCNode::create();
-        row->setContentSize({265.f, 43.f});
+        row->setContentSize({265.f, 40.f});
         row->setAnchorPoint({.5f, .5f});
         row->setPosition({132.5f, y});
         addChild(row);
@@ -353,7 +360,7 @@ void VersionPage::rebuild() {
         row->addChildAtPosition(bg, Anchor::Center);
 
         auto versionText = version.version.starts_with("v") ? version.version : "v" + version.version;
-        makeLabel(versionText, .38f, {255, 255, 255}, row, {7.f, 33.f});
+        makeLabel(versionText, .38f, {255, 255, 255}, row, {6.f, 31.f});
 
         auto statusColor = ccColor3B{255, 255, 255};
         if (version.status == "accepted") statusColor = {0, 255, 0};
@@ -363,68 +370,55 @@ void VersionPage::rebuild() {
 
         auto statusText = version.status.empty() ? "Unknown" : version.status;
         std::transform(statusText.begin(), statusText.end(), statusText.begin(), [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
-        auto status = makeLabel(statusText, .29f, statusColor, row, {42.f, 33.f});
-        status->setPositionX(42.f);
+        makeLabel(statusText, .27f, statusColor, row, {44.f, 31.f});
 
         auto downloadsIcon = CCSprite::createWithSpriteFrameName("GJ_downloadsIcon_001.png");
         if (downloadsIcon) {
-            downloadsIcon->setScale(.42f);
-            downloadsIcon->setPosition({8.f, 17.f});
+            downloadsIcon->setScale(.36f);
+            downloadsIcon->setPosition({8.f, 15.f});
             row->addChild(downloadsIcon);
         }
-        makeLabel(fmt::format("{}", version.downloads), .25f, {210, 210, 210}, row, {18.f, 17.f});
+        makeLabel(fmt::format("{}", version.downloads), .23f, {210, 210, 210}, row, {18.f, 15.f});
 
         auto timeIcon = CCSprite::createWithSpriteFrameName("GJ_timeIcon_001.png");
         if (timeIcon) {
-            timeIcon->setScale(.38f);
-            timeIcon->setPosition({73.f, 17.f});
+            timeIcon->setScale(.34f);
+            timeIcon->setPosition({66.f, 15.f});
             row->addChild(timeIcon);
         }
-        makeLabel(version.date, .23f, {210, 210, 210}, row, {84.f, 17.f});
+        makeLabel(version.date, .21f, {210, 210, 210}, row, {76.f, 15.f});
 
         bool gdCompatible = isCompatible(version.platformGD, currentGD);
         if (!version.platformGD.empty() && !gdCompatible) {
-            makeLabel(fmt::format("Not supported on {}", platform), .23f, {255, 70, 70}, row, {7.f, 4.f});
+            makeLabel(fmt::format("Not supported on {}", platform), .21f, {255, 70, 70}, row, {6.f, 3.f});
         } else if (!version.platformGD.empty()) {
-            makeLabel(fmt::format("GD {}", version.platformGD), .23f, {100, 255, 100}, row, {7.f, 4.f});
+            makeLabel(fmt::format("GD {}", version.platformGD), .21f, {100, 255, 100}, row, {6.f, 3.f});
         }
 
         auto geodeCompatible = isCompatible(version.geode, currentGeode);
-        auto geodeLabel = makeLabel(
+        makeLabel(
             fmt::format("Geode {}", version.geode),
-            .23f,
+            .21f,
             geodeCompatible ? ccColor3B{100, 255, 100} : ccColor3B{255, 70, 70},
             row,
-            {version.platformGD.empty() ? 7.f : 125.f, 4.f}
+            {118.f, 3.f}
         );
-        geodeLabel->setAnchorPoint({0.f, .5f});
 
-        auto installSprite = ButtonSprite::create("Install", "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .32f);
-        installSprite->setScale(.68f);
+        auto installSprite = ButtonSprite::create("Install", "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .30f);
+        installSprite->setScale(.62f);
         auto install = CCMenuItemExt::createSpriteExtra(installSprite, [this, version](CCObject*) {
-            installVersion(version.version);
+            m_popup->installVersion(version.version);
         });
+
         auto installed = getInstalledModSource(m_popup->m_modID);
         if (installed && installed->version == version.version) install->setEnabled(false);
 
         auto menu = CCMenu::create();
-        menu->setPosition({235.f, 21.5f});
+        menu->setPosition({237.f, 20.f});
         menu->addChild(install);
         row->addChild(menu);
 
-        y -= 47.f;
-    }
-}
-
-void VersionPage::installVersion(std::string const& version) {
-    if (!m_popup) return;
-    auto install = m_popup->m_mainLayer->getParent();
-    (void)install;
-
-    auto actionNode = m_popup->m_mainLayer->getChildByIDRecursive("install-button");
-    if (!actionNode) {
-        // The native install button lives in the original ModPopup, not this popup.
-        return;
+        y -= 45.f;
     }
 }
 
