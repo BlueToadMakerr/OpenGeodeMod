@@ -154,7 +154,6 @@ IconButtonSprite* recreateNativeButton(IconButtonSprite* source) {
 
 class MoreManagePopup : public Popup {
     CCNode* m_modPopup = nullptr;
-protected:
     bool init(CCNode* modPopup) {
         if (!Popup::init(190.f, 255.f, getPopupBackground())) return false;
         m_modPopup = modPopup;
@@ -177,29 +176,21 @@ protected:
             auto button = recreateNativeButton(source);
             if (!button) continue;
             auto item = CCMenuItemExt::createSpriteExtra(button, [action, this](CCMenuItemSpriteExtra*) {
-                if (action->getID() == "opengeode-versions-button") {
-                    action->activate();
-                    this->onClose(nullptr);
-                    return;
-                }
-                this->setVisible(false);
                 action->activate();
+                this->onClose(nullptr);
             });
             menu->addChild(item);
         }
         menu->updateLayout();
         return true;
     }
-
     void update(float) override {
         if (m_modPopup && !m_modPopup->getParent()) removeFromParentAndCleanup(true);
     }
-
 public:
     ~MoreManagePopup() override {
         if (g_morePopup == this) g_morePopup = nullptr;
     }
-
     static MoreManagePopup* create(CCNode* modPopup) {
         if (g_morePopup) {
             g_morePopup->removeFromParentAndCleanup(true);
@@ -211,8 +202,7 @@ public:
         return nullptr;
     }
 };
-
-} // namespace
+}
 
 void ensureModPopupExtras(CCNode* popup) {
     auto manageTitle = popup->getChildByIDRecursive("manage-title");
@@ -220,7 +210,6 @@ void ensureModPopupExtras(CCNode* popup) {
     auto managementMenu = getNativeManagementMenu(popup);
     if (!managementMenu) return;
     auto modID = getPopupModID(popup);
-
     if (!managementMenu->getChildByID("opengeode-versions-button"_spr) && !modID.empty()) {
         if (auto sprite = createThemedManageButton("Versions", "GJ_timeIcon_001.png")) {
             auto versions = CCMenuItemExt::createSpriteExtra(sprite, [modID, popup](CCMenuItemSpriteExtra*) { showVersionsPopup(modID, popup); });
@@ -228,7 +217,6 @@ void ensureModPopupExtras(CCNode* popup) {
             managementMenu->addChild(versions);
         }
     }
-
     if (!managementMenu->getChildByID("opengeode-from-button"_spr) && !modID.empty() && getInstalledModSource(modID) && isPopupInstalled(popup)) {
         if (auto sprite = createThemedManageButton("From", "GJ_downloadsIcon_001.png")) {
             auto from = CCMenuItemExt::createSpriteExtra(sprite, [modID](CCMenuItemSpriteExtra*) { showInstallSource(modID); });
@@ -236,7 +224,6 @@ void ensureModPopupExtras(CCNode* popup) {
             managementMenu->addChild(from);
         }
     }
-
     if (auto more = managementMenu->getChildByID("opengeode-more-button"_spr)) more->removeFromParentAndCleanup(true);
     if (applyManagementButtonLimit(managementMenu)) {
         if (auto sprite = createThemedManageButton("More", "GJ_filterIcon_001.png")) {
@@ -247,5 +234,4 @@ void ensureModPopupExtras(CCNode* popup) {
     }
     managementMenu->updateLayout();
 }
-
-} // namespace opengeode
+}
