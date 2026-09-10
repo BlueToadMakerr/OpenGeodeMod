@@ -27,20 +27,20 @@ int getInt(matjson::Value const& v, char const* key) { return v[key].asInt().unw
 std::string errorText(web::WebResponse const& response) {
     if (auto json = response.json()) {
         if ((*json).contains("error")) {
-            if (auto value = (*json)["error"].asString()) return value.unwrap();
+            auto value = (*json)["error"].asString().unwrapOr("");
+            if (!value.empty()) return value;
         }
         if ((*json).contains("detail")) {
-            if (auto value = (*json)["detail"].asString()) return value.unwrap();
+            auto value = (*json)["detail"].asString().unwrapOr("");
+            if (!value.empty()) return value;
         }
         if ((*json).contains("message")) {
-            if (auto value = (*json)["message"].asString()) return value.unwrap();
+            auto value = (*json)["message"].asString().unwrapOr("");
+            if (!value.empty()) return value;
         }
     }
-
-    if (response.code() > 0)
-        return fmt::format("HTTP {}", response.code());
-    if (!response.errorMessage().empty())
-        return std::string(response.errorMessage());
+    if (response.code() > 0) return fmt::format("HTTP {}", response.code());
+    if (!response.errorMessage().empty()) return std::string(response.errorMessage());
     return "Request failed.";
 }
 
@@ -273,10 +273,7 @@ public:
             "OpenGeode version list",
             request.get(fmt::format("https://api.geode-sdk.org/v1/mods/{}", m_modID)),
             [this](web::WebResponse response) {
-                if (!response.ok()) {
-                    showError(errorText(response));
-                    return;
-                }
+                if (!response.ok()) { showError(errorText(response)); return; }
                 auto json = response.json();
                 if (!json) { showError("The server returned invalid JSON."); return; }
                 auto payload = (*json)["payload"];
@@ -346,12 +343,10 @@ bool VersionRow::init(VersionsPopup* popup) {
     m_versionLabel = makeLabel("", .38f, {255, 255, 255}, this, {6.f, 31.f});
     m_statusLabel = makeLabel("", .24f, {255, 255, 255}, this, {204.f, 31.f});
     m_statusLabel->setAnchorPoint({1.f, .5f});
-
     if (auto icon = CCSprite::createWithSpriteFrameName("GJ_downloadsIcon_001.png")) { icon->setScale(.32f); icon->setPosition({8.f, 19.f}); addChild(icon); }
     m_downloadLabel = makeLabel("", .26f, {205, 205, 205}, this, {14.f, 19.f});
     if (auto icon = CCSprite::createWithSpriteFrameName("GJ_timeIcon_001.png")) { icon->setScale(.30f); icon->setPosition({49.f, 19.f}); addChild(icon); }
     m_dateLabel = makeLabel("", .26f, {205, 205, 205}, this, {59.f, 19.f});
-
     m_gdLabel = makeLabel("", .26f, {255, 255, 255}, this, {6.f, 7.f});
     m_platformLabel = makeLabel("", .20f, {255, 70, 70}, this, {50.f, 7.f});
     m_geodeLabel = makeLabel("", .26f, {255, 255, 255}, this, {165.f, 7.f});
@@ -413,6 +408,13 @@ void VersionRow::installCurrentVersion() {
 
 void installVersionFromRow(VersionRow* row, CCObject*) {
     if (row) row->installCurrentVersion();
+}
+
+}
+
+void showVersionsPopup(std::string const& modID, CCNode* modPopup) {
+    if (modID.empty() || !modPopup) return;
+    VersionsPopup::create(modID, modPopup)->show();
 }
 
 }
