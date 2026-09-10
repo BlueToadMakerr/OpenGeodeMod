@@ -16,9 +16,9 @@ $on_mod(Loaded) {
             std::string givenUrl = req.getUrl().data();
             auto modsPath = std::string("/v1/mods/");
 
-            // Only override an actual native download request. The native install
-            // flow first requests /versions/<version>?gd=...&platforms=... for
-            // JSON metadata, so that request must be left untouched.
+            // The native install flow requests version metadata first, then the
+            // download. For an exact-version install, make both requests target
+            // the selected version so the metadata hash matches the downloaded file.
             auto modStart = givenUrl.find(modsPath);
             if (modStart != std::string::npos) {
                 modStart += modsPath.size();
@@ -26,17 +26,25 @@ $on_mod(Loaded) {
                 if (modEnd != std::string::npos && modEnd > modStart) {
                     auto modID = givenUrl.substr(modStart, modEnd - modStart);
                     auto endpoint = givenUrl.substr(modEnd);
-                    auto isDownloadRequest = endpoint.starts_with("/download") ||
-                        (endpoint.starts_with("/versions/") && endpoint.find("/download") != std::string::npos);
-                    if (isDownloadRequest) {
-                        auto overrideVersion = takePendingVersionInstall(modID);
-                        if (overrideVersion) {
+                    auto overrideVersion = pendingVersionInstalls().find(modID);
+                    if (overrideVersion != pendingVersionInstalls().end()) {
+                        auto version = overrideVersion->second;
+
+                        if (endpoint.starts_with("/versions/") && endpoint.find("/download") == std::string::npos) {
+                            auto queryPos = endpoint.find('?');
+                            auto query = queryPos == std::string::npos ? std::string() : endpoint.substr(queryPos);
+                            givenUrl = givenUrl.substr(0, modEnd) + "/versions/" + version + query;
+                            req.url(givenUrl);
+                        }
+                        else if (endpoint.starts_with("/download") ||
+                            (endpoint.starts_with("/versions/") && endpoint.find("/download") != std::string::npos)) {
                             auto downloadPath = fmt::format(
-                                "/v1/mods/{}/versions/{}/download", modID, *overrideVersion
+                                "/v1/mods/{}/versions/{}/download", modID, version
                             );
                             auto apiPos = givenUrl.find(modsPath);
                             givenUrl.replace(apiPos, givenUrl.size() - apiPos, downloadPath);
                             req.url(givenUrl);
+                            takePendingVersionInstall(modID);
                         }
                     }
                 }
@@ -112,4 +120,4 @@ $on_mod(Loaded) {
     ).leak();
 }
 
-} // namespace opengeode
+} // namespace opengeodeMod
