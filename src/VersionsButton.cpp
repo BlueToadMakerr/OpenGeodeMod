@@ -16,9 +16,9 @@ std::string getPopupModID(CCNode* popup) {
 
     std::string value = label->getString();
     constexpr char const* prefix = "(ID: ";
-    if (!value.starts_with(prefix) || value.size() <= 6) return "";
+    if (!value.starts_with(prefix) || value.size() <= 5) return "";
 
-    value.erase(0, 6);
+    value.erase(0, 5);
     if (!value.empty() && value.back() == ')') value.pop_back();
     return value;
 }
