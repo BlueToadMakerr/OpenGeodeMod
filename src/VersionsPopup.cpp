@@ -211,7 +211,6 @@ public:
         m_errorLabel->setVisible(false);
         m_content->addChild(m_errorLabel);
 
-        // All five rows and their install buttons exist before the request finishes.
         for (size_t i = 0; i < 5; ++i) {
             auto row = VersionRow::create(this);
             if (!row) continue;
@@ -336,9 +335,9 @@ bool VersionRow::init(VersionsPopup* popup) {
     m_platformLabel = makeLabel("", .14f, {255, 70, 70}, this, {70.f, 7.f});
     m_geodeLabel = makeLabel("", .18f, {255, 255, 255}, this, {135.f, 7.f});
 
-    auto installSprite = ButtonSprite::create("Install", "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .28f);
-    installSprite->setScaleX(.90f);
-    installSprite->setScaleY(.65f);
+    // Keep the button at its normal aspect ratio; increase its base content
+    // scale instead so the label has room, making the button naturally wider.
+    auto installSprite = ButtonSprite::create("Install", "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .36f);
     m_installButton = CCMenuItemExt::createSpriteExtra(installSprite, [this](CCObject* sender) { installVersionFromRow(this, sender); });
     m_installButton->setID("opengeode-version-install-button");
     auto menu = CCMenu::create();
