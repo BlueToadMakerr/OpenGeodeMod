@@ -13,16 +13,14 @@ $on_mod(Loaded) {
 
     web::WebRequestInterceptEvent().listen(
         [](std::string_view id, web::WebRequest& req) {
-            if (req.getUrlParams().count("no_override") > 0) {
-                return ListenerResult::Propagate;
-            }
-
             std::string givenUrl = req.getUrl().data();
             auto modsPath = std::string("/v1/mods/");
 
             // When the native Geode install button is activated from the
             // Versions popup, replace its normal latest-version download with
-            // the exact version selected by the user.
+            // the exact version selected by the user. This intentionally runs
+            // before the no_override guard so a native request that carries
+            // that flag still honors an explicit version selection.
             auto modStart = givenUrl.find(modsPath);
             if (modStart != std::string::npos) {
                 modStart += modsPath.size();
@@ -42,6 +40,10 @@ $on_mod(Loaded) {
                         }
                     }
                 }
+            }
+
+            if (req.getUrlParams().count("no_override") > 0) {
+                return ListenerResult::Propagate;
             }
 
             // Track versioned downloads, including those created by the native
