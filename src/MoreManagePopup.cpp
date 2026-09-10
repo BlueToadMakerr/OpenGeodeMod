@@ -257,7 +257,7 @@ protected:
     bool init(CCNode* modPopup) {
         if (!Popup::init(190.f, 255.f, getPopupBackground())) return false;
         m_modPopup = modPopup;
-        setTitle("More");
+        setTitle("Manage");
         if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .8f);
         auto menu = CCMenu::create();
         menu->setContentSize({150.f, 190.f});
@@ -305,7 +305,7 @@ void ensureModPopupExtras(CCNode* popup) {
     auto modID = getPopupModID(popup);
     if (!managementMenu->getChildByID("opengeode-from-button"_spr) &&
         !modID.empty() && getInstalledModSource(modID) && isPopupInstalled(popup)) {
-        if (auto sprite = createThemedManageButton("From", "GJ_downloadsIcon_001.png")) {
+        if (auto sprite = createThemedManageButton("Source", "GJ_downloadsIcon_001.png")) {
             auto from = CCMenuItemExt::createSpriteExtra(sprite, [modID](CCMenuItemSpriteExtra*) { showInstallSource(modID); });
             from->setID("opengeode-from-button"_spr);
             managementMenu->addChild(from);
