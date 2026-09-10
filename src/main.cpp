@@ -16,9 +16,9 @@ $on_mod(Loaded) {
             std::string givenUrl = req.getUrl().data();
             auto modsPath = std::string("/v1/mods/");
 
-            // The native Geode install flow may request either the plain
-            // latest-version endpoint or an already-resolved /versions/.../download
-            // endpoint. In both cases, an explicit pending version selection wins.
+            // Only override the native download endpoint. The native install flow
+            // first requests /versions/<version>?gd=...&platforms=... for JSON
+            // metadata, so that request must be left untouched.
             auto modStart = givenUrl.find(modsPath);
             if (modStart != std::string::npos) {
                 modStart += modsPath.size();
@@ -26,9 +26,7 @@ $on_mod(Loaded) {
                 if (modEnd != std::string::npos && modEnd > modStart) {
                     auto modID = givenUrl.substr(modStart, modEnd - modStart);
                     auto endpoint = givenUrl.substr(modEnd);
-                    bool isDownloadRequest = endpoint.starts_with("/download")
-                        || endpoint.starts_with("/versions/");
-                    if (isDownloadRequest) {
+                    if (endpoint.starts_with("/download")) {
                         auto overrideVersion = takePendingVersionInstall(modID);
                         if (overrideVersion) {
                             auto downloadPath = fmt::format(
