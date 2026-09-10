@@ -85,17 +85,14 @@ public:
         const float width=300.f, contentWidth=270.f, contentHeight=218.f;
         m_content=CCNode::create(); m_content->setContentSize({contentWidth,contentHeight}); m_content->setAnchorPoint({.5f,.5f}); m_content->setPosition({width/2.f,153.f}); m_mainLayer->addChild(m_content);
         m_loadingLabel=CCLabelBMFont::create("Loading...","goldFont.fnt"); m_loadingLabel->setScale(.32f); m_content->addChildAtPosition(m_loadingLabel,Anchor::Center);
-        m_errorLabel=CCLabelBMFont::create("","goldFont.fnt"); m_errorLabel->setScale(.24f); m_errorLabel->setVisible(false); m_content->addChildAtPosition(m_errorLabel,Anchor::Center);
+        m_errorLabel=CCLabelBMFont::create("","goldFont.fnt"); m_errorLabel->setScale(.20f); m_errorLabel->setDimensions({contentWidth, 0.f}); m_errorLabel->setAnchorPoint({.5f,1.f}); m_errorLabel->setPosition({contentWidth/2.f, contentHeight/2.f-8.f}); m_errorLabel->setVisible(false); m_content->addChild(m_errorLabel);
         auto prevMenu=CCMenu::create(); prevMenu->setContentSize({32.f,32.f}); prevMenu->setPosition({-9.f,131.f}); m_mainLayer->addChild(prevMenu);
         if(auto sprite=CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png")){sprite->setScale(.65f);m_prevButton=CCMenuItemExt::createSpriteExtra(sprite,[this](CCObject* o){previousPage(o);});prevMenu->addChild(m_prevButton);}
         auto nextMenu=CCMenu::create(); nextMenu->setContentSize({32.f,32.f}); nextMenu->setPosition({width+9.f,131.f}); m_mainLayer->addChild(nextMenu);
         if(auto sprite=CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png")){sprite->setScale(.65f);sprite->setRotation(180.f);m_nextButton=CCMenuItemExt::createSpriteExtra(sprite,[this](CCObject* o){nextPage(o);});nextMenu->addChild(m_nextButton);}
-        auto pageMenu=CCMenu::create(); pageMenu->setContentSize({width,30.f}); pageMenu->setPosition({width/2.f,22.f}); m_mainLayer->addChild(pageMenu); m_pageLabel=CCLabelBMFont::create("1/1","bigFont.fnt"); m_pageLabel->setScale(.5f); m_pageLabel->setPosition({width/2.f,15.f}); pageMenu->addChild(m_pageLabel);
+        m_pageLabel=CCLabelBMFont::create("1/1","bigFont.fnt"); m_pageLabel->setScale(.5f); m_pageLabel->setAnchorPoint({.5f,.5f}); m_pageLabel->setPosition({width/2.f,22.f}); m_mainLayer->addChild(m_pageLabel);
 
-        // This endpoint must come from the official Geode API, not the currently
-        // selected index. no_override prevents OpenGeode's global index rewrite.
         auto request = web::WebRequest();
-        request.param("no_override", "1");
         auto token = getAuthAccessToken();
         if (!token.empty()) request.header("Authorization", "Bearer " + token);
         m_requestTask.spawn("OpenGeode version list", request.get(fmt::format("https://api.geode-sdk.org/v1/mods/{}",m_modID)), [this](web::WebResponse response){
