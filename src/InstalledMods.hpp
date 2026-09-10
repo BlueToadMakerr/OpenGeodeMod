@@ -2,9 +2,11 @@
 
 #include "Settings.hpp"
 
+#include <Geode/Geode.hpp>
 #include <cctype>
 #include <optional>
 #include <string>
+#include <unordered_map>
 
 namespace opengeode {
 
@@ -51,7 +53,7 @@ inline void setInstalledModSource(std::string const& modID, std::string const& v
 }
 
 inline std::optional<InstalledModSource> getInstalledModSource(std::string const& modID) {
-    if (modID.empty()) return std::nullopt;
+    if (modID.empty() || !Loader::get()->isModInstalled(modID)) return std::nullopt;
 
     auto prefix = installedModSettingPrefix(modID);
     auto version = readSetting(prefix + "-version", "");
@@ -72,6 +74,25 @@ inline void clearInstalledModSource(std::string const& modID) {
     deleteSetting(prefix + "-index-name");
     deleteSetting(prefix + "-index-url");
     deleteSetting(prefix + "-version");
+}
+
+inline std::unordered_map<std::string, std::string>& pendingVersionInstalls() {
+    static std::unordered_map<std::string, std::string> pending;
+    return pending;
+}
+
+inline void setPendingVersionInstall(std::string const& modID, std::string const& version) {
+    if (modID.empty() || version.empty()) return;
+    pendingVersionInstalls()[modID] = version;
+}
+
+inline std::optional<std::string> takePendingVersionInstall(std::string const& modID) {
+    auto& pending = pendingVersionInstalls();
+    auto it = pending.find(modID);
+    if (it == pending.end()) return std::nullopt;
+    auto version = it->second;
+    pending.erase(it);
+    return version;
 }
 
 } // namespace opengeode

@@ -13,32 +13,56 @@ $on_mod(Loaded) {
 
     web::WebRequestInterceptEvent().listen(
         [](std::string_view id, web::WebRequest& req) {
-            // Requests such as the index stats request can explicitly opt out
-            // of the global index override. Check the request parameters
-            // themselves rather than relying on the serialized URL, since the
-            // intercept can run before WebRequest has appended them to the URL.
+            std::string givenUrl = req.getUrl().data();
+            auto modsPath = std::string("/v1/mods/");
+
+            // The native install flow requests version metadata first, then the
+            // download. For an exact-version install, make both requests target
+            // the selected version so the metadata hash matches the downloaded file.
+            auto modStart = givenUrl.find(modsPath);
+            if (modStart != std::string::npos) {
+                modStart += modsPath.size();
+                auto modEnd = givenUrl.find('/', modStart);
+                if (modEnd != std::string::npos && modEnd > modStart) {
+                    auto modID = givenUrl.substr(modStart, modEnd - modStart);
+                    auto endpoint = givenUrl.substr(modEnd);
+                    auto overrideVersion = pendingVersionInstalls().find(modID);
+                    if (overrideVersion != pendingVersionInstalls().end()) {
+                        auto version = overrideVersion->second;
+
+                        if (endpoint.starts_with("/versions/") && endpoint.find("/download") == std::string::npos) {
+                            givenUrl = givenUrl.substr(0, modEnd) + "/versions/" + version;
+                            req.url(givenUrl);
+                        }
+                        else if (endpoint.starts_with("/download") ||
+                            (endpoint.starts_with("/versions/") && endpoint.find("/download") != std::string::npos)) {
+                            auto downloadPath = fmt::format(
+                                "/v1/mods/{}/versions/{}/download", modID, version
+                            );
+                            auto apiPos = givenUrl.find(modsPath);
+                            givenUrl.replace(apiPos, givenUrl.size() - apiPos, downloadPath);
+                            req.url(givenUrl);
+                            takePendingVersionInstall(modID);
+                        }
+                    }
+                }
+            }
+
             if (req.getUrlParams().count("no_override") > 0) {
                 return ListenerResult::Propagate;
             }
 
-            std::string givenUrl = req.getUrl().data();
-
-            // Geode follows redirects for downloads. Depending on where the
-            // intercept runs, the request we see can therefore already be
-            // pointed at the selected index instead of api.geode-sdk.org.
-            // Track the download path independently of the hostname so both
-            // the original API request and the redirected index request are
-            // captured.
-            auto modsPath = std::string("/v1/mods/");
-            auto versionsPos = givenUrl.find(modsPath);
-            if (versionsPos != std::string::npos) {
-                auto modStart = versionsPos + modsPath.size();
-                auto versionMarker = givenUrl.find("/versions/", modStart);
-                if (versionMarker != std::string::npos && versionMarker > modStart) {
+            // Track versioned downloads, including those created by the native
+            // Geode install flow after a pending-version override.
+            auto versionedPos = givenUrl.find(modsPath);
+            if (versionedPos != std::string::npos) {
+                auto versionedModStart = versionedPos + modsPath.size();
+                auto versionMarker = givenUrl.find("/versions/", versionedModStart);
+                if (versionMarker != std::string::npos && versionMarker > versionedModStart) {
                     auto versionStart = versionMarker + std::string("/versions/").size();
                     auto downloadPos = givenUrl.find("/download", versionStart);
                     if (downloadPos != std::string::npos && downloadPos > versionStart) {
-                        auto modID = givenUrl.substr(modStart, versionMarker - modStart);
+                        auto modID = givenUrl.substr(versionedModStart, versionMarker - versionedModStart);
                         auto version = givenUrl.substr(versionStart, downloadPos - versionStart);
                         if (!modID.empty() && !version.empty()) {
                             setInstalledModSource(modID, version);
@@ -64,9 +88,6 @@ $on_mod(Loaded) {
             givenUrl = string::replace(givenUrl, "https://api.geode-sdk.org", targetIndex);
             req.url(givenUrl);
 
-            // Authentication is per-index, just like the rest of the account
-            // state. Every intercepted Geode API request should carry the
-            // access token for the currently selected index when logged in.
             auto accessToken = getAuthAccessToken();
             if (!accessToken.empty()) {
                 req.header("Authorization", "Bearer " + accessToken);
@@ -87,10 +108,6 @@ $on_mod(Loaded) {
                 if (req.getUrlParams().count("gd") > 0) req.param("gd", config.gdVersion);
             }
 
-            // Only alter the mod-list request. Other /v1/mods endpoints such
-            // as /mods/{id}, /mods/updates, and /mods/{id}/logo must not receive
-            // a list-only status parameter. The status values are the same
-            // variants used by the existing Unverified Mods implementation.
             if (isModListRequest) {
                 req.param("status", statusToString(config.status));
             }
