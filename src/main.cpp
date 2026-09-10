@@ -16,9 +16,9 @@ $on_mod(Loaded) {
             std::string givenUrl = req.getUrl().data();
             auto modsPath = std::string("/v1/mods/");
 
-            // Only override the native download endpoint. The native install flow
-            // first requests /versions/<version>?gd=...&platforms=... for JSON
-            // metadata, so that request must be left untouched.
+            // Only override an actual native download request. The native install
+            // flow first requests /versions/<version>?gd=...&platforms=... for
+            // JSON metadata, so that request must be left untouched.
             auto modStart = givenUrl.find(modsPath);
             if (modStart != std::string::npos) {
                 modStart += modsPath.size();
@@ -26,7 +26,9 @@ $on_mod(Loaded) {
                 if (modEnd != std::string::npos && modEnd > modStart) {
                     auto modID = givenUrl.substr(modStart, modEnd - modStart);
                     auto endpoint = givenUrl.substr(modEnd);
-                    if (endpoint.starts_with("/download")) {
+                    auto isDownloadRequest = endpoint.starts_with("/download") ||
+                        (endpoint.starts_with("/versions/") && endpoint.find("/download") != std::string::npos);
+                    if (isDownloadRequest) {
                         auto overrideVersion = takePendingVersionInstall(modID);
                         if (overrideVersion) {
                             auto downloadPath = fmt::format(
