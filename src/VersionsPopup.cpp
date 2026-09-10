@@ -21,22 +21,15 @@ struct VersionData {
     int downloads = 0;
 };
 
-std::string getString(matjson::Value const& v, char const* key, std::string fallback = "") {
-    return v[key].asString().unwrapOr(fallback);
-}
-
-int getInt(matjson::Value const& v, char const* key) {
-    return v[key].asInt().unwrapOr(0);
-}
+std::string getString(matjson::Value const& v, char const* key, std::string fallback = "") { return v[key].asString().unwrapOr(fallback); }
+int getInt(matjson::Value const& v, char const* key) { return v[key].asInt().unwrapOr(0); }
 
 std::string formatDate(matjson::Value const& v) {
     auto raw = v["created_at"];
     auto iso = raw.asString().unwrapOr("");
     if (!iso.empty()) return iso.size() >= 10 ? iso.substr(0, 10) : iso;
-
     auto timestamp = raw.asInt().unwrapOr(0);
     if (timestamp <= 0) return "Unknown";
-
     std::time_t t = static_cast<std::time_t>(timestamp);
     std::tm utc{};
 #ifdef _WIN32
@@ -44,14 +37,12 @@ std::string formatDate(matjson::Value const& v) {
 #else
     gmtime_r(&t, &utc);
 #endif
-
     char buffer[32]{};
     return std::strftime(buffer, sizeof(buffer), "%Y-%m-%d", &utc) ? buffer : "Unknown";
 }
 
 std::tuple<int, int, int> parseVersion(std::string value) {
     if (!value.empty() && value.front() == 'v') value.erase(value.begin());
-
     int parts[3] = {0, 0, 0};
     size_t start = 0;
     for (int i = 0; i < 3 && start <= value.size(); ++i) {
@@ -63,13 +54,10 @@ std::tuple<int, int, int> parseVersion(std::string value) {
         if (end == std::string::npos) break;
         start = end + 1;
     }
-
     return {parts[0], parts[1], parts[2]};
 }
 
-std::string versionMajor(std::string value) {
-    return std::to_string(std::get<0>(parseVersion(std::move(value))));
-}
+std::string versionMajor(std::string value) { return std::to_string(std::get<0>(parseVersion(std::move(value)))); }
 
 std::string currentPlatformKey() {
 #ifdef GEODE_IS_WINDOWS
@@ -120,6 +108,8 @@ CCLabelBMFont* makeLabel(std::string const& text, float scale, ccColor3B color, 
 }
 
 class VersionsPopup;
+class VersionRow;
+void installVersionFromRow(VersionRow* row, CCObject* sender);
 
 class VersionRow : public CCNode {
     VersionsPopup* m_popup = nullptr;
@@ -132,127 +122,11 @@ class VersionRow : public CCNode {
     CCLabelBMFont* m_platformLabel = nullptr;
     CCLabelBMFont* m_geodeLabel = nullptr;
     CCMenuItemSpriteExtra* m_installButton = nullptr;
-
 public:
-    static VersionRow* create(VersionsPopup* popup) {
-        auto ret = new VersionRow();
-        if (ret && ret->init(popup)) {
-            ret->autorelease();
-            return ret;
-        }
-        delete ret;
-        return nullptr;
-    }
-
-    bool init(VersionsPopup* popup) {
-        if (!CCNode::init()) return false;
-        m_popup = popup;
-        setContentSize({270.f, 40.f});
-        setAnchorPoint({.5f, .5f});
-
-        auto bg = NineSlice::create(getSectionBackground());
-        bg->setColor({0, 0, 0});
-        bg->setOpacity(65);
-        bg->setScale(.3f);
-        bg->setContentSize(getContentSize() / bg->getScale());
-        addChildAtPosition(bg, Anchor::Center);
-
-        m_versionLabel = makeLabel("", .38f, {255, 255, 255}, this, {6.f, 31.f});
-        m_statusLabel = makeLabel("", .24f, {255, 255, 255}, this, {204.f, 31.f});
-        m_statusLabel->setAnchorPoint({1.f, .5f});
-
-        if (auto icon = CCSprite::createWithSpriteFrameName("GJ_downloadsIcon_001.png")) {
-            icon->setScale(.32f);
-            icon->setPosition({8.f, 19.f});
-            addChild(icon);
-        }
-        m_downloadLabel = makeLabel("", .21f, {205, 205, 205}, this, {17.f, 19.f});
-
-        if (auto icon = CCSprite::createWithSpriteFrameName("GJ_timeIcon_001.png")) {
-            icon->setScale(.30f);
-            icon->setPosition({52.f, 19.f});
-            addChild(icon);
-        }
-        m_dateLabel = makeLabel("", .19f, {205, 205, 205}, this, {62.f, 19.f});
-
-        m_gdLabel = makeLabel("", .18f, {255, 255, 255}, this, {6.f, 7.f});
-        m_platformLabel = makeLabel("", .14f, {255, 70, 70}, this, {70.f, 7.f});
-        m_geodeLabel = makeLabel("", .18f, {255, 255, 255}, this, {135.f, 7.f});
-
-        auto installSprite = ButtonSprite::create("Install", "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .28f);
-        installSprite->setScaleX(.90f);
-        installSprite->setScaleY(.65f);
-        m_installButton = CCMenuItemExt::createSpriteExtra(installSprite, [this](CCObject*) {
-            if (m_popup && !m_version.empty()) m_popup->installVersion(m_version);
-        });
-        m_installButton->setID("opengeode-version-install-button");
-
-        auto menu = CCMenu::create();
-        menu->setPosition({244.f, 20.f});
-        menu->addChild(m_installButton);
-        addChild(menu);
-        setVisible(false);
-        return true;
-    }
-
-    void setVersion(VersionData const* data, std::string const& currentGD, std::string const& currentGeodeMajor, std::string const& currentPlatform) {
-        if (!data) {
-            setVisible(false);
-            m_version.clear();
-            return;
-        }
-
-        setVisible(true);
-        m_version = data->version;
-
-        auto versionText = data->version.starts_with("v") ? data->version : "v" + data->version;
-        m_versionLabel->setString(versionText.c_str());
-
-        auto statusText = data->status.empty() ? "Unknown" : data->status;
-        std::transform(statusText.begin(), statusText.end(), statusText.begin(), [](unsigned char c) {
-            return static_cast<char>(std::toupper(c));
-        });
-        m_statusLabel->setString(statusText.c_str());
-        m_statusLabel->setColor(statusColor(data->status));
-
-        m_downloadLabel->setString(fmt::format("{}", data->downloads).c_str());
-        m_dateLabel->setString(data->date.c_str());
-
-        bool gdCompatible = !data->gd.empty() && (data->gd == "*" || data->gd == currentGD);
-        bool geodeCompatible = data->geode == "*" || versionMajor(data->geode) == currentGeodeMajor;
-        auto gdText = data->gd.empty() ? std::string("GD ?") : fmt::format("GD {}", data->gd);
-        m_gdLabel->setString(gdText.c_str());
-        m_gdLabel->setColor(gdCompatible ? ccColor3B{100, 255, 100} : ccColor3B{255, 70, 70});
-
-        m_platformLabel->setString("");
-        if (!currentPlatform.empty()) {
-            bool hasPlatform = false;
-            for (auto const& [key, value] : data->platforms) {
-                if (key == currentPlatform) {
-                    hasPlatform = true;
-                    break;
-                }
-            }
-            if (!hasPlatform && !data->platforms.empty()) {
-                std::string supported;
-                for (auto const& [key, value] : data->platforms) {
-                    if (!supported.empty()) supported += ", ";
-                    supported += platformLabel(key);
-                }
-                m_platformLabel->setString(supported.c_str());
-            }
-        }
-
-        auto geodeText = fmt::format("Geode {}", data->geode);
-        m_geodeLabel->setString(geodeText.c_str());
-        m_geodeLabel->setColor(geodeCompatible ? ccColor3B{100, 255, 100} : ccColor3B{255, 70, 70});
-
-        auto installed = getInstalledModSource(m_popup->getModID());
-        bool isInstalled = installed && installed->version == data->version;
-        auto installSprite = typeinfo_cast<ButtonSprite*>(m_installButton->getNormalImage());
-        if (installSprite) installSprite->setString(isInstalled ? "Installed" : "Install");
-        m_installButton->setEnabled(!isInstalled);
-    }
+    static VersionRow* create(VersionsPopup* popup);
+    bool init(VersionsPopup* popup);
+    void setVersion(VersionData const* data, std::string const& currentGD, std::string const& currentGeodeMajor, std::string const& currentPlatform);
+    void installCurrentVersion();
 };
 
 class VersionsPopup : public Popup {
@@ -269,58 +143,34 @@ class VersionsPopup : public Popup {
     CCMenuItemSpriteExtra* m_nextButton = nullptr;
     CCNode* m_modPopup = nullptr;
 
-    size_t pageCount() const {
-        return std::max<size_t>(1, (m_versions.size() + 4) / 5);
-    }
+    size_t pageCount() const { return std::max<size_t>(1, (m_versions.size() + 4) / 5); }
 
     void rebuildPage() {
         if (!m_pageLabel) return;
         auto count = pageCount();
         if (m_page >= count) m_page = count - 1;
-
         auto currentGD = Loader::get()->getGameVersion();
         auto currentGeodeMajor = versionMajor(Loader::get()->getVersion().toNonVString());
         auto currentPlatform = currentPlatformKey();
         auto start = m_page * 5;
-
         for (size_t i = 0; i < m_rows.size(); ++i) {
             auto index = start + i;
-            m_rows[i]->setVersion(
-                index < m_versions.size() ? &m_versions[index] : nullptr,
-                currentGD,
-                currentGeodeMajor,
-                currentPlatform
-            );
+            m_rows[i]->setVersion(index < m_versions.size() ? &m_versions[index] : nullptr, currentGD, currentGeodeMajor, currentPlatform);
         }
-
         m_pageLabel->setString(fmt::format("{}/{}", m_page + 1, count).c_str());
         if (m_prevButton) m_prevButton->setVisible(m_page > 0);
         if (m_nextButton) m_nextButton->setVisible(m_page + 1 < count);
     }
 
-    void nextPage(CCObject*) {
-        if (m_page + 1 >= pageCount()) return;
-        ++m_page;
-        rebuildPage();
-    }
-
-    void previousPage(CCObject*) {
-        if (m_page == 0) return;
-        --m_page;
-        rebuildPage();
-    }
-
+    void nextPage(CCObject*) { if (m_page + 1 < pageCount()) { ++m_page; rebuildPage(); } }
+    void previousPage(CCObject*) { if (m_page > 0) { --m_page; rebuildPage(); } }
     void showError(std::string const& reason) {
         if (m_loadingLabel) m_loadingLabel->setVisible(false);
-        if (m_errorLabel) {
-            m_errorLabel->setString(reason.c_str());
-            m_errorLabel->setVisible(true);
-        }
+        if (m_errorLabel) { m_errorLabel->setString(reason.c_str()); m_errorLabel->setVisible(true); }
     }
 
 public:
     std::string const& getModID() const { return m_modID; }
-
     void installVersion(std::string const& version) {
         if (!m_modPopup) return;
         auto install = m_modPopup->getChildByIDRecursive("install-button");
@@ -333,10 +183,7 @@ public:
 
     static VersionsPopup* create(std::string modID, CCNode* modPopup) {
         auto ret = new VersionsPopup();
-        if (ret && ret->init(std::move(modID), modPopup)) {
-            ret->autorelease();
-            return ret;
-        }
+        if (ret && ret->init(std::move(modID), modPopup)) { ret->autorelease(); return ret; }
         delete ret;
         return nullptr;
     }
@@ -357,7 +204,6 @@ public:
         m_loadingLabel = CCLabelBMFont::create("Loading...", "goldFont.fnt");
         m_loadingLabel->setScale(.32f);
         m_content->addChildAtPosition(m_loadingLabel, Anchor::Center);
-
         m_errorLabel = CCLabelBMFont::create("", "goldFont.fnt");
         m_errorLabel->setScale(.20f);
         m_errorLabel->setAnchorPoint({.5f, .5f});
@@ -365,6 +211,7 @@ public:
         m_errorLabel->setVisible(false);
         m_content->addChild(m_errorLabel);
 
+        // All five rows and their install buttons exist before the request finishes.
         for (size_t i = 0; i < 5; ++i) {
             auto row = VersionRow::create(this);
             if (!row) continue;
@@ -412,19 +259,11 @@ public:
                     showError(reason.empty() ? std::string("Request failed.") : std::string(reason));
                     return;
                 }
-
                 auto json = response.json();
-                if (!json) {
-                    showError("The server returned invalid JSON.");
-                    return;
-                }
-
+                if (!json) { showError("The server returned invalid JSON."); return; }
                 auto payload = (*json)["payload"];
                 auto versions = payload["versions"];
-                if (!payload.isObject() || !versions.isArray()) {
-                    showError("The server response did not contain a versions list.");
-                    return;
-                }
+                if (!payload.isObject() || !versions.isArray()) { showError("The server response did not contain a versions list."); return; }
 
                 for (auto const& version : versions) {
                     if (!version.isObject()) continue;
@@ -435,7 +274,6 @@ public:
                     data.geode = getString(version, "geode", "unknown");
                     data.downloads = getInt(version, "download_count");
                     data.date = formatDate(version);
-
                     auto gd = version["gd"];
                     if (gd.isObject()) {
                         for (auto const& key : {"win", "mac-arm", "mac-intel", "ios", "android32", "android64"}) {
@@ -443,15 +281,8 @@ public:
                             if (!value.empty()) data.platforms.emplace_back(key, value);
                         }
                     }
-
                     auto currentKey = currentPlatformKey();
-                    for (auto const& [key, value] : data.platforms) {
-                        if (key == currentKey) {
-                            data.gd = value;
-                            break;
-                        }
-                    }
-
+                    for (auto const& [key, value] : data.platforms) if (key == currentKey) { data.gd = value; break; }
                     m_versions.push_back(std::move(data));
                     if (m_modName.empty()) m_modName = m_versions.back().name;
                 }
@@ -463,21 +294,108 @@ public:
                     return a.date > b.date;
                 });
 
-                if (m_versions.empty()) {
-                    showError("No versions found.");
-                    return;
-                }
-
+                if (m_versions.empty()) { showError("No versions found."); return; }
                 m_modName = m_modName.empty() ? m_modID : m_modName;
                 setTitle(fmt::format("{} Versions", m_modName));
                 m_loadingLabel->setVisible(false);
                 rebuildPage();
             }
         );
-
         return true;
     }
 };
+
+VersionRow* VersionRow::create(VersionsPopup* popup) {
+    auto ret = new VersionRow();
+    if (ret && ret->init(popup)) { ret->autorelease(); return ret; }
+    delete ret;
+    return nullptr;
+}
+
+bool VersionRow::init(VersionsPopup* popup) {
+    if (!CCNode::init()) return false;
+    m_popup = popup;
+    setContentSize({270.f, 40.f});
+    setAnchorPoint({.5f, .5f});
+
+    auto bg = NineSlice::create(getSectionBackground());
+    bg->setColor({0, 0, 0});
+    bg->setOpacity(65);
+    bg->setScale(.3f);
+    bg->setContentSize(getContentSize() / bg->getScale());
+    addChildAtPosition(bg, Anchor::Center);
+
+    m_versionLabel = makeLabel("", .38f, {255, 255, 255}, this, {6.f, 31.f});
+    m_statusLabel = makeLabel("", .24f, {255, 255, 255}, this, {204.f, 31.f});
+    m_statusLabel->setAnchorPoint({1.f, .5f});
+    if (auto icon = CCSprite::createWithSpriteFrameName("GJ_downloadsIcon_001.png")) { icon->setScale(.32f); icon->setPosition({8.f, 19.f}); addChild(icon); }
+    m_downloadLabel = makeLabel("", .21f, {205, 205, 205}, this, {17.f, 19.f});
+    if (auto icon = CCSprite::createWithSpriteFrameName("GJ_timeIcon_001.png")) { icon->setScale(.30f); icon->setPosition({52.f, 19.f}); addChild(icon); }
+    m_dateLabel = makeLabel("", .19f, {205, 205, 205}, this, {62.f, 19.f});
+    m_gdLabel = makeLabel("", .18f, {255, 255, 255}, this, {6.f, 7.f});
+    m_platformLabel = makeLabel("", .14f, {255, 70, 70}, this, {70.f, 7.f});
+    m_geodeLabel = makeLabel("", .18f, {255, 255, 255}, this, {135.f, 7.f});
+
+    auto installSprite = ButtonSprite::create("Install", "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .28f);
+    installSprite->setScaleX(.90f);
+    installSprite->setScaleY(.65f);
+    m_installButton = CCMenuItemExt::createSpriteExtra(installSprite, [this](CCObject* sender) { installVersionFromRow(this, sender); });
+    m_installButton->setID("opengeode-version-install-button");
+    auto menu = CCMenu::create();
+    menu->setPosition({244.f, 20.f});
+    menu->addChild(m_installButton);
+    addChild(menu);
+    setVisible(false);
+    return true;
+}
+
+void VersionRow::setVersion(VersionData const* data, std::string const& currentGD, std::string const& currentGeodeMajor, std::string const& currentPlatform) {
+    if (!data) { setVisible(false); m_version.clear(); return; }
+    setVisible(true);
+    m_version = data->version;
+    m_versionLabel->setString((data->version.starts_with("v") ? data->version : "v" + data->version).c_str());
+    auto statusText = data->status.empty() ? "Unknown" : data->status;
+    std::transform(statusText.begin(), statusText.end(), statusText.begin(), [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+    m_statusLabel->setString(statusText.c_str());
+    m_statusLabel->setColor(statusColor(data->status));
+    m_downloadLabel->setString(fmt::format("{}", data->downloads).c_str());
+    m_dateLabel->setString(data->date.c_str());
+
+    bool gdCompatible = !data->gd.empty() && (data->gd == "*" || data->gd == currentGD);
+    bool geodeCompatible = data->geode == "*" || versionMajor(data->geode) == currentGeodeMajor;
+    auto gdText = data->gd.empty() ? std::string("GD ?") : fmt::format("GD {}", data->gd);
+    m_gdLabel->setString(gdText.c_str());
+    m_gdLabel->setColor(gdCompatible ? ccColor3B{100, 255, 100} : ccColor3B{255, 70, 70});
+
+    m_platformLabel->setString("");
+    if (!currentPlatform.empty()) {
+        bool hasPlatform = false;
+        for (auto const& [key, value] : data->platforms) if (key == currentPlatform) { hasPlatform = true; break; }
+        if (!hasPlatform && !data->platforms.empty()) {
+            std::string supported;
+            for (auto const& [key, value] : data->platforms) { if (!supported.empty()) supported += ", "; supported += platformLabel(key); }
+            m_platformLabel->setString(supported.c_str());
+        }
+    }
+
+    auto geodeText = fmt::format("Geode {}", data->geode);
+    m_geodeLabel->setString(geodeText.c_str());
+    m_geodeLabel->setColor(geodeCompatible ? ccColor3B{100, 255, 100} : ccColor3B{255, 70, 70});
+
+    auto installed = getInstalledModSource(m_popup->getModID());
+    bool isInstalled = installed && installed->version == data->version;
+    auto installSprite = typeinfo_cast<ButtonSprite*>(m_installButton->getNormalImage());
+    if (installSprite) installSprite->setString(isInstalled ? "Installed" : "Install");
+    m_installButton->setEnabled(!isInstalled);
+}
+
+void VersionRow::installCurrentVersion() {
+    if (m_popup && !m_version.empty()) m_popup->installVersion(m_version);
+}
+
+void installVersionFromRow(VersionRow* row, CCObject*) {
+    if (row) row->installCurrentVersion();
+}
 
 }
 
