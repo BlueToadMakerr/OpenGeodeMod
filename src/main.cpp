@@ -31,9 +31,7 @@ $on_mod(Loaded) {
                         auto version = overrideVersion->second;
 
                         if (endpoint.starts_with("/versions/") && endpoint.find("/download") == std::string::npos) {
-                            auto queryPos = endpoint.find('?');
-                            auto query = queryPos == std::string::npos ? std::string() : endpoint.substr(queryPos);
-                            givenUrl = givenUrl.substr(0, modEnd) + "/versions/" + version + query;
+                            givenUrl = givenUrl.substr(0, modEnd) + "/versions/" + version;
                             req.url(givenUrl);
                         }
                         else if (endpoint.starts_with("/download") ||
@@ -120,4 +118,4 @@ $on_mod(Loaded) {
     ).leak();
 }
 
-} // namespace opengeodeMod
+} // namespace opengeode
