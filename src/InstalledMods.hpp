@@ -2,6 +2,7 @@
 
 #include "Settings.hpp"
 
+#include <Geode/Geode.hpp>
 #include <cctype>
 #include <optional>
 #include <string>
@@ -52,7 +53,7 @@ inline void setInstalledModSource(std::string const& modID, std::string const& v
 }
 
 inline std::optional<InstalledModSource> getInstalledModSource(std::string const& modID) {
-    if (modID.empty()) return std::nullopt;
+    if (modID.empty() || !Loader::get()->isModInstalled(modID)) return std::nullopt;
 
     auto prefix = installedModSettingPrefix(modID);
     auto version = readSetting(prefix + "-version", "");
