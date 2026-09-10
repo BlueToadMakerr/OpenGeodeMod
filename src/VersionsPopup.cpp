@@ -97,6 +97,16 @@ ccColor3B statusColor(std::string const& status) {
     return {255, 255, 255};
 }
 
+std::string requestError(web::WebResponse const& response) {
+    if (auto json = response.json()) {
+        if ((*json).contains("error")) return (*json)["error"].asString().unwrapOr("");
+        if ((*json).contains("detail")) return (*json)["detail"].asString().unwrapOr("");
+    }
+    if (response.code() != 0) return fmt::format("HTTP {}", response.code());
+    if (!response.errorMessage().empty()) return std::string(response.errorMessage());
+    return "Unable to connect to the server.";
+}
+
 CCLabelBMFont* makeLabel(std::string const& text, float scale, ccColor3B color, CCNode* parent, CCPoint position) {
     auto label = CCLabelBMFont::create(text.c_str(), "bigFont.fnt");
     label->setScale(scale);
@@ -201,11 +211,11 @@ public:
         m_content->setPosition({width / 2.f, 153.f});
         m_mainLayer->addChild(m_content);
 
-        m_loadingLabel = CCLabelBMFont::create("Loading...", "goldFont.fnt");
+        m_loadingLabel = CCLabelBMFont::create("Loading...", "chatFont.fnt");
         m_loadingLabel->setScale(.32f);
         m_content->addChildAtPosition(m_loadingLabel, Anchor::Center);
-        m_errorLabel = CCLabelBMFont::create("", "goldFont.fnt");
-        m_errorLabel->setScale(.20f);
+        m_errorLabel = CCLabelBMFont::create("", "chatFont.fnt");
+        m_errorLabel->setScale(.26f);
         m_errorLabel->setAnchorPoint({.5f, .5f});
         m_errorLabel->setPosition({contentWidth / 2.f, contentHeight / 2.f - 8.f});
         m_errorLabel->setVisible(false);
@@ -254,8 +264,7 @@ public:
             request.get(fmt::format("https://api.geode-sdk.org/v1/mods/{}", m_modID)),
             [this](web::WebResponse response) {
                 if (!response.ok()) {
-                    auto reason = response.errorMessage();
-                    showError(reason.empty() ? std::string("Request failed.") : std::string(reason));
+                    showError(requestError(response));
                     return;
                 }
                 auto json = response.json();
@@ -328,15 +337,13 @@ bool VersionRow::init(VersionsPopup* popup) {
     m_statusLabel = makeLabel("", .24f, {255, 255, 255}, this, {204.f, 31.f});
     m_statusLabel->setAnchorPoint({1.f, .5f});
     if (auto icon = CCSprite::createWithSpriteFrameName("GJ_downloadsIcon_001.png")) { icon->setScale(.32f); icon->setPosition({8.f, 19.f}); addChild(icon); }
-    m_downloadLabel = makeLabel("", .21f, {205, 205, 205}, this, {17.f, 19.f});
+    m_downloadLabel = makeLabel("", .26f, {205, 205, 205}, this, {14.f, 19.f});
     if (auto icon = CCSprite::createWithSpriteFrameName("GJ_timeIcon_001.png")) { icon->setScale(.30f); icon->setPosition({52.f, 19.f}); addChild(icon); }
-    m_dateLabel = makeLabel("", .19f, {205, 205, 205}, this, {62.f, 19.f});
-    m_gdLabel = makeLabel("", .18f, {255, 255, 255}, this, {6.f, 7.f});
-    m_platformLabel = makeLabel("", .14f, {255, 70, 70}, this, {70.f, 7.f});
-    m_geodeLabel = makeLabel("", .18f, {255, 255, 255}, this, {135.f, 7.f});
+    m_dateLabel = makeLabel("", .26f, {205, 205, 205}, this, {59.f, 19.f});
+    m_gdLabel = makeLabel("", .26f, {255, 255, 255}, this, {6.f, 7.f});
+    m_platformLabel = makeLabel("", .26f, {255, 70, 70}, this, {50.f, 7.f});
+    m_geodeLabel = makeLabel("", .26f, {255, 255, 255}, this, {115.f, 7.f});
 
-    // Keep the button at its normal aspect ratio; increase its base content
-    // scale instead so the label has room, making the button naturally wider.
     auto installSprite = ButtonSprite::create("Install", "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .36f);
     m_installButton = CCMenuItemExt::createSpriteExtra(installSprite, [this](CCObject* sender) { installVersionFromRow(this, sender); });
     m_installButton->setID("opengeode-version-install-button");
