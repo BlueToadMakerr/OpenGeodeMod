@@ -85,7 +85,7 @@ public:
         const float width=300.f, contentWidth=270.f, contentHeight=218.f;
         m_content=CCNode::create(); m_content->setContentSize({contentWidth,contentHeight}); m_content->setAnchorPoint({.5f,.5f}); m_content->setPosition({width/2.f,153.f}); m_mainLayer->addChild(m_content);
         m_loadingLabel=CCLabelBMFont::create("Loading...","goldFont.fnt"); m_loadingLabel->setScale(.32f); m_content->addChildAtPosition(m_loadingLabel,Anchor::Center);
-        m_errorLabel=CCLabelBMFont::create("","goldFont.fnt"); m_errorLabel->setScale(.20f); m_errorLabel->setDimensions({contentWidth, 0.f}); m_errorLabel->setAnchorPoint({.5f,1.f}); m_errorLabel->setPosition({contentWidth/2.f, contentHeight/2.f-8.f}); m_errorLabel->setVisible(false); m_content->addChild(m_errorLabel);
+        m_errorLabel=CCLabelBMFont::create("","goldFont.fnt"); m_errorLabel->setScale(.20f); m_errorLabel->setAnchorPoint({.5f,.5f}); m_errorLabel->setPosition({contentWidth/2.f, contentHeight/2.f-8.f}); m_errorLabel->setVisible(false); m_content->addChild(m_errorLabel);
         auto prevMenu=CCMenu::create(); prevMenu->setContentSize({32.f,32.f}); prevMenu->setPosition({-9.f,131.f}); m_mainLayer->addChild(prevMenu);
         if(auto sprite=CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png")){sprite->setScale(.65f);m_prevButton=CCMenuItemExt::createSpriteExtra(sprite,[this](CCObject* o){previousPage(o);});prevMenu->addChild(m_prevButton);}
         auto nextMenu=CCMenu::create(); nextMenu->setContentSize({32.f,32.f}); nextMenu->setPosition({width+9.f,131.f}); m_mainLayer->addChild(nextMenu);
