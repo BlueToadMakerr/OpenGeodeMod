@@ -3,6 +3,7 @@
 #include "ModsListUtils.hpp"
 #include "AccountPopup.hpp"
 #include "MoreManagePopup.hpp"
+#include "VersionsPopup.hpp"
 #include "Settings.hpp"
 
 #include <Geode/Geode.hpp>
@@ -71,6 +72,7 @@ protected:
         ensureIndexSwitcherButton(scene);
         ensureFilterButton(filtersMenu);
         ensureAccountButton(scene);
+        ensureVersionsButton(scene);
         ensureModPopupExtras(scene);
     }
 
