@@ -339,6 +339,7 @@ bool VersionRow::init(VersionsPopup* popup) {
     // scale instead so the label has room, making the button naturally wider.
     auto installSprite = ButtonSprite::create("Install", "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .36f);
     m_installButton = CCMenuItemExt::createSpriteExtra(installSprite, [this](CCObject* sender) { installVersionFromRow(this, sender); });
+    m_installButton->setContentSize({45.f, 18.f});
     m_installButton->setID("opengeode-version-install-button");
     auto menu = CCMenu::create();
     menu->setPosition({244.f, 20.f});
@@ -358,49 +359,3 @@ void VersionRow::setVersion(VersionData const* data, std::string const& currentG
     m_statusLabel->setString(statusText.c_str());
     m_statusLabel->setColor(statusColor(data->status));
     m_downloadLabel->setString(fmt::format("{}", data->downloads).c_str());
-    m_dateLabel->setString(data->date.c_str());
-
-    bool gdCompatible = !data->gd.empty() && (data->gd == "*" || data->gd == currentGD);
-    bool geodeCompatible = data->geode == "*" || versionMajor(data->geode) == currentGeodeMajor;
-    auto gdText = data->gd.empty() ? std::string("GD ?") : fmt::format("GD {}", data->gd);
-    m_gdLabel->setString(gdText.c_str());
-    m_gdLabel->setColor(gdCompatible ? ccColor3B{100, 255, 100} : ccColor3B{255, 70, 70});
-
-    m_platformLabel->setString("");
-    if (!currentPlatform.empty()) {
-        bool hasPlatform = false;
-        for (auto const& [key, value] : data->platforms) if (key == currentPlatform) { hasPlatform = true; break; }
-        if (!hasPlatform && !data->platforms.empty()) {
-            std::string supported;
-            for (auto const& [key, value] : data->platforms) { if (!supported.empty()) supported += ", "; supported += platformLabel(key); }
-            m_platformLabel->setString(supported.c_str());
-        }
-    }
-
-    auto geodeText = fmt::format("Geode {}", data->geode);
-    m_geodeLabel->setString(geodeText.c_str());
-    m_geodeLabel->setColor(geodeCompatible ? ccColor3B{100, 255, 100} : ccColor3B{255, 70, 70});
-
-    auto installed = getInstalledModSource(m_popup->getModID());
-    bool isInstalled = installed && installed->version == data->version;
-    auto installSprite = typeinfo_cast<ButtonSprite*>(m_installButton->getNormalImage());
-    if (installSprite) installSprite->setString(isInstalled ? "Installed" : "Install");
-    m_installButton->setEnabled(!isInstalled);
-}
-
-void VersionRow::installCurrentVersion() {
-    if (m_popup && !m_version.empty()) m_popup->installVersion(m_version);
-}
-
-void installVersionFromRow(VersionRow* row, CCObject*) {
-    if (row) row->installCurrentVersion();
-}
-
-}
-
-void showVersionsPopup(std::string const& modID, cocos2d::CCNode* modPopup) {
-    if (modID.empty() || !modPopup) return;
-    VersionsPopup::create(modID, modPopup)->show();
-}
-
-}
