@@ -16,11 +16,9 @@ $on_mod(Loaded) {
             std::string givenUrl = req.getUrl().data();
             auto modsPath = std::string("/v1/mods/");
 
-            // When the native Geode install button is activated from the
-            // Versions popup, replace its normal latest-version download with
-            // the exact version selected by the user. This intentionally runs
-            // before the no_override guard so a native request that carries
-            // that flag still honors an explicit version selection.
+            // The native Geode install flow may request either the plain
+            // latest-version endpoint or an already-resolved /versions/.../download
+            // endpoint. In both cases, an explicit pending version selection wins.
             auto modStart = givenUrl.find(modsPath);
             if (modStart != std::string::npos) {
                 modStart += modsPath.size();
@@ -28,7 +26,9 @@ $on_mod(Loaded) {
                 if (modEnd != std::string::npos && modEnd > modStart) {
                     auto modID = givenUrl.substr(modStart, modEnd - modStart);
                     auto endpoint = givenUrl.substr(modEnd);
-                    if (endpoint.starts_with("/download")) {
+                    bool isDownloadRequest = endpoint.starts_with("/download")
+                        || endpoint.starts_with("/versions/");
+                    if (isDownloadRequest) {
                         auto overrideVersion = takePendingVersionInstall(modID);
                         if (overrideVersion) {
                             auto downloadPath = fmt::format(
