@@ -104,7 +104,7 @@ public:
 }
 void ensureModPopupExtras(CCNode* popup) {
     auto manageTitle = popup->getChildByIDRecursive("manage-title"); if (!manageTitle) return; auto managementMenu = getNativeManagementMenu(popup); if (!managementMenu) return; auto modID = getPopupModID(popup);
-    if (!modID.empty() && getInstalledModSource(modID) && isPopupInstalled(popup)) addManagementButton(popup, "opengeode-from-button", createThemedManageButton("From", "GJ_downloadsIcon_001.png"), [modID](CCMenuItemSpriteExtra*) { showInstallSource(modID); });
+    if (!modID.empty() && getInstalledModSource(modID) && isPopupInstalled(popup)) addManagementButton(popup, "opengeode-from-button", createThemedManageButton("Source", "GJ_downloadsIcon_001.png"), [modID](CCMenuItemSpriteExtra*) { showInstallSource(modID); });
     if (auto more = managementMenu->getChildByID("opengeode-more-button"_spr)) more->removeFromParentAndCleanup(true);
     if (applyManagementButtonLimit(managementMenu)) if (auto sprite = createThemedManageButton("More", "GJ_filterIcon_001.png")) { auto more = CCMenuItemExt::createSpriteExtra(sprite, [popup](CCMenuItemSpriteExtra*) { MoreManagePopup::create(popup)->show(); }); more->setID("opengeode-more-button"_spr); managementMenu->addChild(more); }
     managementMenu->updateLayout();
