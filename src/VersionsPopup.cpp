@@ -346,7 +346,7 @@ bool VersionRow::init(VersionsPopup* popup) {
     if (auto icon = CCSprite::createWithSpriteFrameName("GJ_downloadsIcon_001.png")) { icon->setScale(.32f); icon->setPosition({8.f, 19.f}); addChild(icon); }
     m_downloadLabel = makeLabel("", .26f, {205, 205, 205}, this, {14.f, 19.f});
     if (auto icon = CCSprite::createWithSpriteFrameName("GJ_timeIcon_001.png")) { icon->setScale(.30f); icon->setPosition({49.f, 19.f}); addChild(icon); }
-    m_dateLabel = makeLabel("", .26f, {205, 205, 205}, this, {59.f, 19.f});
+    m_dateLabel = makeLabel("", .26f, {205, 205, 205}, this, {69.f, 19.f});
     m_gdLabel = makeLabel("", .26f, {255, 255, 255}, this, {6.f, 7.f});
     m_platformLabel = makeLabel("", .20f, {255, 70, 70}, this, {50.f, 7.f});
     m_geodeLabel = makeLabel("", .26f, {255, 255, 255}, this, {165.f, 7.f});
@@ -358,7 +358,7 @@ bool VersionRow::init(VersionsPopup* popup) {
     m_installButton = CCMenuItemExt::createSpriteExtra(installSprite, [this](CCObject* sender) { installVersionFromRow(this, sender); });
     m_installButton->setID("opengeode-version-install-button");
     auto menu = CCMenu::create();
-    menu->setPosition({244.f, 20.f});
+    menu->setPosition({229.f, 20.f});
     menu->addChild(m_installButton);
     addChild(menu);
     setVisible(false);
