@@ -351,39 +351,58 @@ bool VersionRow::init(VersionsPopup* popup) {
     m_platformLabel = makeLabel("", .20f, {255, 70, 70}, this, {50.f, 7.f});
     m_geodeLabel = makeLabel("", .26f, {255, 255, 255}, this, {165.f, 7.f});
 
-    auto installSprite = ButtonSprite::create("Install", "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .36f);
-    installSprite->setContentSize({45.f, 18.f});
+    // Use the same text-only ButtonSprite pattern as Geode's standard UI buttons:
+    // let the sprite size itself from the text, then scale the finished button.
+    auto installSprite = ButtonSprite::create("Install", "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .8f);
+    installSprite->setScale(.5f);
     m_installButton = CCMenuItemExt::createSpriteExtra(installSprite, [this](CCObject* sender) { installVersionFromRow(this, sender); });
     m_installButton->setID("opengeode-version-install-button");
     auto menu = CCMenu::create();
     menu->setPosition({244.f, 20.f});
     menu->addChild(m_installButton);
     addChild(menu);
+    setVisible(false);
     return true;
 }
 
 void VersionRow::setVersion(VersionData const* data, std::string const& currentGD, std::string const& currentGeodeMajor, std::string const& currentPlatform) {
-    if (!data) {
-        setVisible(false);
-        return;
-    }
+    if (!data) { setVisible(false); m_version.clear(); return; }
     setVisible(true);
     m_version = data->version;
-    m_versionLabel->setString(data->version.c_str());
-    m_statusLabel->setString(data->status.c_str());
+    m_versionLabel->setString((data->version.starts_with("v") ? data->version : "v" + data->version).c_str());
+    auto statusText = data->status.empty() ? "Unknown" : data->status;
+    std::transform(statusText.begin(), statusText.end(), statusText.begin(), [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+    m_statusLabel->setString(statusText.c_str());
     m_statusLabel->setColor(statusColor(data->status));
     m_downloadLabel->setString(fmt::format("{}", data->downloads).c_str());
     m_dateLabel->setString(data->date.c_str());
-    m_gdLabel->setString(data->gd.empty() ? "GD: unknown" : fmt::format("GD: {}", data->gd).c_str());
-    m_platformLabel->setString(data->gd.empty() ? "Unsupported" : platformLabel(currentPlatform).c_str());
-    m_geodeLabel->setString(fmt::format("Geode: {}", data->geode).c_str());
 
-    auto compatibleGD = data->gd.empty() || data->gd == currentGD;
-    auto compatibleGeode = data->geode == "unknown" || versionMajor(data->geode) == currentGeodeMajor;
-    auto compatiblePlatform = data->platforms.empty() || !currentPlatform.empty() && std::any_of(data->platforms.begin(), data->platforms.end(), [&](auto const& entry) { return entry.first == currentPlatform; });
-    auto canInstall = compatibleGD && compatibleGeode && compatiblePlatform;
-    m_installButton->setVisible(canInstall);
-    m_installButton->setEnabled(canInstall);
+    bool gdCompatible = !data->gd.empty() && (data->gd == "*" || data->gd == currentGD);
+    bool geodeCompatible = data->geode == "*" || versionMajor(data->geode) == currentGeodeMajor;
+    auto gdText = data->gd.empty() ? std::string("GD ?") : fmt::format("GD {}", data->gd);
+    m_gdLabel->setString(gdText.c_str());
+    m_gdLabel->setColor(gdCompatible ? ccColor3B{100, 255, 100} : ccColor3B{255, 70, 70});
+
+    m_platformLabel->setString("");
+    if (!currentPlatform.empty()) {
+        bool hasPlatform = false;
+        for (auto const& [key, value] : data->platforms) if (key == currentPlatform) { hasPlatform = true; break; }
+        if (!hasPlatform && !data->platforms.empty()) {
+            std::string supported;
+            for (auto const& [key, value] : data->platforms) { if (!supported.empty()) supported += ", "; supported += platformLabel(key); }
+            m_platformLabel->setString(supported.c_str());
+        }
+    }
+
+    auto geodeText = fmt::format("Geode {}", data->geode);
+    m_geodeLabel->setString(geodeText.c_str());
+    m_geodeLabel->setColor(geodeCompatible ? ccColor3B{100, 255, 100} : ccColor3B{255, 70, 70});
+
+    auto installed = getInstalledModSource(m_popup->getModID());
+    bool isInstalled = installed && installed->version == data->version;
+    auto installSprite = typeinfo_cast<ButtonSprite*>(m_installButton->getNormalImage());
+    if (installSprite) installSprite->setString(isInstalled ? "Installed" : "Install");
+    m_installButton->setEnabled(!isInstalled);
 }
 
 void VersionRow::installCurrentVersion() {
