@@ -412,3 +412,10 @@ void installVersionFromRow(VersionRow* row, CCObject*) {
 }
 
 }
+
+void showVersionsPopup(std::string const& modID, cocos2d::CCNode* modPopup) {
+    if (modID.empty() || !modPopup) return;
+    VersionsPopup::create(modID, modPopup)->show();
+}
+
+}
