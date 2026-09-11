@@ -357,6 +357,7 @@ bool VersionRow::init(VersionsPopup* popup) {
     installSprite->setScale(.5f);
     m_installButton = CCMenuItemExt::createSpriteExtra(installSprite, [this](CCObject* sender) { installVersionFromRow(this, sender); });
     m_installButton->setID("opengeode-version-install-button");
+    m_installButton->setContentSize({45.f, 18.f});
     auto menu = CCMenu::create();
     menu->setPosition({229.f, 25.f});
     menu->addChild(m_installButton);
