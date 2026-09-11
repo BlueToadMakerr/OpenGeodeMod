@@ -234,7 +234,7 @@ protected:
         auto center = m_mainLayer->getContentWidth() / 2;
         m_name = CCLabelBMFont::create("Loading...", "bigFont.fnt"); m_name->setScale(.48f); m_name->setAnchorPoint({0.f, .5f}); m_mainLayer->addChild(m_name);
         m_verifiedBadge = CCLabelBMFont::create("Verified", "bigFont.fnt"); m_verifiedBadge->setScale(.25f); m_verifiedBadge->setColor({100, 255, 100}); m_verifiedBadge->setAnchorPoint({0.f, .5f}); m_verifiedBadge->setVisible(false); m_mainLayer->addChild(m_verifiedBadge);
-        m_adminBadge = CCLabelBMFont::create("Admin", "bigFont.fnt"); m_adminBadge->setScale(.25f); m_adminBadge->setColor({255, 210, 70}); m_adminBadge->setAnchorPoint({0.f, .5f}); m_adminBadge->setVisible(false); m_mainLayer->addChild(m_adminBadge);
+        m_adminBadge = CCLabelBMFont::create("Admin", "bigFont.fnt"); m_adminBadge->setScale(.25f); m_adminBadge->setColor({255, 80, 80}); m_adminBadge->setAnchorPoint({0.f, .5f}); m_adminBadge->setVisible(false); m_mainLayer->addChild(m_adminBadge);
         updateNameBadges(false, false);
         m_id = CCLabelBMFont::create("Account ID: -", "chatFont.fnt"); m_id->setScale(.36f); m_id->setAlignment(kCCTextAlignmentCenter); m_id->setAnchorPoint({.5f, .5f}); m_id->setPosition({center, 235.f}); m_mainLayer->addChild(m_id);
         auto displayLabel = CCLabelBMFont::create("Display Name", "goldFont.fnt"); displayLabel->setScale(.38f); displayLabel->setAlignment(kCCTextAlignmentCenter); displayLabel->setAnchorPoint({.5f, .5f}); displayLabel->setPosition({center, 220.f}); m_mainLayer->addChild(displayLabel);
