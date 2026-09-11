@@ -160,7 +160,7 @@ protected:
                     std::sort(versions.begin(), versions.end(), [](auto const& a, auto const& b) { return versionIsNewer(a.first, b.first); });
                     for (auto const& [version, info] : versions) {
                         auto color = statusColor(info.status); text += fmt::format("<{}>{} | v{} | {}", color, info.name.empty() ? id : info.name, version, info.status);
-                        if (info.status == "rejected" && !info.reason.empty()) text += fmt::format(" | with the reason: {}", info.reason); text += "</c>  \n";
+                        if (info.status == "rejected" && !info.reason.empty()) text += fmt::format(" with the reason: {}", info.reason); text += "</c>  \n";
                     }
                     text += "\n";
                 }
