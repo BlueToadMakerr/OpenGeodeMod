@@ -189,6 +189,8 @@ public:
 class AccountPopup : public Popup {
 protected:
     CCLabelBMFont* m_name = nullptr;
+    CCLabelBMFont* m_verifiedBadge = nullptr;
+    CCLabelBMFont* m_adminBadge = nullptr;
     CCLabelBMFont* m_id = nullptr;
     TextInput* m_displayName = nullptr;
     TextInput* m_modUrl = nullptr;
@@ -200,11 +202,40 @@ protected:
     bool m_saving = false;
     bool m_submitting = false;
 
+    void updateNameBadges(bool verified, bool admin) {
+        m_verifiedBadge->setVisible(verified);
+        m_adminBadge->setVisible(admin);
+        m_name->setAnchorPoint({0.f, .5f});
+        m_verifiedBadge->setAnchorPoint({0.f, .5f});
+        m_adminBadge->setAnchorPoint({0.f, .5f});
+
+        auto nameWidth = m_name->getScaledContentSize().width;
+        float badgeWidth = 0.f;
+        if (verified) badgeWidth += m_verifiedBadge->getScaledContentSize().width;
+        if (admin) {
+            if (verified) badgeWidth += 4.f;
+            badgeWidth += m_adminBadge->getScaledContentSize().width;
+        }
+        float gap = (verified || admin) ? 5.f : 0.f;
+        float totalWidth = nameWidth + (verified || admin ? gap + badgeWidth : 0.f);
+        float left = m_mainLayer->getContentWidth() / 2.f - totalWidth / 2.f;
+        m_name->setPosition({left, 251.f});
+        float x = left + nameWidth + gap;
+        if (verified) {
+            m_verifiedBadge->setPosition({x, 251.f});
+            x += m_verifiedBadge->getScaledContentSize().width + 4.f;
+        }
+        if (admin) m_adminBadge->setPosition({x, 251.f});
+    }
+
     bool init() {
         if (!Popup::init(370.f, 285.f, getPopupBackground())) return false;
         setTitle("Geode Account"); if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .8f);
         auto center = m_mainLayer->getContentWidth() / 2;
-        m_name = CCLabelBMFont::create("Loading...", "bigFont.fnt"); m_name->setScale(.48f); m_name->setAlignment(kCCTextAlignmentCenter); m_name->setAnchorPoint({.5f, .5f}); m_name->setPosition({center, 251.f}); m_mainLayer->addChild(m_name);
+        m_name = CCLabelBMFont::create("Loading...", "bigFont.fnt"); m_name->setScale(.48f); m_name->setAnchorPoint({0.f, .5f}); m_mainLayer->addChild(m_name);
+        m_verifiedBadge = CCLabelBMFont::create("Verified", "bigFont.fnt"); m_verifiedBadge->setScale(.25f); m_verifiedBadge->setColor({100, 255, 100}); m_verifiedBadge->setAnchorPoint({0.f, .5f}); m_verifiedBadge->setVisible(false); m_mainLayer->addChild(m_verifiedBadge);
+        m_adminBadge = CCLabelBMFont::create("Admin", "bigFont.fnt"); m_adminBadge->setScale(.25f); m_adminBadge->setColor({255, 210, 70}); m_adminBadge->setAnchorPoint({0.f, .5f}); m_adminBadge->setVisible(false); m_mainLayer->addChild(m_adminBadge);
+        updateNameBadges(false, false);
         m_id = CCLabelBMFont::create("Account ID: -", "chatFont.fnt"); m_id->setScale(.36f); m_id->setAlignment(kCCTextAlignmentCenter); m_id->setAnchorPoint({.5f, .5f}); m_id->setPosition({center, 235.f}); m_mainLayer->addChild(m_id);
         auto displayLabel = CCLabelBMFont::create("Display Name", "goldFont.fnt"); displayLabel->setScale(.38f); displayLabel->setAlignment(kCCTextAlignmentCenter); displayLabel->setAnchorPoint({.5f, .5f}); displayLabel->setPosition({center, 220.f}); m_mainLayer->addChild(displayLabel);
         m_displayName = TextInput::create(190.f, "Display Name", "chatFont.fnt"); m_displayName->setPosition({center, 195.f}); m_mainLayer->addChild(m_displayName);
@@ -246,15 +277,8 @@ protected:
             auto display = p["display_name"].asString().unwrapOr(""); auto username = p["username"].asString().unwrapOr("");
             auto verified = p["verified"].asBool().unwrapOr(false); auto admin = p["admin"].asBool().unwrapOr(false);
             auto plainName = display.empty() ? username : display;
-            std::string name = plainName;
-            if (verified || admin) {
-                name += " (";
-                if (verified) name += "<cg>Verified</c>";
-                if (verified && admin) name += " | ";
-                if (admin) name += "<ca>Admin</c>";
-                name += ")";
-            }
-            m_name->setString(name.c_str());
+            m_name->setString(plainName.c_str());
+            updateNameBadges(verified, admin);
             m_id->setString(fmt::format("Account ID: {}", p["id"].asInt().unwrapOr(0)).c_str());
             m_displayName->setString(display.c_str());
         });
