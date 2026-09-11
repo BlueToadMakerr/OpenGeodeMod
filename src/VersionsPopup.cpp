@@ -359,6 +359,7 @@ bool VersionRow::init(VersionsPopup* popup) {
     menu->setPosition({244.f, 20.f});
     menu->addChild(m_installButton);
     addChild(menu);
+    return true;
 }
 
 void VersionRow::setVersion(VersionData const* data, std::string const& currentGD, std::string const& currentGeodeMajor, std::string const& currentPlatform) {
@@ -373,28 +374,16 @@ void VersionRow::setVersion(VersionData const* data, std::string const& currentG
     m_statusLabel->setColor(statusColor(data->status));
     m_downloadLabel->setString(fmt::format("{}", data->downloads).c_str());
     m_dateLabel->setString(data->date.c_str());
-    m_gdLabel->setString(data->gd.empty() ? "GD ?" : fmt::format("GD {}", data->gd).c_str());
-    m_geodeLabel->setString(fmt::format("Geode {}", data->geode).c_str());
-    bool platformMatches = !currentPlatform.empty() && !data->gd.empty();
-    bool gdMatches = currentGD.empty() || data->gd.empty() || data->gd == currentGD;
-    bool geodeMatches = currentGeodeMajor.empty() || data->geode.empty() || versionMajor(data->geode) == currentGeodeMajor;
-    if (!platformMatches) {
-        m_platformLabel->setString("Unsupported");
-        m_platformLabel->setColor({255, 70, 70});
-    }
-    else if (!gdMatches) {
-        m_platformLabel->setString("Wrong GD");
-        m_platformLabel->setColor({255, 180, 70});
-    }
-    else if (!geodeMatches) {
-        m_platformLabel->setString("Wrong Geode");
-        m_platformLabel->setColor({255, 180, 70});
-    }
-    else {
-        m_platformLabel->setString(platformLabel(currentPlatform).c_str());
-        m_platformLabel->setColor({100, 255, 100});
-    }
-    if (m_installButton) m_installButton->setEnabled(platformMatches && gdMatches && geodeMatches);
+    m_gdLabel->setString(data->gd.empty() ? "GD: unknown" : fmt::format("GD: {}", data->gd).c_str());
+    m_platformLabel->setString(data->gd.empty() ? "Unsupported" : platformLabel(currentPlatform).c_str());
+    m_geodeLabel->setString(fmt::format("Geode: {}", data->geode).c_str());
+
+    auto compatibleGD = data->gd.empty() || data->gd == currentGD;
+    auto compatibleGeode = data->geode == "unknown" || versionMajor(data->geode) == currentGeodeMajor;
+    auto compatiblePlatform = data->platforms.empty() || !currentPlatform.empty() && std::any_of(data->platforms.begin(), data->platforms.end(), [&](auto const& entry) { return entry.first == currentPlatform; });
+    auto canInstall = compatibleGD && compatibleGeode && compatiblePlatform;
+    m_installButton->setVisible(canInstall);
+    m_installButton->setEnabled(canInstall);
 }
 
 void VersionRow::installCurrentVersion() {
