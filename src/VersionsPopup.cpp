@@ -222,14 +222,14 @@ public:
         m_mainLayer->addChild(m_content);
 
         m_loadingLabel = CCLabelBMFont::create("Loading...", "chatFont.fnt");
-        m_loadingLabel->setScale(.26f);
+        m_loadingLabel->setScale(.35f);
+        m_loadingLabel->setAnchorPoint({.5f, .5f});
         m_content->addChildAtPosition(m_loadingLabel, Anchor::Center);
         m_errorLabel = CCLabelBMFont::create("", "chatFont.fnt");
-        m_errorLabel->setScale(.26f);
+        m_errorLabel->setScale(.35f);
         m_errorLabel->setAnchorPoint({.5f, .5f});
-        m_errorLabel->setPosition({contentWidth / 2.f, contentHeight / 2.f - 8.f});
+        m_content->addChildAtPosition(m_errorLabel, Anchor::Center);
         m_errorLabel->setVisible(false);
-        m_content->addChild(m_errorLabel);
 
         for (size_t i = 0; i < 5; ++i) {
             auto row = VersionRow::create(this);
@@ -241,7 +241,7 @@ public:
 
         auto prevMenu = CCMenu::create();
         prevMenu->setContentSize({32.f, 32.f});
-        prevMenu->setPosition({-9.f, 146.f});
+        prevMenu->setPosition({-15.f, 146.f});
         m_mainLayer->addChild(prevMenu);
         if (auto sprite = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png")) {
             sprite->setScale(.65f);
@@ -251,7 +251,7 @@ public:
 
         auto nextMenu = CCMenu::create();
         nextMenu->setContentSize({32.f, 32.f});
-        nextMenu->setPosition({width + 9.f, 146.f});
+        nextMenu->setPosition({width + 15.f, 146.f});
         m_mainLayer->addChild(nextMenu);
         if (auto sprite = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png")) {
             sprite->setScale(.65f);
@@ -341,11 +341,11 @@ bool VersionRow::init(VersionsPopup* popup) {
     addChildAtPosition(bg, Anchor::Center);
 
     m_versionLabel = makeLabel("", .38f, {255, 255, 255}, this, {6.f, 31.f});
-    m_statusLabel = makeLabel("", .24f, {255, 255, 255}, this, {204.f, 31.f});
+    m_statusLabel = makeLabel("", .24f, {255, 255, 255}, this, {189.f, 31.f});
     m_statusLabel->setAnchorPoint({1.f, .5f});
     if (auto icon = CCSprite::createWithSpriteFrameName("GJ_downloadsIcon_001.png")) { icon->setScale(.32f); icon->setPosition({8.f, 19.f}); addChild(icon); }
     m_downloadLabel = makeLabel("", .26f, {205, 205, 205}, this, {14.f, 19.f});
-    if (auto icon = CCSprite::createWithSpriteFrameName("GJ_timeIcon_001.png")) { icon->setScale(.30f); icon->setPosition({49.f, 19.f}); addChild(icon); }
+    if (auto icon = CCSprite::createWithSpriteFrameName("GJ_timeIcon_001.png")) { icon->setScale(.30f); icon->setPosition({63.f, 19.f}); addChild(icon); }
     m_dateLabel = makeLabel("", .26f, {205, 205, 205}, this, {69.f, 19.f});
     m_gdLabel = makeLabel("", .26f, {255, 255, 255}, this, {6.f, 7.f});
     m_platformLabel = makeLabel("", .20f, {255, 70, 70}, this, {50.f, 7.f});
@@ -358,7 +358,7 @@ bool VersionRow::init(VersionsPopup* popup) {
     m_installButton = CCMenuItemExt::createSpriteExtra(installSprite, [this](CCObject* sender) { installVersionFromRow(this, sender); });
     m_installButton->setID("opengeode-version-install-button");
     auto menu = CCMenu::create();
-    menu->setPosition({229.f, 20.f});
+    menu->setPosition({229.f, 25.f});
     menu->addChild(m_installButton);
     addChild(menu);
     setVisible(false);
