@@ -246,6 +246,8 @@ class CommentsLayer : public CCLayer {
             m_state.selectedVersion = m_state.versions.front();
         if (m_state.selectedVersion.empty() && !m_state.comments.empty())
             m_state.selectedVersion = m_state.comments.front().version;
+        if (!m_state.selectedVersion.empty())
+            m_versionLabel->setString(fmt::format("Version: {}", m_state.selectedVersion).c_str());
 
         bool allowed = m_state.loggedIn && (!m_state.locked || m_state.devOnly == false || m_state.admin || m_state.dev);
         if (!allowed) {
@@ -299,13 +301,35 @@ class CommentsLayer : public CCLayer {
             auto bodyHeight = std::max(28.f, body->getScrollLayer()->m_contentLayer->getContentHeight());
             float cardHeight = 38.f + bodyHeight;
             if (!comment.attachments.empty()) {
-                auto attachments = CCLabelBMFont::create(fmt::format("📎 {} attachment{}", comment.attachments.size(), comment.attachments.size() == 1 ? "" : "s").c_str(), "chatFont.fnt");
-                attachments->setScale(.24f);
-                attachments->setColor({180, 210, 255});
-                attachments->setAnchorPoint({0.f, .5f});
-                attachments->setPosition({42.f, -cardHeight + 10.f});
-                card->addChild(attachments);
-                cardHeight += 14.f;
+                float attachmentY = -cardHeight + 10.f;
+                for (auto const& attachment : comment.attachments) {
+                    auto label = CCLabelBMFont::create(
+                        fmt::format("[{}]", attachment.name).c_str(), "chatFont.fnt"
+                    );
+                    label->setScale(.23f);
+                    label->setColor({180, 210, 255});
+                    auto item = CCMenuItemExt::createSpriteExtra(label, [this, attachment](auto) {
+                        if (!attachment.url.empty()) web::openLinkInBrowser(attachment.url);
+                    });
+                    auto menu = CCMenu::create();
+                    menu->setPosition({48.f, attachmentY});
+                    menu->addChild(item);
+                    if (m_editingCommentId == comment.id && comment.canEdit && !attachment.id.empty()) {
+                        auto remove = CCLabelBMFont::create("[x]", "chatFont.fnt");
+                        remove->setScale(.22f);
+                        remove->setColor({255, 100, 100});
+                        auto removeItem = CCMenuItemExt::createSpriteExtra(remove, [this, id = attachment.id](auto) {
+                            removeAttachment(id);
+                            m_statusLabel->setString("Attachment marked for removal.");
+                        });
+                        menu->addChild(removeItem);
+                        menu->setLayout(RowLayout::create()->setGap(3.f));
+                        menu->updateLayout();
+                    }
+                    card->addChild(menu);
+                    attachmentY -= 12.f;
+                    cardHeight += 12.f;
+                }
             }
 
             if (comment.canEdit || comment.canDelete) {
@@ -355,7 +379,7 @@ class CommentsLayer : public CCLayer {
         m_commentsContainer->setContentSize({scroll->getContentWidth(), std::max(scroll->getContentHeight(), y + 8.f)});
         scroll->scrollToTop();
 
-        bool allowed = m_state.loggedIn && (!m_state.locked || m_state.admin || m_state.dev);
+        bool allowed = m_state.loggedIn && (!m_state.locked || m_state.admin || m_state.dev) && (!m_state.devOnly || m_state.admin || m_state.dev);
         m_input->setVisible(allowed);
         m_sendButton->setVisible(allowed);
         m_versionMenu->setVisible(allowed || !m_state.versions.empty());
