@@ -188,6 +188,27 @@ class CommentsLayer : public CCLayer {
             }
             auto json = response.json().unwrapOr(matjson::Value());
             parseState(json);
+            if (m_state.versions.empty()) {
+                request("GET", fmt::format("/v1/mods/{}", m_modID), [this](web::WebResponse modResponse) {
+                    if (modResponse.ok()) {
+                        auto modJSON = modResponse.json().unwrapOr(matjson::Value());
+                        auto payload = modJSON["payload"].isObject() ? modJSON["payload"] : modJSON;
+                        auto versions = payload["versions"];
+                        if (versions.isArray()) {
+                            for (auto const& version : versions) {
+                                auto value = version.isObject() ? stringValue(version, "version") : version.asString().unwrapOr("");
+                                if (!value.empty()) m_state.versions.push_back(value);
+                            }
+                        }
+                        m_state.locked = boolValue(payload, "locked", m_state.locked);
+                        m_state.devOnly = boolValue(payload, "dev_only", m_state.devOnly) || boolValue(payload, "internal", m_state.devOnly);
+                    }
+                    if (m_state.selectedVersion.empty() && !m_state.versions.empty())
+                        m_state.selectedVersion = m_state.versions.front();
+                    rebuild();
+                });
+                return;
+            }
             rebuild();
         });
     }
@@ -197,8 +218,9 @@ class CommentsLayer : public CCLayer {
         m_state.loggedIn = hasAuthTokens();
         m_state.locked = boolValue(payload, "locked");
         m_state.devOnly = boolValue(payload, "dev_only") || boolValue(payload, "internal");
-        m_state.admin = boolValue(payload, "admin");
-        m_state.dev = boolValue(payload, "dev") || boolValue(payload, "developer");
+        auto permissions = payload["permissions"];
+        m_state.admin = boolValue(payload, "admin") || boolValue(permissions, "admin");
+        m_state.dev = boolValue(payload, "dev") || boolValue(payload, "developer") || boolValue(permissions, "dev") || boolValue(permissions, "developer");
 
         m_state.versions.clear();
         auto versions = payload["versions"];
