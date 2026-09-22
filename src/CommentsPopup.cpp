@@ -427,14 +427,11 @@ class CommentsLayer : public CCLayer {
         file::FilePickOptions options;
         options.filters.push_back({"Images", {"png", "jpg", "jpeg", "gif", "webp"}});
         options.filters.push_back({"All Files", {}});
-        m_uploadTask.spawn(
-            "Pick comment attachments",
-            file::pickMany(options),
-            [this](std::vector<std::filesystem::path> paths) {
-                m_pendingFiles = std::move(paths);
-                m_attachmentLabel->setString(fmt::format("{} file{}", m_pendingFiles.size(), m_pendingFiles.size() == 1 ? "" : "s").c_str());
-            }
-        );
+        file::pickMany(options).listen([this](file::PickManyResult result) {
+            if (!result) return;
+            m_pendingFiles = std::move(result).unwrap();
+            m_attachmentLabel->setString(fmt::format("{} file{}", m_pendingFiles.size(), m_pendingFiles.size() == 1 ? "" : "s").c_str());
+        });
     }
 
     void submitComment() {
