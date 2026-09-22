@@ -243,8 +243,8 @@ public:
         prevMenu->setContentSize({32.f, 32.f});
         prevMenu->setPosition({-15.f, 146.f});
         m_mainLayer->addChild(prevMenu);
-        if (auto sprite = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png")) {
-            sprite->setScale(.65f);
+        if (auto sprite = CCSprite::createWithSpriteFrameName("GJ_arrow_03_001.png")) {
+            sprite->setScale(.8f);
             m_prevButton = CCMenuItemExt::createSpriteExtra(sprite, [this](CCObject* o) { previousPage(o); });
             prevMenu->addChild(m_prevButton);
         }
@@ -253,9 +253,9 @@ public:
         nextMenu->setContentSize({32.f, 32.f});
         nextMenu->setPosition({width + 15.f, 146.f});
         m_mainLayer->addChild(nextMenu);
-        if (auto sprite = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png")) {
-            sprite->setScale(.65f);
-            sprite->setRotation(180.f);
+        if (auto sprite = CCSprite::createWithSpriteFrameName("GJ_arrow_03_001.png")) {
+            sprite->setFlipX(true);
+            sprite->setScale(.8f);
             m_nextButton = CCMenuItemExt::createSpriteExtra(sprite, [this](CCObject* o) { nextPage(o); });
             nextMenu->addChild(m_nextButton);
         }
