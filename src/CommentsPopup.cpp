@@ -577,7 +577,7 @@ class CommentsLayer : public CCLayer {
         versionTop->setLayout(
             ColumnLayout::create()
                 ->setAxisAlignment(AxisAlignment::Between)
-                ->setCrossAxisAlignmentAlignment(AxisAlignment::Center)
+                ->setCrossAxisAlignment(AxisAlignment::Center)
         );
 
         auto currentTitle = CCLabelBMFont::create("Current", "goldFont.fnt");
@@ -1201,7 +1201,7 @@ class CommentsLayer : public CCLayer {
             if (sprite) {
                 limitNodeSize(sprite, {28.f, 28.f}, 1.f, .1f);
                 avatar->addChildAtPosition(
-                    sprite, Anchor::Center, 0, false
+                    sprite, Anchor::Center, ccp(0.f, 0.f), false
                 );
             }
             return;
@@ -1211,7 +1211,7 @@ class CommentsLayer : public CCLayer {
         if (!sprite) return;
 
         avatar->addChildAtPosition(
-            sprite, Anchor::Center, 0, false
+            sprite, Anchor::Center, ccp(0.f, 0.f), false
         );
         sprite->setLoadCallback([sprite](Result<> result) {
             if (!result) {
