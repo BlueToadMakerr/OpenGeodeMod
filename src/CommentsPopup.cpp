@@ -488,7 +488,9 @@ class AttachmentPopup : public Popup {
         for (auto const& attachment : m_attachments) {
             auto removed = isRemoved(attachment.id);
             addRow(
-                fmt::format("Image {}", attachment.id),
+                attachment.filename.empty()
+                    ? fmt::format("Image {}", attachment.id)
+                    : attachment.filename,
                 removed ? "Pending to remove" : "Uploaded",
                 attachment.url,
                 nullptr,
@@ -1072,6 +1074,13 @@ class CommentsLayer : public CCLayer {
                     CommentAttachment item;
                     item.id = intValue(attachment, "id");
                     item.url = stringValue(attachment, "url");
+                    item.filename = stringValue(attachment, "filename");
+                    if (item.filename.empty() && !item.url.empty()) {
+                        auto slash = item.url.find_last_of('/');
+                        item.filename = slash == std::string::npos
+                            ? item.url
+                            : item.url.substr(slash + 1);
+                    }
                     if (item.id && !item.url.empty())
                         comment.attachments.push_back(std::move(item));
                 }
@@ -1317,6 +1326,7 @@ class CommentsLayer : public CCLayer {
             stack->setLayout(ColumnLayout::create()
                 ->setAxisAlignment(AxisAlignment::Start)
                 ->setCrossAxisAlignment(AxisAlignment::Center)
+                ->setAxisReverse(true)
                 ->setGap(4.f)
                 ->setPadding(Padding::uniform(2.f)));
             card->addChild(stack);
@@ -1351,11 +1361,39 @@ class CommentsLayer : public CCLayer {
         m_commentsContainer->updateLayout();
         scroll->scrollToTop();
 
-        m_versionLabel->setString(
-            m_state.selectedVersion.empty()
-                ? "v-"
-                : fmt::format("v{}", m_state.selectedVersion).c_str()
-        );
+        if (m_versionButton) {
+            auto sprite = typeinfo_cast<ButtonSprite*>(m_versionButton->getNormalImage());
+            if (sprite) {
+                sprite->setString(
+                    m_state.selectedVersion.empty()
+                        ? "v-"
+                        : fmt::format("v{}", m_state.selectedVersion).c_str()
+                );
+                m_versionButton->updateSprite();
+            }
+        }
+
+        if (m_attachmentCountLabel) {
+            size_t attachmentCount = m_pendingFiles.size();
+            if (m_editingCommentID != 0) {
+                for (auto const& c : m_state.comments) {
+                    if (c.id != m_editingCommentID) continue;
+                    attachmentCount += c.attachments.size();
+                    for (auto id : m_removedAttachments) {
+                        if (std::any_of(
+                                c.attachments.begin(), c.attachments.end(),
+                                [id](auto const& a) { return a.id == id; }
+                            ) && attachmentCount > 0)
+                            --attachmentCount;
+                    }
+                    break;
+                }
+            }
+            m_attachmentCountLabel->setString(
+                std::to_string(attachmentCount).c_str()
+            );
+            m_attachmentCountLabel->setVisible(attachmentCount > 0);
+        }
 
         auto allowed = canComment();
         m_input->setVisible(allowed);
