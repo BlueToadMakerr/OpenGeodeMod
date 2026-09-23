@@ -402,7 +402,7 @@ class AttachmentPopup : public Popup {
 
             // Name/status: two rows, left-aligned from the image.
             auto info = CCNode::create();
-            info->setContentSize({156.f, 44.f});
+            info->setContentSize({148.f, 44.f});
             info->setAnchorPoint({.5f, .5f});
             info->setLayout(ColumnLayout::create()
                 ->setAxisAlignment(AxisAlignment::Center)
@@ -412,13 +412,13 @@ class AttachmentPopup : public Popup {
             auto nameLabel = CCLabelBMFont::create(name.c_str(), "chatFont.fnt");
             nameLabel->setScale(.27f);
             nameLabel->setAnchorPoint({0.f, .5f});
-            nameLabel->limitLabelWidth(150.f, .27f, .1f);
+            nameLabel->limitLabelWidth(142.f, .27f, .1f);
             info->addChild(nameLabel);
 
             auto statusLabel = CCLabelBMFont::create(status.c_str(), "chatFont.fnt");
             statusLabel->setScale(.22f);
             statusLabel->setAnchorPoint({0.f, .5f});
-            statusLabel->limitLabelWidth(150.f, .22f, .1f);
+            statusLabel->limitLabelWidth(142.f, .22f, .1f);
             info->addChild(statusLabel);
             info->updateLayout();
             rowContent->addChild(info);
