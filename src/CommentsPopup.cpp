@@ -5,8 +5,11 @@
 #include <Geode/ui/MDTextArea.hpp>
 #include <Geode/ui/Popup.hpp>
 #include <Geode/ui/TextInput.hpp>
+#include <Geode/utils/async.hpp>
 #include <Geode/utils/file.hpp>
 #include <Geode/utils/web.hpp>
+#include <Geode/ui/BasedButtonSprite.hpp>
+#include <Geode/ui/LazySprite.hpp>
 
 #include <algorithm>
 #include <filesystem>
@@ -133,7 +136,7 @@ class CommentsLayer : public CCLayer {
         addChild(bottom);
 
         auto versionSprite = ButtonSprite::create(
-            "Version", "goldFont.fnt", getButtonTexture("GJ_button_01.png"), .42f
+            "Version", "goldFont.fnt", "GJ_button_01.png", .42f
         );
         versionSprite->setScale(.42f);
         auto versionItem = CCMenuItemExt::createSpriteExtra(
@@ -171,7 +174,7 @@ class CommentsLayer : public CCLayer {
         bottom->addChild(m_input);
 
         auto sendSprite = ButtonSprite::create(
-            "Send", "goldFont.fnt", getButtonTexture("GJ_button_01.png"), .45f
+            "Send", "goldFont.fnt", "GJ_button_01.png", .45f
         );
         sendSprite->setScale(.45f);
         m_sendButton = CCMenuItemExt::createSpriteExtra(
@@ -181,7 +184,7 @@ class CommentsLayer : public CCLayer {
         bottom->addChild(m_sendButton);
 
         auto lockSprite = ButtonSprite::create(
-            "Lock", "goldFont.fnt", getButtonTexture("GJ_button_01.png"), .36f
+            "Lock", "goldFont.fnt", "GJ_button_01.png", .36f
         );
         lockSprite->setScale(.36f);
         m_lockButton = CCMenuItemExt::createSpriteExtra(
@@ -608,7 +611,7 @@ class CommentsLayer : public CCLayer {
         auto lockText = m_state.lock == "none"
             ? "Unlocked"
             : (m_state.lock == "internal" ? "Internal" : "Locked");
-        m_lockLabel->setString(lockText.c_str());
+        m_lockLabel->setString(lockText);
 
         if (!m_state.loggedIn)
             m_statusLabel->setString("Log in to comment.");
@@ -642,26 +645,15 @@ class CommentsLayer : public CCLayer {
             return;
         }
 
-        auto request = web::WebRequest();
-        request.get(comment.pfp, Mod::get()).listen(
-            [card = Ref(card), path](web::WebResponse response) {
-                if (!card || !response.ok()) return;
-                if (!response.into(path)) return;
+        auto sprite = LazySprite::create({32.f, 32.f}, false);
+        if (!sprite) return;
+        sprite->setPosition({19.f, -19.f});
+        card->addChild(sprite);
 
-                auto sprite = CCSprite::create(path.string().c_str());
-                if (!sprite) return;
-
-                auto size = sprite->getContentSize();
-                if (size.width <= 0.f || size.height <= 0.f) return;
-
-                sprite->setScale(std::min(
-                    32.f / size.width,
-                    32.f / size.height
-                ));
-                sprite->setPosition({19.f, -19.f});
-                card->addChild(sprite);
-            }
-        );
+        sprite->setLoadCallback([sprite](Result<> result) {
+            if (!result) sprite->setVisible(false);
+        });
+        sprite->loadFromUrl(comment.pfp, LazySprite::Format::PNG, false);
     }
 
     void showVersionPicker() {
@@ -681,7 +673,7 @@ class CommentsLayer : public CCLayer {
                 ButtonSprite::create(
                     version.c_str(),
                     "bigFont.fnt",
-                    getButtonTexture("GJ_button_01.png"),
+                    "GJ_button_01.png",
                     .35f
                 ),
                 [this, version, popup](auto) {
@@ -723,7 +715,7 @@ class CommentsLayer : public CCLayer {
         ) {
             auto button = ButtonSprite::create(
                 label, "bigFont.fnt",
-                getButtonTexture("GJ_button_01.png"), .36f
+                "GJ_button_01.png", .36f
             );
             menu->addChild(
                 CCMenuItemExt::createSpriteExtra(
@@ -791,7 +783,8 @@ class CommentsLayer : public CCLayer {
         });
         options.filters.push_back({"All Files", {}});
 
-        file::pickMany(options).listen(
+        async::spawn(
+            file::pickMany(options),
             [this](file::PickManyResult result) {
                 if (!result) return;
 
@@ -1155,28 +1148,17 @@ void ensureCommentsTab(CCNode* popup) {
     );
     if (!description || !changelog) return;
 
-    auto descriptionSprite = typeinfo_cast<GeodeTabSprite*>(
-        description->getNormalImage()
-    );
-    auto changelogSprite = typeinfo_cast<GeodeTabSprite*>(
-        changelog->getNormalImage()
-    );
-    if (!descriptionSprite || !changelogSprite) return;
-
-    auto tabSprite = GeodeTabSprite::create(
-        "GJ_chatIcon_001.png", "Comments", 140.f
+    auto tabSprite = TabButtonSprite::create(
+        "Comments", TabBaseColor::Unselected
     );
     if (!tabSprite) return;
-
-    tabSprite->select(0);
 
     auto oldListener = description->m_pListener;
     auto oldSelector = description->m_pfnSelector;
     auto tabIndex = tabsMenu->getChildrenCount();
 
     auto callback =
-        [modID, oldListener, oldSelector, textarea, descriptionSprite,
-         changelogSprite, tabSprite](CCMenuItemSpriteExtra* sender) {
+        [modID, oldListener, oldSelector, textarea, tabSprite](CCMenuItemSpriteExtra* sender) {
             auto parent = textarea->getParent();
             if (!parent) return;
 
@@ -1185,13 +1167,9 @@ void ensureCommentsTab(CCNode* popup) {
 
             if (sender->getTag() < 2) {
                 (oldListener->*oldSelector)(sender);
-                tabSprite->select(0);
                 textarea->setVisible(true);
             }
             else {
-                descriptionSprite->select(0);
-                changelogSprite->select(0);
-                tabSprite->select(1);
                 textarea->setVisible(false);
                 parent->addChild(
                     CommentsLayer::create(modID, parent)
