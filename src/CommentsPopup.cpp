@@ -17,6 +17,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 using namespace geode::prelude;
 
@@ -456,6 +457,9 @@ class CommentsLayer : public CCLayer {
     CCLabelBMFont* m_statusLabel = nullptr;
     CCMenuItemSpriteExtra* m_exitEditButton = nullptr;
     CCNode* m_commentsContainer = nullptr;
+    CCNode* m_bottom = nullptr;
+    CCMenu* m_exitEditMenu = nullptr;
+    std::unordered_map<int, int> m_attachmentOffsets;
 
     bool init(std::string modID, CCNode* textArea) {
         if (!CCLayer::init()) return false;
@@ -580,6 +584,7 @@ class CommentsLayer : public CCLayer {
             exitEdit, [this](auto) { exitEditMode(); }
         );
         auto exitMenu = CCMenu::create();
+        m_exitEditMenu = exitMenu;
         exitMenu->setContentSize({70.f, 38.f});
         exitMenu->setLayout(RowLayout::create()
             ->setAxisAlignment(AxisAlignment::Center)
@@ -630,6 +635,7 @@ class CommentsLayer : public CCLayer {
         bottom->updateLayout();
 
         root->addChild(bottom);
+        m_bottom = bottom;
         bottom->setLayoutOptions(AnchorLayoutOptions::create()
             ->setAnchor(Anchor::Bottom)
             ->setOffset(ccp(0.f, 3.f)));
@@ -878,9 +884,75 @@ class CommentsLayer : public CCLayer {
         for (auto const& comment : m_state.comments) {
             any = true;
 
+            auto header = CCNode::create();
+            header->setContentSize({width - 16.f, 34.f});
+            header->setLayout(RowLayout::create()
+                ->setAxisAlignment(AxisAlignment::Between)
+                ->setCrossAxisAlignment(AxisAlignment::Center)
+                ->setPadding(Padding::horizontal(2.f)));
+
+            auto identity = CCNode::create();
+            identity->setContentSize({width - 110.f, 34.f});
+            identity->setLayout(RowLayout::create()
+                ->setAxisAlignment(AxisAlignment::Start)
+                ->setCrossAxisAlignment(AxisAlignment::Center)
+                ->setGap(7.f));
+
+            auto avatar = CCNode::create();
+            avatar->setContentSize({34.f, 34.f});
+            avatar->setLayout(RowLayout::create()
+                ->setAxisAlignment(AxisAlignment::Center)
+                ->setCrossAxisAlignment(AxisAlignment::Center));
+
+            auto avatarBG = CCScale9Sprite::create("square02_small.png");
+            avatarBG->setColor(ccBLACK);
+            avatarBG->setOpacity(100);
+            avatarBG->setContentSize({28.f, 28.f});
+            avatar->addChild(avatarBG);
+            addAvatar(avatar, comment);
+
+            auto name = CCLabelBMFont::create(comment.username.c_str(), "goldFont.fnt");
+            name->setScale(.32f);
+            name->limitLabelWidth(width - 150.f, .32f, .1f);
+            identity->addChild(avatar);
+            identity->addChild(name);
+            identity->updateLayout();
+            header->addChild(identity);
+
+            if (comment.canEdit || comment.canDelete) {
+                auto actions = CCMenu::create();
+                actions->setContentSize({92.f, 30.f});
+                actions->setLayout(RowLayout::create()
+                    ->setAxisAlignment(AxisAlignment::End)
+                    ->setCrossAxisAlignment(AxisAlignment::Center)
+                    ->setGap(4.f));
+
+                if (comment.canEdit) {
+                    auto button = ButtonSprite::create(
+                        "Edit", "goldFont.fnt", "GJ_button_01.png", .27f
+                    );
+                    button->setScale(.27f);
+                    actions->addChild(CCMenuItemExt::createSpriteExtra(
+                        button, [this, comment](auto) { beginEdit(comment); }
+                    ));
+                }
+                if (comment.canDelete) {
+                    auto button = ButtonSprite::create(
+                        "Delete", "goldFont.fnt", "GJ_button_06.png", .27f
+                    );
+                    button->setScale(.27f);
+                    actions->addChild(CCMenuItemExt::createSpriteExtra(
+                        button, [this, comment](auto) { deleteComment(comment.id); }
+                    ));
+                }
+                actions->updateLayout();
+                header->addChild(actions);
+            }
+            header->updateLayout();
+
             auto body = MDTextArea::create(
                 comment.body.empty() ? "..." : comment.body,
-                {width - 76.f, 68.f},
+                {width - 24.f, 68.f},
                 true
             );
             body->setScale(1.05f);
@@ -890,91 +962,48 @@ class CommentsLayer : public CCLayer {
             if (auto bg = body->getChildByType<CCScale9Sprite>(0))
                 bg->setVisible(false);
 
-            auto header = CCNode::create();
-            header->setContentSize({width - 16.f, 34.f});
-            header->setLayout(
-                RowLayout::create()
-                    ->setAxisAlignment(AxisAlignment::Start)
-                    ->setCrossAxisAlignment(AxisAlignment::Center)
-                    ->setGap(7.f)
-            );
-
-            auto avatar = CCNode::create();
-            avatar->setContentSize({34.f, 34.f});
-            avatar->setLayout(
-                RowLayout::create()
-                    ->setAxisAlignment(AxisAlignment::Center)
-                    ->setCrossAxisAlignment(AxisAlignment::Center)
-            );
-            auto avatarBG = CCScale9Sprite::create("square02_small.png");
-            avatarBG->setColor(ccBLACK);
-            avatarBG->setOpacity(100);
-            avatarBG->setContentSize({28.f, 28.f});
-            avatar->addChild(avatarBG);
-            addAvatar(avatar, comment);
-
-            auto name = CCLabelBMFont::create(
-                comment.username.c_str(), "goldFont.fnt"
-            );
-            name->setScale(.32f);
-            header->addChild(avatar);
-            header->addChild(name);
-            header->updateLayout();
-
-            auto card = CCNode::create();
-            auto cardHeight = 42.f + 68.f +
-                (comment.attachments.empty() ? 0.f :
-                    28.f * static_cast<float>(comment.attachments.size()) + 4.f) +
-                ((comment.canEdit || comment.canDelete) ? 32.f : 0.f);
-            card->setContentSize({width, cardHeight});
-            card->setLayout(AnchorLayout::create());
-
-            auto cardBG = NineSlice::create("square02b_001.png");
-            cardBG->setColor(ccBLACK);
-            cardBG->setOpacity(75);
-            cardBG->setScale(.3f);
-            cardBG->setContentSize(card->getContentSize() / cardBG->getScale());
-            card->addChild(cardBG, -1);
-            cardBG->setLayoutOptions(
-                AnchorLayoutOptions::create()->setAnchor(Anchor::Center)
-            );
-
-            auto stack = CCNode::create();
-            stack->setContentSize({
-                width - 12.f,
-                cardHeight - 8.f
-            });
-            stack->setLayout(
-                ColumnLayout::create()
-                    ->setAxisAlignment(AxisAlignment::Start)
-                    ->setCrossAxisAlignment(AxisAlignment::Center)
-                    ->setGap(4.f)
-                    ->setPadding(Padding::uniform(2.f))
-            );
-            card->addChild(stack);
-            stack->setLayoutOptions(
-                AnchorLayoutOptions::create()->setAnchor(Anchor::Center)
-            );
-
-            stack->addChild(header);
-            stack->addChild(body);
+            auto attachmentArea = CCNode::create();
+            auto attachmentHeight = comment.attachments.empty() ? 0.f : 50.f;
+            attachmentArea->setContentSize({width - 20.f, attachmentHeight});
+            attachmentArea->setLayout(RowLayout::create()
+                ->setAxisAlignment(AxisAlignment::Center)
+                ->setCrossAxisAlignment(AxisAlignment::Center)
+                ->setGap(4.f));
 
             if (!comment.attachments.empty()) {
-                auto attachments = CCNode::create();
-                attachments->setContentSize({width - 28.f, 58.f});
-                attachments->setLayout(RowLayout::create()
-                    ->setAxisAlignment(AxisAlignment::Center)
+                auto& offset = m_attachmentOffsets[comment.id];
+                auto count = static_cast<int>(comment.attachments.size());
+                auto pageSize = 4;
+                auto maxOffset = std::max(0, count - pageSize);
+                offset = std::clamp(offset, 0, maxOffset);
+
+                auto makeArrow = [this](char const* label, int delta, int commentID) {
+                    auto sprite = ButtonSprite::create(
+                        label, "bigFont.fnt", "GJ_button_01.png", .24f
+                    );
+                    sprite->setScale(.24f);
+                    return CCMenuItemExt::createSpriteExtra(
+                        sprite, [this, delta, commentID](auto) {
+                            auto& value = m_attachmentOffsets[commentID];
+                            value = std::max(0, value + delta);
+                            rebuild();
+                        }
+                    );
+                };
+
+                if (count > pageSize)
+                    attachmentArea->addChild(makeArrow("<", -1, comment.id));
+
+                auto images = CCNode::create();
+                images->setContentSize({std::min(190.f, width - 70.f), 46.f});
+                images->setLayout(RowLayout::create()
+                    ->setAxisAlignment(AxisAlignment::Start)
                     ->setCrossAxisAlignment(AxisAlignment::Center)
-                    ->setGap(5.f)
-                );
+                    ->setGap(5.f));
 
-                auto makeAttachment = [this](CommentAttachment const& attachment) {
-                    auto item = CCMenu::create();
-                    item->setContentSize({42.f, 42.f});
-                    item->setLayout(RowLayout::create()
-                        ->setAxisAlignment(AxisAlignment::Center)
-                        ->setCrossAxisAlignment(AxisAlignment::Center));
-
+                auto visible = std::min(pageSize, count - offset);
+                for (int i = 0; i < visible; ++i) {
+                    auto const& attachment = comment.attachments[offset + i];
                     auto image = LazySprite::create({42.f, 42.f}, false);
                     if (image) {
                         image->loadFromUrl(attachment.url);
@@ -986,74 +1015,59 @@ class CommentsLayer : public CCLayer {
                         });
                     }
 
-                    auto imageItem = CCMenuItemExt::createSpriteExtra(
+                    auto item = CCMenuItemExt::createSpriteExtra(
                         image ? static_cast<CCNode*>(image)
                               : static_cast<CCNode*>(CCLabelBMFont::create("?", "chatFont.fnt")),
                         [this, attachment](auto) {
                             showAttachmentImage(attachment.url);
                         }
                     );
-                    item->addChild(imageItem);
-                    item->updateLayout();
-                    return item;
-                };
-
-                auto count = static_cast<int>(comment.attachments.size());
-                auto visible = std::min(count, 5);
-                auto startIndex = std::max(0, count - visible);
-                for (int i = startIndex; i < count; ++i)
-                    attachments->addChild(makeAttachment(comment.attachments[i]));
-
-                if (count > visible) {
-                    auto left = CCLabelBMFont::create("<", "bigFont.fnt");
-                    left->setScale(.32f);
-                    attachments->addChild(left);
+                    auto itemMenu = CCMenu::create();
+                    itemMenu->setContentSize({44.f, 44.f});
+                    itemMenu->setLayout(RowLayout::create()
+                        ->setAxisAlignment(AxisAlignment::Center)
+                        ->setCrossAxisAlignment(AxisAlignment::Center));
+                    itemMenu->addChild(item);
+                    itemMenu->updateLayout();
+                    images->addChild(itemMenu);
                 }
-                attachments->updateLayout();
-                stack->addChild(attachments);
+                images->updateLayout();
+                attachmentArea->addChild(images);
+
+                if (count > pageSize)
+                    attachmentArea->addChild(makeArrow(">", 1, comment.id));
+
+                attachmentArea->updateLayout();
             }
 
-            if (comment.canEdit || comment.canDelete) {
-                auto actions = CCMenu::create();
-                actions->setContentSize({width - 16.f, 26.f});
-                actions->setLayout(
-                    RowLayout::create()
-                        ->setAxisAlignment(AxisAlignment::End)
-                        ->setCrossAxisAlignment(AxisAlignment::Center)
-                        ->setGap(5.f)
-                );
+            auto cardHeight = 34.f + 4.f + 68.f +
+                (comment.attachments.empty() ? 0.f : 54.f);
 
-                if (comment.canEdit) {
-                    auto button = ButtonSprite::create(
-                        "Edit", "goldFont.fnt", "GJ_button_01.png", .30f
-                    );
-                    button->setScale(.30f);
-                    actions->addChild(
-                        CCMenuItemExt::createSpriteExtra(
-                            button, [this, comment](auto) {
-                                beginEdit(comment);
-                            }
-                        )
-                    );
-                }
+            auto card = CCNode::create();
+            card->setContentSize({width, cardHeight});
+            card->setLayout(AnchorLayout::create());
 
-                if (comment.canDelete) {
-                    auto button = ButtonSprite::create(
-                        "Delete", "goldFont.fnt", "GJ_button_06.png", .30f
-                    );
-                    button->setScale(.30f);
-                    actions->addChild(
-                        CCMenuItemExt::createSpriteExtra(
-                            button, [this, comment](auto) {
-                                deleteComment(comment.id);
-                            }
-                        )
-                    );
-                }
+            auto cardBG = NineSlice::create("square02b_001.png");
+            cardBG->setColor(ccBLACK);
+            cardBG->setOpacity(75);
+            cardBG->setScale(.3f);
+            cardBG->setContentSize(card->getContentSize() / cardBG->getScale());
+            card->addChildAtPosition(cardBG, Anchor::Center);
 
-                actions->updateLayout();
-                stack->addChild(actions);
-            }
+            auto stack = CCNode::create();
+            stack->setContentSize({width - 12.f, cardHeight - 8.f});
+            stack->setLayout(ColumnLayout::create()
+                ->setAxisAlignment(AxisAlignment::Start)
+                ->setCrossAxisAlignment(AxisAlignment::Center)
+                ->setGap(4.f)
+                ->setPadding(Padding::uniform(2.f)));
+            card->addChild(stack);
+            stack->setLayoutOptions(AnchorLayoutOptions::create()->setAnchor(Anchor::Center));
+
+            stack->addChild(header);
+            stack->addChild(body);
+            if (!comment.attachments.empty())
+                stack->addChild(attachmentArea);
 
             stack->updateLayout();
             m_commentsContainer->addChild(card);
@@ -1061,9 +1075,7 @@ class CommentsLayer : public CCLayer {
         }
 
         if (!any) {
-            auto empty = CCLabelBMFont::create(
-                "No comments yet.", "chatFont.fnt"
-            );
+            auto empty = CCLabelBMFont::create("No comments yet.", "chatFont.fnt");
             empty->setScale(.35f);
             m_commentsContainer->addChild(empty);
             totalHeight += 35.f;
@@ -1085,8 +1097,6 @@ class CommentsLayer : public CCLayer {
         auto allowed = canComment();
         m_input->setVisible(allowed);
         m_sendButton->setVisible(allowed);
-        m_lockButton->setVisible(m_state.currentDeveloperAdmin);
-        m_lockLabel->setVisible(true);
 
         auto lockText = m_state.lock == "none"
             ? "Unlocked"
@@ -1102,18 +1112,10 @@ class CommentsLayer : public CCLayer {
 
         if (!m_state.loggedIn)
             m_statusLabel->setString("Log in to comment.");
-        else if (
-            m_state.lock == "locked" &&
-            !m_state.currentDeveloperAdmin
-        )
+        else if (m_state.lock == "locked" && !m_state.currentDeveloperAdmin)
             m_statusLabel->setString("This submission is locked.");
-        else if (
-            m_state.lock == "internal" &&
-            !m_state.currentDeveloperAdmin
-        )
-            m_statusLabel->setString(
-                "This submission is locked to the index team."
-            );
+        else if (m_state.lock == "internal" && !m_state.currentDeveloperAdmin)
+            m_statusLabel->setString("This submission is locked to the index team.");
         else if (!any)
             m_statusLabel->setString("No comments yet.");
         else
@@ -1534,6 +1536,11 @@ class CommentsLayer : public CCLayer {
         m_sendButton->setEnabled(true);
         if (m_exitEditButton)
             m_exitEditButton->setVisible(false);
+        if (m_exitEditMenu) {
+            m_exitEditMenu->setContentSize({0.f, 38.f});
+            m_exitEditMenu->updateLayout();
+        }
+        if (m_bottom) m_bottom->updateLayout();
         rebuild();
     }
 
