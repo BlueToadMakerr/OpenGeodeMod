@@ -305,11 +305,16 @@ class AttachmentPopup : public Popup {
 
         std::error_code ec;
         if (localPath && std::filesystem::exists(*localPath, ec) && !ec) {
-            auto pathString = geode::utils::string::pathToString(*localPath);
-            auto sprite = CCSprite::create(pathString.c_str());
-            if (sprite) {
-                limitNodeSize(sprite, {36.f, 36.f}, 1.f, .1f);
-                previewNode = sprite;
+            auto preview = LazySprite::create({36.f, 36.f}, false);
+            if (preview) {
+                preview->loadFromFile(*localPath);
+                preview->setLoadCallback([preview](Result<> result) {
+                    if (!result)
+                        preview->setVisible(false);
+                    else
+                        limitNodeSize(preview, {36.f, 36.f}, 1.f, .1f);
+                });
+                previewNode = preview;
             }
         }
         else if (!url.empty()) {
@@ -546,7 +551,7 @@ class CommentsLayer : public CCLayer {
         // TOP: status on the left, lock controls on the right.
         auto top = CCNode::create();
         top->setContentSize({width - 8.f, 44.f});
-        top->setAnchorPoint({.5f, .5f});
+        top->setAnchorPoint({.5f, 1.f});
         top->setLayout(RowLayout::create()
             ->setAxisAlignment(AxisAlignment::Between)
             ->setCrossAxisAlignment(AxisAlignment::Center)
@@ -607,10 +612,10 @@ class CommentsLayer : public CCLayer {
             commentsArea->getContentHeight()
         });
         scroll->setID("opengeode-comments-scroll"_spr);
-        scroll->setAnchorPoint({0.f, 0.f});
+        scroll->setAnchorPoint({.5f, .5f});
         commentsArea->addChild(scroll);
         scroll->setLayoutOptions(
-            AnchorLayoutOptions::create()->setAnchor(Anchor::BottomLeft)
+            AnchorLayoutOptions::create()->setAnchor(Anchor::Center)
         );
         m_commentsContainer = scroll->m_contentLayer;
         if (m_commentsContainer)
@@ -619,7 +624,7 @@ class CommentsLayer : public CCLayer {
         // BOTTOM: v1.0.0 [Versions] [Exit Edit] [+] [input] [Send]
         auto bottom = CCNode::create();
         bottom->setContentSize({width - 8.f, 62.f});
-        bottom->setAnchorPoint({.5f, .5f});
+        bottom->setAnchorPoint({.5f, 0.f});
         bottom->setLayout(RowLayout::create()
             ->setAxisAlignment(AxisAlignment::Center)
             ->setCrossAxisAlignment(AxisAlignment::Center)
@@ -697,15 +702,29 @@ class CommentsLayer : public CCLayer {
                          : static_cast<CCNode*>(CCLabelBMFont::create("+", "bigFont.fnt")),
             [this](auto) { showAttachmentsPopup(); }
         );
+        auto attachmentGroup = CCNode::create();
+        attachmentGroup->setContentSize({92.f, 42.f});
+        attachmentGroup->setAnchorPoint({.5f, .5f});
+        attachmentGroup->setLayout(RowLayout::create()
+            ->setAxisAlignment(AxisAlignment::Center)
+            ->setCrossAxisAlignment(AxisAlignment::Center)
+            ->setGap(3.f));
+
         auto attachMenu = CCMenu::create();
         attachMenu->setContentSize({42.f, 42.f});
-        attachMenu->setAnchorPoint({.5f, .5f});
         attachMenu->setLayout(RowLayout::create()
             ->setAxisAlignment(AxisAlignment::Center)
             ->setCrossAxisAlignment(AxisAlignment::Center));
         attachMenu->addChild(attachItem);
         attachMenu->updateLayout();
-        bottom->addChild(attachMenu);
+        attachmentGroup->addChild(attachMenu);
+
+        m_attachmentLabel = CCLabelBMFont::create("", "chatFont.fnt");
+        m_attachmentLabel->setScale(.20f);
+        m_attachmentLabel->limitLabelWidth(46.f, .20f, .1f);
+        attachmentGroup->addChild(m_attachmentLabel);
+        attachmentGroup->updateLayout();
+        bottom->addChild(attachmentGroup);
 
         m_input = TextInput::create(100.f, "Write a comment...", "chatFont.fnt");
         m_input->setID("opengeode-comment-input"_spr);
@@ -754,7 +773,7 @@ class CommentsLayer : public CCLayer {
 
         constexpr float versionWidth = 132.f;
         constexpr float exitWidth = 82.f;
-        constexpr float attachWidth = 42.f;
+        constexpr float attachWidth = 92.f;
         constexpr float sendWidth = 68.f;
         constexpr float gaps = 5.f * 5.f;
         constexpr float horizontalPadding = 16.f;
