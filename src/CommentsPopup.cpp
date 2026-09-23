@@ -245,7 +245,7 @@ public:
     }
 };
 
-class AttachmentPopup : public Popup {
+class AttachmentImagePopup : public Popup {\n    std::string m_url;\n\n    bool init(std::string url) {\n        if (!Popup::init(350.f, 300.f)) return false;\n        m_url = std::move(url);\n        setTitle("Attachment");\n\n        auto holder = CCNode::create();\n        holder->setContentSize({320.f, 250.f});\n        holder->setLayout(RowLayout::create()\n            ->setAxisAlignment(AxisAlignment::Center)\n            ->setCrossAxisAlignment(AxisAlignment::Center));\n        m_mainLayer->addChildAtPosition(holder, Anchor::Center);\n\n        auto image = LazySprite::create({320.f, 250.f}, false);\n        if (image) {\n            image->loadFromUrl(m_url);\n            image->setLoadCallback([image](Result<> result) {\n                if (result) limitNodeSize(image, {320.f, 250.f}, 1.f, .1f);\n                else image->setVisible(false);\n            });\n            holder->addChild(image);\n            holder->updateLayout();\n        }\n        m_noElasticity = true;\n        return true;\n    }\n\npublic:\n    static AttachmentImagePopup* create(std::string url) {\n        auto ret = new AttachmentImagePopup();\n        if (ret && ret->init(std::move(url))) {\n            ret->autorelease();\n            return ret;\n        }\n        delete ret;\n        return nullptr;\n    }\n};\n\nclass AttachmentPopup : public Popup {
     std::function<void(int)> m_onDelete;
     std::function<void()> m_onAdd;
 
@@ -1154,37 +1154,7 @@ class CommentsLayer : public CCLayer {
         sprite->loadFromUrl(comment.pfp);
     }
 
-    void showAttachmentImage(std::string const& url) {
-        if (url.empty()) return;
-
-        auto popup = Popup::create(350.f, 300.f);
-        if (!popup) return;
-        popup->setTitle("Attachment");
-
-        auto holder = CCNode::create();
-        holder->setContentSize({320.f, 250.f});
-        holder->setLayout(RowLayout::create()
-            ->setAxisAlignment(AxisAlignment::Center)
-            ->setCrossAxisAlignment(AxisAlignment::Center));
-        popup->m_mainLayer->addChildAtPosition(holder, Anchor::Center);
-
-        auto image = LazySprite::create({320.f, 250.f}, false);
-        if (image) {
-            image->loadFromUrl(url);
-            image->setLoadCallback([image](Result<> result) {
-                if (result)
-                    limitNodeSize(image, {320.f, 250.f}, 1.f, .1f);
-                else
-                    image->setVisible(false);
-            });
-            holder->addChild(image);
-            holder->updateLayout();
-        }
-        popup->m_noElasticity = true;
-        popup->show();
-    }
-
-    void showVersionPicker() {
+    void showAttachmentImage(std::string const& url) {\n        if (url.empty()) return;\n        if (auto popup = AttachmentImagePopup::create(url))\n            popup->show();\n    }\n\n    void showVersionPicker() {
         if(m_state.versions.empty())return;
         auto popup=VersionSelectPopup::create(m_state.versions,[this](std::string version){
             m_state.selectedVersion=std::move(version);m_editingCommentID=0;m_pendingFiles.clear();m_removedAttachments.clear();m_input->setString("");m_attachmentLabel->setString("");loadSelectedVersion();
