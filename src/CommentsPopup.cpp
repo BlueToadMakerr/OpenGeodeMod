@@ -402,7 +402,7 @@ class AttachmentPopup : public Popup {
 
             // Name/status: two rows, left-aligned from the image.
             auto info = CCNode::create();
-            info->setContentSize({148.f, 44.f});
+            info->setContentSize({128.f, 44.f});
             info->setAnchorPoint({.5f, .5f});
             info->setLayout(ColumnLayout::create()
                 ->setAxisAlignment(AxisAlignment::Center)
@@ -412,13 +412,13 @@ class AttachmentPopup : public Popup {
             auto nameLabel = CCLabelBMFont::create(name.c_str(), "chatFont.fnt");
             nameLabel->setScale(.27f);
             nameLabel->setAnchorPoint({0.f, .5f});
-            nameLabel->limitLabelWidth(142.f, .27f, .1f);
+            nameLabel->limitLabelWidth(122.f, .27f, .1f);
             info->addChild(nameLabel);
 
             auto statusLabel = CCLabelBMFont::create(status.c_str(), "chatFont.fnt");
             statusLabel->setScale(.22f);
             statusLabel->setAnchorPoint({0.f, .5f});
-            statusLabel->limitLabelWidth(142.f, .22f, .1f);
+            statusLabel->limitLabelWidth(122.f, .22f, .1f);
             info->addChild(statusLabel);
             info->updateLayout();
             rowContent->addChild(info);
@@ -546,13 +546,15 @@ class AttachmentPopup : public Popup {
 
         m_root = CCNode::create();
         m_root->setContentSize({278.f, 168.f});
-        m_root->setAnchorPoint({.5f, .5f});
+        // Keep the attachment window contents flush to the popup's left side
+        // instead of centering the whole root around its left edge.
+        m_root->setAnchorPoint({0.f, .5f});
         m_root->setLayout(ColumnLayout::create()
             ->setAxisAlignment(AxisAlignment::Between)
             ->setCrossAxisAlignment(AxisAlignment::Center)
             ->setPadding(Padding::symmetric(0.f, 5.f))
             ->setGap(5.f));
-        m_mainLayer->addChildAtPosition(m_root, Anchor::Center);
+        m_mainLayer->addChildAtPosition(m_root, Anchor::Left, ccp(8.f, 0.f), false);
 
         m_scroll = ScrollLayer::create({270.f, 122.f});
         m_scroll->setAnchorPoint({.5f, .5f});
