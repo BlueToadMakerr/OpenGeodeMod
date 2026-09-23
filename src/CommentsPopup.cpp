@@ -982,7 +982,8 @@ class CommentsLayer : public CCLayer {
     void showAttachmentsPopup() {
         std::vector<CommentAttachment> attachments;
         for(auto const& c:m_state.comments)if(c.id==m_editingCommentID){attachments=c.attachments;break;}
-        auto popup=AttachmentPopup::create(\n            std::move(attachments), m_pendingFiles,\n            [this](int id) { removeAttachment(id); },\n            [this]() { pickAttachments(); }\n        );
+        auto popup=AttachmentPopup::create(
+            std::move(attachments), m_pendingFiles,\n            [this](int id) { removeAttachment(id); },\n            [this]() { pickAttachments(); }\n        );
         if(popup){popup->m_noElasticity=true;popup->show();}
     }
 
