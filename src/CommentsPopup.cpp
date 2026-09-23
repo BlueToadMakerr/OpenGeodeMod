@@ -444,8 +444,8 @@ class CommentsLayer : public CCLayer {
         auto allowed=canComment();m_input->setVisible(allowed);m_sendButton->setVisible(allowed);m_attachmentLabel->setVisible(allowed&&canUploadAttachments());
         m_lockButton->setVisible(m_state.currentDeveloperAdmin);m_lockLabel->setVisible(true);
         auto lockText=m_state.lock=="none"?"Unlocked":(m_state.lock=="internal"?"Internal":"Locked");
-        if(m_state.lockedBy&&!m_state.lockedByName.empty())lockText=fmt::format("{} by {}",lockText,m_state.lockedByName);
-        m_lockLabel->setString(lockText.c_str());
+        auto lockDisplayText = fmt::format("{} by {}", lockText, m_state.lockedByName);
+        m_lockLabel->setString(lockDisplayText.c_str());
         if(!m_state.loggedIn)m_statusLabel->setString("Log in to comment.");
         else if(m_state.lock=="locked"&&!m_state.currentDeveloperAdmin)m_statusLabel->setString("This submission is locked.");
         else if(m_state.lock=="internal"&&!m_state.currentDeveloperAdmin)m_statusLabel->setString("This submission is locked to the index team.");
