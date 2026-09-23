@@ -653,7 +653,7 @@ class CommentsLayer : public CCLayer {
         sprite->setLoadCallback([sprite](Result<> result) {
             if (!result) sprite->setVisible(false);
         });
-        sprite->loadFromUrl(comment.pfp, LazySprite::Format::PNG, false);
+        sprite->loadFromUrl(comment.pfp);
     }
 
     void showVersionPicker() {
