@@ -425,7 +425,7 @@ class AttachmentPopup : public Popup {
 
             // Action: one button spanning both rows.
             auto actions = CCMenu::create();
-            actions->setContentSize({44.f, 44.f});
+            actions->setContentSize({78.f, 44.f});
             actions->setAnchorPoint({.5f, .5f});
             actions->setLayout(RowLayout::create()
                 ->setAxisAlignment(AxisAlignment::Center)
@@ -434,9 +434,9 @@ class AttachmentPopup : public Popup {
             auto actionText = removed ? "Restore" : "Remove";
             auto actionTexture = removed ? "GJ_button_01.png" : "GJ_button_06.png";
             auto action = ButtonSprite::create(
-                actionText, "goldFont.fnt", actionTexture, .25f
+                actionText, "goldFont.fnt", actionTexture, .40f
             );
-            action->setScale(.25f);
+            action->setScale(.40f);
 
             if (pendingUpload) {
                 actions->addChild(CCMenuItemExt::createSpriteExtra(
@@ -649,7 +649,10 @@ class CommentsLayer : public CCLayer {
         m_modID = std::move(modID);
         m_textArea = textArea;
         setContentSize(textArea->getContentSize());
-        setAnchorPoint({0.f, 0.f});
+        // The chat layer represents the whole textarea-sized window, so its
+        // positioning reference must be its center rather than the default
+        // bottom-left anchor.
+        setAnchorPoint({.5f, .5f});
         setKeyboardEnabled(true);
 
         auto width = getContentWidth();
@@ -657,8 +660,9 @@ class CommentsLayer : public CCLayer {
 
         auto root = CCNode::create();
         root->setContentSize(getContentSize());
+        root->setAnchorPoint({.5f, .5f});
         root->setLayout(AnchorLayout::create());
-        addChild(root);
+        addChildAtPosition(root, Anchor::Center);
 
         auto bg = NineSlice::create("square02b_001.png");
         bg->setColor(ccBLACK);
@@ -2026,11 +2030,14 @@ void ensureCommentsTab(CCNode* popup) {
 
             auto layer = CommentsLayer::create(modID, textarea);
             if (layer) {
-                layer->setAnchorPoint(textarea->getAnchorPoint());
-                layer->setPosition(textarea->getPosition());
+                // textarea's position uses its own (usually bottom-left)
+                // anchor. The comments layer uses a centered anchor, so add
+                // it to the same parent at the parent's center instead of
+                // reusing textarea's bottom-left position.
+                layer->setAnchorPoint({.5f, .5f});
                 layer->setScale(textarea->getScale());
                 layer->setRotation(textarea->getRotation());
-                parent->addChild(layer);
+                parent->addChildAtPosition(layer, Anchor::Center);
             }
         }
     };
