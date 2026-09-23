@@ -140,6 +140,41 @@ int intValue(matjson::Value const& value, char const* key, int fallback = 0) {
     return value[key].asInt().unwrapOr(fallback);
 }
 
+LazySprite* createContainedImage(
+    CCNode* holder,
+    CCSize size,
+    std::string const& url,
+    std::filesystem::path const* localPath = nullptr
+) {
+    if (localPath) {
+        std::error_code ec;
+        if (!std::filesystem::exists(*localPath, ec) || ec)
+            return nullptr;
+    }
+    else if (url.empty()) {
+        return nullptr;
+    }
+
+    auto sprite = LazySprite::create(size, false);
+    if (!sprite) return nullptr;
+
+    holder->addChildAtPosition(sprite, Anchor::Center);
+    sprite->setLoadCallback([sprite, size](Result<> result) {
+        if (!result) {
+            sprite->setVisible(false);
+            return;
+        }
+        limitNodeSize(sprite, size, 1.f, .1f);
+        if (auto parent = sprite->getParent())
+            sprite->setPosition(parent->getContentSize() / 2.f);
+    });
+
+    if (localPath) sprite->loadFromFile(*localPath);
+    else sprite->loadFromUrl(url);
+
+    return sprite;
+}
+
 std::string getModID(CCNode* popup) {
     auto label = typeinfo_cast<CCLabelBMFont*>(popup->getChildByIDRecursive("mod-id-label"));
     if (!label) return "";
@@ -317,43 +352,7 @@ class AttachmentPopup : public Popup {
         std::string const& url,
         std::filesystem::path const* localPath
     ) {
-        CCNode* previewNode = nullptr;
-
-        std::error_code ec;
-        if (localPath && std::filesystem::exists(*localPath, ec) && !ec) {
-            auto preview = LazySprite::create({40.f, 40.f}, false);
-            if (preview) {
-                preview->loadFromFile(*localPath);
-                preview->setLoadCallback([preview](Result<> result) {
-                    if (!result) {
-                        preview->setVisible(false);
-                        return;
-                    }
-                    limitNodeSize(preview, {40.f, 40.f}, 1.f, .1f);
-                });
-                previewNode = preview;
-            }
-        }
-        else if (!url.empty()) {
-            auto preview = LazySprite::create({40.f, 40.f}, false);
-            if (preview) {
-                preview->loadFromUrl(url);
-                preview->setLoadCallback([preview](Result<> result) {
-                    if (!result) {
-                        preview->setVisible(false);
-                        return;
-                    }
-                    limitNodeSize(preview, {40.f, 40.f}, 1.f, .1f);
-                });
-                previewNode = preview;
-            }
-        }
-
-        if (previewNode) {
-            holder->addChildAtPosition(
-                previewNode, Anchor::Center, ccp(0.f, 0.f), false
-            );
-        }
+        createContainedImage(holder, {40.f, 40.f}, url, localPath);
     }
 
     void rebuild() {
@@ -1396,33 +1395,12 @@ class CommentsLayer : public CCLayer {
         auto path = Mod::get()->getSaveDir() /
             fmt::format("pfp-{:x}.png", key);
 
-        std::error_code ec;
-        if (std::filesystem::exists(path, ec) && !ec) {
-            auto pathString = geode::utils::string::pathToString(path);
-            auto sprite = CCSprite::create(pathString.c_str());
-            if (sprite) {
-                limitNodeSize(sprite, {28.f, 28.f}, 1.f, .1f);
-                avatar->addChildAtPosition(
-                    sprite, Anchor::Center, ccp(0.f, 0.f), false
-                );
-            }
+        if (createContainedImage(
+                avatar, {28.f, 28.f}, comment.pfp, &path
+            ))
             return;
-        }
 
-        auto sprite = LazySprite::create({28.f, 28.f}, false);
-        if (!sprite) return;
-
-        avatar->addChildAtPosition(
-            sprite, Anchor::Center, ccp(0.f, 0.f), false
-        );
-        sprite->setLoadCallback([sprite](Result<> result) {
-            if (!result) {
-                sprite->setVisible(false);
-                return;
-            }
-            limitNodeSize(sprite, {28.f, 28.f}, 1.f, .1f);
-        });
-        sprite->loadFromUrl(comment.pfp);
+        createContainedImage(avatar, {28.f, 28.f}, comment.pfp);
     }
 
     void showAttachmentImage(std::string const& url) {
