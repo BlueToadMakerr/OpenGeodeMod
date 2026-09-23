@@ -1308,5 +1308,3 @@ void ensureCommentsTab(CCNode* popup) {
 }
 
 } // namespace
-
-} // namespace opengeode
