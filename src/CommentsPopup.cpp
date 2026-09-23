@@ -169,6 +169,7 @@ class VersionSelectPopup : public Popup {
 
         auto root = CCNode::create();
         root->setContentSize({224.f, 194.f});
+        root->setAnchorPoint({.5f, .5f});
         root->setLayout(
             ColumnLayout::create()
                 ->setAxisAlignment(AxisAlignment::Center)
@@ -198,9 +199,15 @@ class VersionSelectPopup : public Popup {
             auto item = CCMenuItemExt::createSpriteExtra(
                 button,
                 [this, version](auto) {
-                    if (m_onSelect)
-                        m_onSelect(version);
+                    auto callback = m_onSelect;
                     removeFromParent();
+                    if (callback) {
+                        geode::queueInMainThread(
+                            [callback = std::move(callback), version] {
+                                callback(version);
+                            }
+                        );
+                    }
                 }
             );
 
@@ -256,6 +263,7 @@ class AttachmentImagePopup : public Popup {
 
         auto holder = CCNode::create();
         holder->setContentSize({320.f, 250.f});
+        holder->setAnchorPoint({.5f, .5f});
         holder->setLayout(RowLayout::create()
             ->setAxisAlignment(AxisAlignment::Center)
             ->setCrossAxisAlignment(AxisAlignment::Center));
@@ -334,13 +342,16 @@ class AttachmentPopup : public Popup {
 
         auto root = CCNode::create();
         root->setContentSize({278.f, 168.f});
+        root->setAnchorPoint({.5f, .5f});
         root->setLayout(ColumnLayout::create()
             ->setAxisAlignment(AxisAlignment::Between)
             ->setCrossAxisAlignment(AxisAlignment::Center)
-            ->setPadding(Padding::symmetric(0.f, 6.f)));
+            ->setPadding(Padding::symmetric(0.f, 5.f))
+            ->setGap(5.f)));
         m_mainLayer->addChildAtPosition(root, Anchor::Center);
 
-        auto scroll = ScrollLayer::create({270.f, 132.f});
+        auto scroll = ScrollLayer::create({270.f, 122.f});
+        scroll->setAnchorPoint({.5f, .5f});
         auto content = scroll->m_contentLayer;
         content->setLayout(ColumnLayout::create()
             ->setAxisAlignment(AxisAlignment::Start)
@@ -432,18 +443,21 @@ class AttachmentPopup : public Popup {
 
         content->updateLayout();
         content->setContentSize({
-            382.f,
-            std::max(225.f, 5.f + 74.f * static_cast<float>(attachments.size() + pending.size()))
+            270.f,
+            std::max(
+                122.f,
+                10.f + 52.f * static_cast<float>(attachments.size() + pending.size())
+            )
         });
         root->addChild(scroll);
 
         auto addMenu = CCMenu::create();
-        addMenu->setContentSize({270.f, 30.f});
+        addMenu->setContentSize({270.f, 40.f});
         addMenu->setLayout(RowLayout::create()
             ->setAxisAlignment(AxisAlignment::Center)
             ->setCrossAxisAlignment(AxisAlignment::Center));
-        auto add = ButtonSprite::create("Add image", "goldFont.fnt", "GJ_button_01.png", .34f);
-        add->setScale(.34f);
+        auto add = ButtonSprite::create("Add image", "goldFont.fnt", "GJ_button_01.png", .48f);
+        add->setScale(.48f);
         addMenu->addChild(CCMenuItemExt::createSpriteExtra(add, [this](auto) {
             if (m_onAdd) {
                 m_onAdd();
@@ -528,7 +542,8 @@ class CommentsLayer : public CCLayer {
 
         // TOP: status on the left, lock controls on the right.
         auto top = CCNode::create();
-        top->setContentSize({width - 8.f, 38.f});
+        top->setContentSize({width - 8.f, 44.f});
+        top->setAnchorPoint({.5f, .5f});
         top->setLayout(RowLayout::create()
             ->setAxisAlignment(AxisAlignment::Between)
             ->setCrossAxisAlignment(AxisAlignment::Center)
@@ -544,7 +559,8 @@ class CommentsLayer : public CCLayer {
         top->addChild(m_lockLabel);
 
         auto lockControls = CCMenu::create();
-        lockControls->setContentSize({178.f, 32.f});
+        lockControls->setContentSize({205.f, 40.f});
+        lockControls->setAnchorPoint({.5f, .5f});
         lockControls->setLayout(RowLayout::create()
             ->setAxisAlignment(AxisAlignment::End)
             ->setCrossAxisAlignment(AxisAlignment::Center)
@@ -554,9 +570,9 @@ class CommentsLayer : public CCLayer {
             char const* text, char const* value, char const* texture
         ) {
             auto sprite = ButtonSprite::create(
-                text, "goldFont.fnt", texture, .30f
+                text, "goldFont.fnt", texture, .40f
             );
-            sprite->setScale(.30f);
+            sprite->setScale(.40f);
             lockControls->addChild(CCMenuItemExt::createSpriteExtra(
                 sprite, [this, value](auto) { setLock(value); }
             ));
@@ -574,8 +590,9 @@ class CommentsLayer : public CCLayer {
         auto commentsArea = CCNode::create();
         commentsArea->setContentSize({
             width - 8.f,
-            std::max(1.f, height - 102.f)
+            std::max(1.f, height - 116.f)
         });
+        commentsArea->setAnchorPoint({.5f, .5f});
         commentsArea->setLayout(AnchorLayout::create());
         root->addChild(commentsArea);
         commentsArea->setLayoutOptions(
@@ -595,7 +612,8 @@ class CommentsLayer : public CCLayer {
 
         // BOTTOM: v1.0.0 [Versions] [Exit Edit] [+] [input] [Send]
         auto bottom = CCNode::create();
-        bottom->setContentSize({width - 8.f, 58.f});
+        bottom->setContentSize({width - 8.f, 62.f});
+        bottom->setAnchorPoint({.5f, .5f});
         bottom->setLayout(RowLayout::create()
             ->setAxisAlignment(AxisAlignment::Center)
             ->setCrossAxisAlignment(AxisAlignment::Center)
@@ -619,7 +637,8 @@ class CommentsLayer : public CCLayer {
         );
 
         auto versionGroup = CCNode::create();
-        versionGroup->setContentSize({132.f, 38.f});
+        versionGroup->setContentSize({132.f, 42.f});
+        versionGroup->setAnchorPoint({.5f, .5f});
         versionGroup->setLayout(RowLayout::create()
             ->setAxisAlignment(AxisAlignment::Center)
             ->setCrossAxisAlignment(AxisAlignment::Center)
@@ -634,7 +653,8 @@ class CommentsLayer : public CCLayer {
             [this](auto) { showVersionPicker(); }
         );
         auto versionMenu = CCMenu::create();
-        versionMenu->setContentSize({108.f, 38.f});
+        versionMenu->setContentSize({108.f, 42.f});
+        versionMenu->setAnchorPoint({.5f, .5f});
         versionMenu->setLayout(RowLayout::create()
             ->setAxisAlignment(AxisAlignment::Center)
             ->setCrossAxisAlignment(AxisAlignment::Center));
@@ -653,7 +673,8 @@ class CommentsLayer : public CCLayer {
         );
 
         m_exitEditMenu = CCMenu::create();
-        m_exitEditMenu->setContentSize({72.f, 38.f});
+        m_exitEditMenu->setContentSize({82.f, 42.f});
+        m_exitEditMenu->setAnchorPoint({.5f, .5f});
         m_exitEditMenu->setLayout(RowLayout::create()
             ->setAxisAlignment(AxisAlignment::Center)
             ->setCrossAxisAlignment(AxisAlignment::Center));
@@ -671,7 +692,8 @@ class CommentsLayer : public CCLayer {
             [this](auto) { showAttachmentsPopup(); }
         );
         auto attachMenu = CCMenu::create();
-        attachMenu->setContentSize({34.f, 38.f});
+        attachMenu->setContentSize({42.f, 42.f});
+        attachMenu->setAnchorPoint({.5f, .5f});
         attachMenu->setLayout(RowLayout::create()
             ->setAxisAlignment(AxisAlignment::Center)
             ->setCrossAxisAlignment(AxisAlignment::Center));
@@ -693,7 +715,8 @@ class CommentsLayer : public CCLayer {
             send, [this](auto) { submitComment(); }
         );
         auto sendMenu = CCMenu::create();
-        sendMenu->setContentSize({60.f, 38.f});
+        sendMenu->setContentSize({68.f, 42.f});
+        sendMenu->setAnchorPoint({.5f, .5f});
         sendMenu->setLayout(RowLayout::create()
             ->setAxisAlignment(AxisAlignment::Center)
             ->setCrossAxisAlignment(AxisAlignment::Center));
@@ -708,7 +731,7 @@ class CommentsLayer : public CCLayer {
         m_statusLabel->setLayoutOptions(
             AnchorLayoutOptions::create()
                 ->setAnchor(Anchor::TopRight)
-                ->setOffset(ccp(-8.f, -4.f))
+                ->setOffset(ccp(-8.f, -48.f))
         );
 
         m_exitEditButton->setVisible(false);
@@ -724,9 +747,9 @@ class CommentsLayer : public CCLayer {
         if (!m_bottom || !m_input || !m_exitEditMenu) return;
 
         constexpr float versionWidth = 132.f;
-        constexpr float exitWidth = 72.f;
-        constexpr float attachWidth = 34.f;
-        constexpr float sendWidth = 60.f;
+        constexpr float exitWidth = 82.f;
+        constexpr float attachWidth = 42.f;
+        constexpr float sendWidth = 68.f;
         constexpr float gaps = 5.f * 5.f;
         constexpr float horizontalPadding = 16.f;
 
@@ -744,7 +767,7 @@ class CommentsLayer : public CCLayer {
 
         m_exitEditMenu->setContentSize({
             m_exitEditButton && m_exitEditButton->isVisible() ? exitWidth : 0.f,
-            38.f
+            42.f
         });
         m_exitEditMenu->updateLayout();
         m_bottom->updateLayout();
@@ -1268,9 +1291,21 @@ class CommentsLayer : public CCLayer {
 
     void showVersionPicker() {
         if(m_state.versions.empty())return;
-        auto popup=VersionSelectPopup::create(m_state.versions,[this](std::string version){
-            m_state.selectedVersion=std::move(version);m_editingCommentID=0;m_pendingFiles.clear();m_removedAttachments.clear();m_input->setString("");m_attachmentLabel->setString("");loadSelectedVersion();
-        });
+        auto popup = VersionSelectPopup::create(
+            m_state.versions,
+            [this](std::string version) {
+                if (version == m_state.selectedVersion)
+                    return;
+
+                m_state.selectedVersion = std::move(version);
+                m_editingCommentID = 0;
+                m_pendingFiles.clear();
+                m_removedAttachments.clear();
+                m_input->setString("");
+                m_attachmentLabel->setString("");
+                loadSelectedVersion();
+            }
+        );
         if(popup){popup->m_noElasticity=true;popup->show();}
     }
 
