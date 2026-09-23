@@ -347,7 +347,7 @@ class AttachmentPopup : public Popup {
             ->setAxisAlignment(AxisAlignment::Between)
             ->setCrossAxisAlignment(AxisAlignment::Center)
             ->setPadding(Padding::symmetric(0.f, 5.f))
-            ->setGap(5.f)));
+            ->setGap(5.f));
         m_mainLayer->addChildAtPosition(root, Anchor::Center);
 
         auto scroll = ScrollLayer::create({270.f, 122.f});
