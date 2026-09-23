@@ -1302,7 +1302,7 @@ class CommentsLayer : public CCLayer {
                     auto image = LazySprite::create({42.f, 42.f}, false);
                     if (image) {
                         image->loadFromUrl(attachment.url);
-                        image->setLoadCallback([image](Result<> result) {
+                        image->setLoadCallback([image, imageHolder](Result<> result) {
                             if (result) {
                                 limitNodeSize(image, {42.f, 42.f}, 1.f, .1f);
                                 image->setPosition(imageHolder->getContentSize() / 2.f);
