@@ -305,7 +305,7 @@ class AttachmentPopup : public Popup {
 
         std::error_code ec;
         if (localPath && std::filesystem::exists(*localPath, ec) && !ec) {
-            auto pathString = pathToString(*localPath);
+            auto pathString = geode::utils::string::pathToString(*localPath);
             auto sprite = CCSprite::create(pathString.c_str());
             if (sprite) {
                 limitNodeSize(sprite, {36.f, 36.f}, 1.f, .1f);
@@ -436,7 +436,7 @@ class AttachmentPopup : public Popup {
         for (auto const& attachment : attachments)
             addRow(fmt::format("Attachment {}", attachment.id), "", attachment.url, nullptr, attachment.id);
         for (auto const& path : pending)
-            addRow(pathToString(path.filename()), "Pending upload", "", &path, 0);
+            addRow(geode::utils::string::pathToString(path.filename()), "Pending upload", "", &path, 0);
 
         if (attachments.empty() && pending.empty()) {
             auto empty = CCLabelBMFont::create("No attachments.", "chatFont.fnt");
@@ -1266,7 +1266,7 @@ class CommentsLayer : public CCLayer {
 
         std::error_code ec;
         if (std::filesystem::exists(path, ec) && !ec) {
-            auto pathString = pathToString(path);
+            auto pathString = geode::utils::string::pathToString(path);
             auto sprite = CCSprite::create(pathString.c_str());
             if (sprite) {
                 limitNodeSize(sprite, {28.f, 28.f}, 1.f, .1f);
