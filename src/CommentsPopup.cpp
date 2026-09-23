@@ -340,7 +340,7 @@ class AttachmentImagePopup : public Popup {\n    std::string m_url;\n\n    bool 
             addPreview(previewHolder, url, localPath);
 
             auto info = CCNode::create();
-            info->setContentSize({170.f, 42.f});
+            info->setContentSize({150.f, 42.f});
             info->setLayout(ColumnLayout::create()
                 ->setAxisAlignment(AxisAlignment::Center)
                 ->setCrossAxisAlignment(AxisAlignment::Start)
@@ -918,7 +918,7 @@ class CommentsLayer : public CCLayer {
 
         m_commentsContainer->removeAllChildren();
         auto scroll = typeinfo_cast<ScrollLayer*>(
-            getChildByID("opengeode-comments-scroll"_spr)
+            getChildByIDRecursive("opengeode-comments-scroll"_spr)
         );
         if (!scroll) return;
 
@@ -1164,7 +1164,7 @@ class CommentsLayer : public CCLayer {
             : (m_state.lock == "internal" ? "Internal" : "Locked");
         auto lockDisplayText = m_state.lock == "none"
             ? std::string("Unlocked")
-            : fmt::format("{} by {}", lockText, m_state.lockedByName);
+            : fmt::format("{} by {}", lockText, m_state.lockedByName.empty() ? "User" : m_state.lockedByName);
         m_lockLabel->setString(lockDisplayText.c_str());
         m_lockLabel->setColor(
             m_state.lock == "none" ? ccGREEN :
