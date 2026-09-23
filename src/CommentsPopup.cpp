@@ -317,7 +317,7 @@ class CommentsLayer : public CCLayer {
         auto lockSpr = ButtonSprite::create("Lock", "goldFont.fnt", "GJ_button_01.png", .40f);
         lockSpr->setScale(.40f);
         m_lockButton = CCMenuItemExt::createSpriteExtra(lockSpr, [this](auto) { showLockPicker(); });
-        m_lockButton->setPosition({width - 40.f, 15.f});
+        m_lockButton->setPosition({top->getContentWidth() - 40.f, 15.f});
 
         auto tm = CCMenu::create();
         tm->setContentSize(top->getContentSize());
@@ -342,7 +342,7 @@ class CommentsLayer : public CCLayer {
         vt->setPosition({38.f, left->getContentHeight() - 12.f});
         left->addChild(vt);
 
-        auto versionTab = GeodeTabSprite::create("version.png"_spr, "Versions", 76.f);
+        auto versionTab = GeodeTabSprite::create("version.png"_spr, "Versions", 110.f);
         versionTab->setScale(.65f);
         auto versionItem = CCMenuItemExt::createSpriteExtra(versionTab, [this](auto) { showVersionPicker(); });
         versionItem->setPosition({38.f, left->getContentHeight() - 40.f});
