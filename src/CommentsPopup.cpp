@@ -386,7 +386,7 @@ class AttachmentPopup : public Popup {
             rowContent->setContentSize({rowWidth, rowHeight});
             rowContent->setAnchorPoint({.5f, .5f});
             rowContent->setLayout(RowLayout::create()
-                ->setAxisAlignment(AxisAlignment::Between)
+                ->setAxisAlignment(AxisAlignment::Start)
                 ->setCrossAxisAlignment(AxisAlignment::Center)
                 ->setPadding(Padding::horizontal(5.f))
                 ->setGap(4.f));
@@ -440,7 +440,7 @@ class AttachmentPopup : public Popup {
             action->setAnchorPoint({.5f, .5f});
 
             if (pendingUpload) {
-                actions->addChild(CCMenuItemExt::createSpriteExtra(
+                auto actionItem = CCMenuItemExt::createSpriteExtra(
                     action,
                     [this, localPath](auto) {
                         if (!localPath) return;
@@ -453,10 +453,12 @@ class AttachmentPopup : public Popup {
                         );
                         rebuild();
                     }
-                ));
+                );
+                actionItem->setAnchorPoint({.5f, .5f});
+                actions->addChild(actionItem);
             }
             else {
-                actions->addChild(CCMenuItemExt::createSpriteExtra(
+                auto actionItem = CCMenuItemExt::createSpriteExtra(
                     action,
                     [this, attachmentID](auto) {
                         if (m_onToggleDelete)
@@ -474,7 +476,9 @@ class AttachmentPopup : public Popup {
 
                         rebuild();
                     }
-                ));
+                );
+                actionItem->setAnchorPoint({.5f, .5f});
+                actions->addChild(actionItem);
             }
 
             rowContent->addChild(actions);
@@ -696,7 +700,7 @@ class CommentsLayer : public CCLayer {
         lockControls->setContentSize({205.f, 40.f});
         lockControls->setAnchorPoint({.5f, .5f});
         lockControls->setLayout(RowLayout::create()
-            ->setAxisAlignment(AxisAlignment::End)
+            ->setAxisAlignment(AxisAlignment::Start)
             ->setCrossAxisAlignment(AxisAlignment::Center)
             ->setGap(4.f));
 
@@ -704,9 +708,9 @@ class CommentsLayer : public CCLayer {
             char const* text, char const* value, char const* texture
         ) {
             auto sprite = ButtonSprite::create(
-                text, "goldFont.fnt", texture, .40f
+                text, "chatFont.fnt", texture, .34f
             );
-            sprite->setScale(.40f);
+            sprite->setScale(.44f);
             lockControls->addChild(CCMenuItemExt::createSpriteExtra(
                 sprite, [this, value](auto) { setLock(value); }
             ));
@@ -738,14 +742,18 @@ class CommentsLayer : public CCLayer {
             commentsArea->getContentHeight()
         });
         scroll->setID("opengeode-comments-scroll"_spr);
-        scroll->setAnchorPoint({.5f, .5f});
+        scroll->setAnchorPoint({0.f, 0.f});
         commentsArea->addChild(scroll);
+        commentsArea->setAnchorPoint({0.f, 0.f});
+        commentsArea->setLayoutOptions(
+            AnchorLayoutOptions::create()->setAnchor(Anchor::BottomLeft)
+        );
         scroll->setLayoutOptions(
-            AnchorLayoutOptions::create()->setAnchor(Anchor::Center)
+            AnchorLayoutOptions::create()->setAnchor(Anchor::BottomLeft)
         );
         m_commentsContainer = scroll->m_contentLayer;
         if (m_commentsContainer)
-            m_commentsContainer->setAnchorPoint({.5f, .5f});
+            m_commentsContainer->setAnchorPoint({0.f, 0.f});
 
         // BOTTOM: v1.0.0 [Versions] [Exit Edit] [+] [input] [Send]
         auto bottom = CCNode::create();
@@ -1192,7 +1200,7 @@ class CommentsLayer : public CCLayer {
             header->addChild(identity);
 
             auto actions = CCMenu::create();
-            actions->setContentSize({98.f, 32.f});
+            actions->setContentSize({150.f, 42.f});
             actions->setAnchorPoint({.5f, .5f});
             actions->setLayout(RowLayout::create()
                 ->setAxisAlignment(AxisAlignment::End)
@@ -1201,21 +1209,25 @@ class CommentsLayer : public CCLayer {
 
             if (comment.canEdit) {
                 auto button = ButtonSprite::create(
-                    "Edit", "goldFont.fnt", "GJ_button_01.png", .27f
+                    "Edit", "goldFont.fnt", "GJ_button_01.png", .81f
                 );
-                button->setScale(.27f);
-                actions->addChild(CCMenuItemExt::createSpriteExtra(
+                button->setScale(.81f);
+                auto editItem = CCMenuItemExt::createSpriteExtra(
                     button, [this, comment](auto) { beginEdit(comment); }
-                ));
+                );
+                editItem->setAnchorPoint({.5f, .5f});
+                actions->addChild(editItem);
             }
             if (comment.canDelete) {
                 auto button = ButtonSprite::create(
-                    "Delete", "goldFont.fnt", "GJ_button_06.png", .27f
+                    "Delete", "goldFont.fnt", "GJ_button_06.png", .81f
                 );
-                button->setScale(.27f);
-                actions->addChild(CCMenuItemExt::createSpriteExtra(
+                button->setScale(.81f);
+                auto deleteItem = CCMenuItemExt::createSpriteExtra(
                     button, [this, comment](auto) { deleteComment(comment.id); }
-                ));
+                );
+                deleteItem->setAnchorPoint({.5f, .5f});
+                actions->addChild(deleteItem);
             }
             actions->updateLayout();
             header->addChild(actions);
@@ -1282,20 +1294,28 @@ class CommentsLayer : public CCLayer {
                 auto visible = std::min(pageSize, count - offset);
                 for (int i = 0; i < visible; ++i) {
                     auto const& attachment = comment.attachments[offset + i];
+                    auto imageHolder = CCNode::create();
+                    imageHolder->setContentSize({42.f, 42.f});
+                    imageHolder->setAnchorPoint({.5f, .5f});
+                    imageHolder->setLayout(AnchorLayout::create());
+
                     auto image = LazySprite::create({42.f, 42.f}, false);
                     if (image) {
                         image->loadFromUrl(attachment.url);
                         image->setLoadCallback([image](Result<> result) {
-                            if (result)
+                            if (result) {
                                 limitNodeSize(image, {42.f, 42.f}, 1.f, .1f);
-                            else
+                                image->setPosition(imageHolder->getContentSize() / 2.f);
+                            }
+                            else {
                                 image->setVisible(false);
+                            }
                         });
+                        imageHolder->addChildAtPosition(image, Anchor::Center);
                     }
 
                     auto item = CCMenuItemExt::createSpriteExtra(
-                        image ? static_cast<CCNode*>(image)
-                              : static_cast<CCNode*>(CCLabelBMFont::create("?", "chatFont.fnt")),
+                        imageHolder,
                         [this, attachment](auto) {
                             showAttachmentImage(attachment.url);
                         }
