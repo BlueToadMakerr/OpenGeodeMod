@@ -1310,4 +1310,6 @@ void ensureCommentsTab(CCNode* popup) {
     tabs->updateLayout();
 }
 
+} // namespace
+
 } // namespace opengeode
