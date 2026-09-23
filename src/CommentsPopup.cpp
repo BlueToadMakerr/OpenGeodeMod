@@ -1245,14 +1245,6 @@ void ensureCommentsTab(CCNode* popup) {
     );
     if (!description || !changelog) return;
 
-    auto descriptionSprite = typeinfo_cast<OpenOpenGeodeTabSprite*>(
-        description->getNormalImage()
-    );
-    auto changelogSprite = typeinfo_cast<OpenOpenGeodeTabSprite*>(
-        changelog->getNormalImage()
-    );
-    if (!descriptionSprite || !changelogSprite) return;
-
     auto descriptionListener = description->m_pListener;
     auto descriptionSelector = description->m_pfnSelector;
     auto changelogListener = changelog->m_pListener;
@@ -1270,8 +1262,6 @@ void ensureCommentsTab(CCNode* popup) {
         descriptionSelector,
         changelogListener,
         changelogSelector,
-        descriptionSprite,
-        changelogSprite,
         commentsSprite
     ](CCMenuItemSpriteExtra* sender) {
         auto parent = textarea->getParent();
@@ -1283,21 +1273,15 @@ void ensureCommentsTab(CCNode* popup) {
         auto tag = sender->getTag();
         if (tag == 0) {
             (descriptionListener->*descriptionSelector)(sender);
-            descriptionSprite->select(1);
-            changelogSprite->select(0);
             commentsSprite->select(0);
             textarea->setVisible(true);
         }
         else if (tag == 1) {
             (changelogListener->*changelogSelector)(sender);
-            descriptionSprite->select(0);
-            changelogSprite->select(1);
             commentsSprite->select(0);
             textarea->setVisible(true);
         }
         else {
-            descriptionSprite->select(0);
-            changelogSprite->select(0);
             commentsSprite->select(1);
             textarea->setVisible(false);
 
