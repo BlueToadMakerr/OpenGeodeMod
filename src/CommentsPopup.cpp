@@ -190,129 +190,234 @@ public:
 
 class AttachmentPopup : public Popup {
     std::function<void(int)> m_onDelete;
+    std::function<void()> m_onAdd;
 
     static void addPreview(CCNode* row, std::string const& url, std::filesystem::path const* localPath) {
+        CCNode* previewNode = nullptr;
+
         if (localPath && std::filesystem::exists(*localPath)) {
             auto sprite = CCSprite::create(localPath->string().c_str());
             if (sprite) {
-                auto size = sprite->getContentSize();
-                if (size.width > 0.f && size.height > 0.f)
-                    sprite->setScale(std::min(52.f / size.width, 52.f / size.height));
-                sprite->setPosition({31.f, 31.f});
-                row->addChild(sprite);
-                return;
+                limitNodeSize(sprite, {52.f, 52.f}, 1.f, .1f);
+                previewNode = sprite;
             }
         }
-        if (url.empty()) return;
-        auto preview = LazySprite::create({52.f, 52.f}, false);
-        if (!preview) return;
-        preview->setPosition({31.f, 31.f});
-        preview->loadFromUrl(url);
-        row->addChild(preview);
+        else if (!url.empty()) {
+            auto preview = LazySprite::create({52.f, 52.f}, false);
+            if (preview) {
+                preview->loadFromUrl(url);
+                preview->setLoadCallback([preview](Result<> result) {
+                    if (!result) {
+                        preview->setVisible(false);
+                        return;
+                    }
+                    limitNodeSize(preview, {52.f, 52.f}, 1.f, .1f);
+                });
+                previewNode = preview;
+            }
+        }
+
+        if (previewNode)
+            row->addChildAtPosition(previewNode, Anchor::Left, ccp(34.f, 0.f), false);
     }
 
-    bool init(std::vector<CommentAttachment> attachments, std::vector<std::filesystem::path> pending, std::function<void(int)> cb) {
-        if (!Popup::init(360.f, 260.f)) return false;
+    bool init(
+        std::vector<CommentAttachment> attachments,
+        std::vector<std::filesystem::path> pending,
+        std::function<void(int)> cb,
+        std::function<void()> onAdd
+    ) {
+        if (!Popup::init(370.f, 310.f)) return false;
+
         m_onDelete = std::move(cb);
+        m_onAdd = std::move(onAdd);
         setTitle("Attachments");
 
-        auto scroll = ScrollLayer::create({334.f, 198.f});
-        scroll->setPosition({13.f, 37.f});
-        auto content = scroll->m_contentLayer;
-        float y = 8.f;
+        auto root = CCNode::create();
+        root->setContentSize({340.f, 250.f});
+        root->setLayout(
+            ColumnLayout::create()
+                ->setAxisAlignment(AxisAlignment::Between)
+                ->setCrossAxisAlignment(AxisAlignment::Center)
+                ->setPadding(Padding::uniform(4.f))
+        );
+        m_mainLayer->addChildAtPosition(root, Anchor::Center);
 
-        for (auto const& attachment : attachments) {
+        auto scroll = ScrollLayer::create({332.f, 205.f});
+        auto content = scroll->m_contentLayer;
+        content->setLayout(
+            ColumnLayout::create()
+                ->setAxisAlignment(AxisAlignment::Start)
+                ->setCrossAxisAlignment(AxisAlignment::Center)
+                ->setGap(6.f)
+                ->setPadding(Padding::uniform(4.f))
+        );
+
+        auto addRow = [this, content](
+            std::string name,
+            std::string status,
+            std::string url,
+            std::filesystem::path const* localPath,
+            int attachmentID
+        ) {
             auto row = CCNode::create();
-            row->setContentSize({318.f, 68.f});
+            row->setContentSize({320.f, 62.f});
+            row->setLayout(
+                RowLayout::create()
+                    ->setAxisAlignment(AxisAlignment::Between)
+                    ->setCrossAxisAlignment(AxisAlignment::Center)
+                    ->setPadding(Padding::horizontal(8.f))
+            );
 
             auto bg = NineSlice::create("square02b_001.png");
             bg->setColor(ccBLACK);
             bg->setOpacity(70);
             bg->setScale(.3f);
             bg->setContentSize(row->getContentSize() / bg->getScale());
-            bg->setPosition({159.f, 34.f});
-            row->addChild(bg, -1);
+            row->addChildAtPosition(bg, Anchor::Center, 0, false);
 
-            addPreview(row, attachment.url, nullptr);
+            auto previewHolder = CCNode::create();
+            previewHolder->setContentSize({58.f, 54.f});
+            previewHolder->setLayout(
+                RowLayout::create()
+                    ->setAxisAlignment(AxisAlignment::Center)
+                    ->setCrossAxisAlignment(AxisAlignment::Center)
+            );
+            row->addChild(previewHolder);
+            addPreview(previewHolder, url, localPath);
 
-            auto name = CCLabelBMFont::create(fmt::format("Attachment {}", attachment.id).c_str(), "bigFont.fnt");
-            name->setScale(.32f);
-            name->setAnchorPoint({0.f, .5f});
-            name->setPosition({65.f, 46.f});
-            row->addChild(name);
+            auto info = CCNode::create();
+            info->setContentSize({145.f, 54.f});
+            info->setLayout(
+                ColumnLayout::create()
+                    ->setAxisAlignment(AxisAlignment::Center)
+                    ->setCrossAxisAlignment(AxisAlignment::Start)
+                    ->setGap(2.f)
+            );
+            auto nameLabel = CCLabelBMFont::create(name.c_str(), "bigFont.fnt");
+            nameLabel->setScale(.30f);
+            auto statusLabel = CCLabelBMFont::create(status.c_str(), "chatFont.fnt");
+            statusLabel->setScale(.25f);
+            info->addChild(nameLabel);
+            if (!status.empty())
+                info->addChild(statusLabel);
+            info->updateLayout();
+            row->addChild(info);
 
-            auto view = ButtonSprite::create("View", "goldFont.fnt", "GJ_button_01.png", .34f);
-            view->setScale(.34f);
-            auto viewItem = CCMenuItemExt::createSpriteExtra(view, [url = attachment.url](auto) {
-                if (!url.empty()) web::openLinkInBrowser(url);
-            });
-            viewItem->setPosition({230.f, 21.f});
+            if (attachmentID != 0) {
+                auto actions = CCMenu::create();
+                actions->setContentSize({100.f, 54.f});
+                actions->setLayout(
+                    RowLayout::create()
+                        ->setAxisAlignment(AxisAlignment::End)
+                        ->setCrossAxisAlignment(AxisAlignment::Center)
+                        ->setGap(5.f)
+                );
 
-            auto del = ButtonSprite::create("Delete", "goldFont.fnt", "GJ_button_06.png", .34f);
-            del->setScale(.34f);
-            auto delItem = CCMenuItemExt::createSpriteExtra(del, [this, id = attachment.id](auto) {
-                if (m_onDelete) m_onDelete(id);
-            });
-            delItem->setPosition({292.f, 21.f});
+                auto view = ButtonSprite::create(
+                    "View", "goldFont.fnt", "GJ_button_01.png", .32f
+                );
+                view->setScale(.32f);
+                auto viewItem = CCMenuItemExt::createSpriteExtra(
+                    view, [url](auto) {
+                        if (!url.empty())
+                            web::openLinkInBrowser(url);
+                    }
+                );
 
-            auto menu = CCMenu::create();
-            menu->setContentSize(row->getContentSize());
-            menu->addChild(viewItem);
-            menu->addChild(delItem);
-            row->addChild(menu);
+                auto del = ButtonSprite::create(
+                    "Delete", "goldFont.fnt", "GJ_button_06.png", .30f
+                );
+                del->setScale(.30f);
+                auto delItem = CCMenuItemExt::createSpriteExtra(
+                    del, [this, attachmentID](auto) {
+                        if (m_onDelete) m_onDelete(attachmentID);
+                    }
+                );
 
-            row->setPosition({scroll->getContentWidth() / 2.f, y + 34.f});
+                actions->addChild(viewItem);
+                actions->addChild(delItem);
+                actions->updateLayout();
+                row->addChild(actions);
+            }
+
             content->addChild(row);
-            y += 74.f;
-        }
+        };
 
-        for (auto const& path : pending) {
-            auto row = CCNode::create();
-            row->setContentSize({318.f, 68.f});
+        for (auto const& attachment : attachments)
+            addRow(
+                fmt::format("Attachment {}", attachment.id),
+                "",
+                attachment.url,
+                nullptr,
+                attachment.id
+            );
 
-            auto bg = NineSlice::create("square02b_001.png");
-            bg->setColor(ccBLACK);
-            bg->setOpacity(55);
-            bg->setScale(.3f);
-            bg->setContentSize(row->getContentSize() / bg->getScale());
-            bg->setPosition({159.f, 34.f});
-            row->addChild(bg, -1);
-
-            addPreview(row, "", &path);
-
-            auto name = CCLabelBMFont::create(path.filename().string().c_str(), "bigFont.fnt");
-            name->setScale(.30f);
-            name->setAnchorPoint({0.f, .5f});
-            name->setPosition({65.f, 39.f});
-            row->addChild(name);
-
-            auto pendingLabel = CCLabelBMFont::create("Pending upload", "chatFont.fnt");
-            pendingLabel->setScale(.25f);
-            pendingLabel->setAnchorPoint({0.f, .5f});
-            pendingLabel->setPosition({65.f, 20.f});
-            row->addChild(pendingLabel);
-
-            row->setPosition({scroll->getContentWidth() / 2.f, y + 34.f});
-            content->addChild(row);
-            y += 74.f;
-        }
+        for (auto const& path : pending)
+            addRow(
+                path.filename().string(),
+                "Pending upload",
+                "",
+                &path,
+                0
+            );
 
         if (attachments.empty() && pending.empty()) {
             auto empty = CCLabelBMFont::create("No attachments.", "chatFont.fnt");
             empty->setScale(.34f);
-            empty->setPosition({scroll->getContentWidth() / 2.f, scroll->getContentHeight() / 2.f});
             content->addChild(empty);
         }
 
-        content->setContentSize({scroll->getContentWidth(), std::max(scroll->getContentHeight(), y + 8.f)});
-        addChild(scroll);
+        content->updateLayout();
+        content->setContentSize({
+            content->getContentWidth(),
+            std::max(content->getContentHeight(), 62.f * static_cast<float>(attachments.size() + pending.size()) + 20.f)
+        });
+        scroll->setContentSize({332.f, 205.f});
+        root->addChild(scroll);
+
+        auto addMenu = CCMenu::create();
+        addMenu->setContentSize({332.f, 36.f});
+        addMenu->setLayout(
+            RowLayout::create()
+                ->setAxisAlignment(AxisAlignment::End)
+                ->setCrossAxisAlignment(AxisAlignment::Center)
+        );
+
+        auto add = ButtonSprite::create(
+            "Add attachment", "goldFont.fnt", "GJ_button_01.png", .34f
+        );
+        add->setScale(.34f);
+        auto addItem = CCMenuItemExt::createSpriteExtra(
+            add, [this](auto) {
+                if (m_onAdd) {
+                    m_onAdd();
+                    removeFromParent();
+                }
+            }
+        );
+        addMenu->addChild(addItem);
+        addMenu->updateLayout();
+        root->addChild(addMenu);
+
+        root->updateLayout();
         return true;
     }
 
 public:
-    static AttachmentPopup* create(std::vector<CommentAttachment> attachments, std::vector<std::filesystem::path> pending, std::function<void(int)> cb) {
+    static AttachmentPopup* create(
+        std::vector<CommentAttachment> attachments,
+        std::vector<std::filesystem::path> pending,
+        std::function<void(int)> cb,
+        std::function<void()> onAdd
+    ) {
         auto ret = new AttachmentPopup();
-        if (ret && ret->init(std::move(attachments), std::move(pending), std::move(cb))) {
+        if (ret && ret->init(
+            std::move(attachments),
+            std::move(pending),
+            std::move(cb),
+            std::move(onAdd)
+        )) {
             ret->autorelease();
             return ret;
         }
@@ -877,7 +982,7 @@ class CommentsLayer : public CCLayer {
     void showAttachmentsPopup() {
         std::vector<CommentAttachment> attachments;
         for(auto const& c:m_state.comments)if(c.id==m_editingCommentID){attachments=c.attachments;break;}
-        auto popup=AttachmentPopup::create(std::move(attachments),m_pendingFiles,[this](int id){removeAttachment(id);});
+        auto popup=AttachmentPopup::create(\n            std::move(attachments), m_pendingFiles,\n            [this](int id) { removeAttachment(id); },\n            [this]() { pickAttachments(); }\n        );
         if(popup){popup->m_noElasticity=true;popup->show();}
     }
 
