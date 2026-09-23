@@ -273,7 +273,7 @@ class AttachmentImagePopup : public Popup {
         auto image = LazySprite::create({320.f, 250.f}, false);
         if (image) {
             image->loadFromUrl(m_url);
-            image->setLoadCallback([image](Result<> result) {
+            image->setLoadCallback([image, imageHolder](Result<> result) {
                 if (result) limitNodeSize(image, {320.f, 250.f}, 1.f, .1f);
                 else image->setVisible(false);
             });
