@@ -10,6 +10,7 @@
 #include <Geode/utils/web.hpp>
 #include <Geode/ui/BasedButtonSprite.hpp>
 #include <Geode/ui/LazySprite.hpp>
+#include <Geode/utils/ColorProvider.hpp>
 
 #include <algorithm>
 #include <filesystem>
@@ -18,6 +19,68 @@
 #include <vector>
 
 using namespace geode::prelude;
+
+namespace opengeode {
+namespace {
+
+class OpenGeodeTabSprite : public CCNode {
+    NineSlice* m_deselectedBG = nullptr;
+    NineSlice* m_selectedBG = nullptr;
+    CCSprite* m_icon = nullptr;
+    CCLabelBMFont* m_label = nullptr;
+
+    bool init(char const* iconFrame, char const* text, float width) {
+        if (!CCNode::init())
+            return false;
+
+        CCSize itemSize { width, 35.f };
+        CCSize iconSize { 18.f, 18.f };
+        setContentSize(itemSize);
+        setAnchorPoint({ .5f, .5f });
+
+        m_deselectedBG = NineSlice::createWithSpriteFrameName("tab-bg.png"_spr);
+        if (!m_deselectedBG) return false;
+        m_deselectedBG->setScale(.8f);
+        m_deselectedBG->setContentSize(itemSize / .8f);
+        m_deselectedBG->setColor("mod-list-tab-deselected-bg"_cc3b);
+        addChildAtPosition(m_deselectedBG, Anchor::Center);
+
+        m_selectedBG = NineSlice::createWithSpriteFrameName("tab-bg.png"_spr);
+        if (!m_selectedBG) return false;
+        m_selectedBG->setScale(.8f);
+        m_selectedBG->setContentSize(itemSize / .8f);
+        m_selectedBG->setColor(to3B(ColorProvider::get()->color("mod-list-tab-selected-bg"_spr)));
+        addChildAtPosition(m_selectedBG, Anchor::Center);
+
+        m_icon = CCSprite::createWithSpriteFrameName(iconFrame);
+        if (!m_icon) return false;
+        limitNodeSize(m_icon, iconSize, 3.f, .1f);
+        addChildAtPosition(m_icon, Anchor::Left, ccp(16, 0), false);
+
+        m_label = CCLabelBMFont::create(text, "bigFont.fnt");
+        m_label->limitLabelWidth(getContentWidth() - 45.f, std::clamp(width * .0045f, .35f, .55f), .1f);
+        m_label->setAnchorPoint({ .5f, .5f });
+        addChildAtPosition(m_label, Anchor::Left, ccp((itemSize.width - iconSize.width) / 2 + iconSize.width, 0), false);
+        select(false);
+        return true;
+    }
+
+public:
+    static OpenOpenGeodeTabSprite* create(char const* iconFrame, char const* text, float width) {
+        auto ret = new OpenGeodeTabSprite();
+        if (ret && ret->init(iconFrame, text, width)) {
+            ret->autorelease();
+            return ret;
+        }
+        delete ret;
+        return nullptr;
+    }
+
+    void select(bool selected) {
+        if (m_deselectedBG) m_deselectedBG->setVisible(!selected);
+        if (m_selectedBG) m_selectedBG->setVisible(selected);
+    }
+};
 
 namespace opengeode {
 namespace {
@@ -342,7 +405,7 @@ class CommentsLayer : public CCLayer {
         vt->setPosition({38.f, left->getContentHeight() - 12.f});
         left->addChild(vt);
 
-        auto versionTab = GeodeTabSprite::create("version.png"_spr, "Versions", 110.f);
+        auto versionTab = OpenGeodeTabSprite::create("version.png"_spr, "Versions", 110.f);
         versionTab->setScale(.65f);
         auto versionItem = CCMenuItemExt::createSpriteExtra(versionTab, [this](auto) { showVersionPicker(); });
         versionItem->setPosition({38.f, left->getContentHeight() - 40.f});
@@ -1182,10 +1245,10 @@ void ensureCommentsTab(CCNode* popup) {
     );
     if (!description || !changelog) return;
 
-    auto descriptionSprite = typeinfo_cast<GeodeTabSprite*>(
+    auto descriptionSprite = typeinfo_cast<OpenOpenGeodeTabSprite*>(
         description->getNormalImage()
     );
-    auto changelogSprite = typeinfo_cast<GeodeTabSprite*>(
+    auto changelogSprite = typeinfo_cast<OpenOpenGeodeTabSprite*>(
         changelog->getNormalImage()
     );
     if (!descriptionSprite || !changelogSprite) return;
@@ -1195,7 +1258,7 @@ void ensureCommentsTab(CCNode* popup) {
     auto changelogListener = changelog->m_pListener;
     auto changelogSelector = changelog->m_pfnSelector;
 
-    auto commentsSprite = GeodeTabSprite::create(
+    auto commentsSprite = OpenGeodeTabSprite::create(
         "GJ_chatIcon_001.png", "Comments", 140.f
     );
     if (!commentsSprite) return;
