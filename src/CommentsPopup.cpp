@@ -436,7 +436,8 @@ class AttachmentPopup : public Popup {
             auto action = ButtonSprite::create(
                 actionText, "goldFont.fnt", actionTexture, .40f
             );
-            action->setScale(.40f);
+            action->setScale(1.28f);
+            action->setAnchorPoint({.5f, .5f});
 
             if (pendingUpload) {
                 actions->addChild(CCMenuItemExt::createSpriteExtra(
@@ -744,7 +745,7 @@ class CommentsLayer : public CCLayer {
         );
         m_commentsContainer = scroll->m_contentLayer;
         if (m_commentsContainer)
-            m_commentsContainer->setAnchorPoint({0.f, 0.f});
+            m_commentsContainer->setAnchorPoint({.5f, .5f});
 
         // BOTTOM: v1.0.0 [Versions] [Exit Edit] [+] [input] [Send]
         auto bottom = CCNode::create();
