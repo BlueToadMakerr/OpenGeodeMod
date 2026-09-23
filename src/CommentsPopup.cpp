@@ -702,6 +702,11 @@ class CommentsLayer : public CCLayer {
         sendMenu->updateLayout();
 
         bottom->addChild(attachMenu);
+
+        m_attachmentLabel = CCLabelBMFont::create("", "chatFont.fnt");
+        m_attachmentLabel->setScale(.22f);
+        bottom->addChild(m_attachmentLabel);
+
         bottom->addChild(m_input);
         bottom->addChild(sendMenu);
         bottom->updateLayout();
