@@ -20,9 +20,6 @@
 
 using namespace geode::prelude;
 
-namespace opengeode {
-namespace {
-
 class OpenGeodeTabSprite : public CCNode {
     NineSlice* m_deselectedBG = nullptr;
     NineSlice* m_selectedBG = nullptr;
