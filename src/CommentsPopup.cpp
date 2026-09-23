@@ -87,6 +87,7 @@ namespace {
 struct CommentAttachment {
     int id = 0;
     std::string url;
+    std::string filename;
 };
 
 struct CommentData {
@@ -1260,20 +1261,7 @@ class CommentsLayer : public CCLayer {
                     imageHolder->setAnchorPoint({.5f, .5f});
                     imageHolder->setLayout(AnchorLayout::create());
 
-                    auto image = LazySprite::create({42.f, 42.f}, false);
-                    if (image) {
-                        image->loadFromUrl(attachment.url);
-                        image->setLoadCallback([image, imageHolder](Result<> result) {
-                            if (result) {
-                                limitNodeSize(image, {42.f, 42.f}, 1.f, .1f);
-                                image->setPosition(imageHolder->getContentSize() / 2.f);
-                            }
-                            else {
-                                image->setVisible(false);
-                            }
-                        });
-                        imageHolder->addChildAtPosition(image, Anchor::Center);
-                    }
+                    createContainedImage(imageHolder, {42.f, 42.f}, attachment.url);
 
                     auto item = CCMenuItemExt::createSpriteExtra(
                         imageHolder,
@@ -1704,7 +1692,6 @@ class CommentsLayer : public CCLayer {
             m_pendingFiles.clear();
             m_removedAttachments.clear();
             m_editingCommentID = 0;
-            if (m_exitEditButton)
             m_input->setString("");
             m_sendButton->setEnabled(true);
             m_statusLabel->setString(editing ? "Comment updated." : "Comment posted.");
@@ -1826,19 +1813,6 @@ class CommentsLayer : public CCLayer {
         );
     }
 
-    void exitEditMode() {
-        m_editingCommentID = 0;
-        m_removedAttachments.clear();
-        m_pendingFiles.clear();
-        m_input->setString("");
-        m_statusLabel->setString("");
-        m_sendButton->setEnabled(true);
-        if (m_exitEditButton)
-        updateBottomLayout();
-        if (m_bottom) m_bottom->updateLayout();
-        rebuild();
-    }
-
     void beginEdit(CommentData const& comment) {
         if (!comment.canEdit) return;
 
@@ -1877,14 +1851,8 @@ class CommentsLayer : public CCLayer {
         if (it == m_pendingFiles.end()) return;
 
         m_pendingFiles.erase(it);
-        m_attachmentLabel->setString(
-            fmt::format(
-                "{} file{}",
-                m_pendingFiles.size(),
-                m_pendingFiles.size() == 1 ? "" : "s"
-            ).c_str()
-        );
         m_statusLabel->setString("Attachment removed.");
+        rebuild();
     }
 
     void deleteComment(int id) {
