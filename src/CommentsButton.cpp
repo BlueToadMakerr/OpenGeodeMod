@@ -7,7 +7,7 @@ using namespace geode::prelude;
 namespace opengeode {
 
 $execute {
-    new EventListener<ModPopupUIEvent>(
+    new EventListener<EventFilter<ModPopupUIEvent>>(
         +[](ModPopupUIEvent* event) {
             auto popup = event->getPopup();
             if (!popup) return ListenerResult::Propagate;
