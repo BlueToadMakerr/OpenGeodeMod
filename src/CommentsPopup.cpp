@@ -693,15 +693,16 @@ class CommentsLayer : public CCLayer {
             ->setAnchor(Anchor::Top)
             ->setOffset(ccp(0.f, -3.f)));
 
-        m_lockLabel = CCLabelBMFont::create("Unlocked", "goldFont.fnt");
-        m_lockLabel->setScale(.38f);
+        m_lockLabel = CCLabelBMFont::create("Unlocked", "chatFont.fnt");
+        m_lockLabel->setScale(.42f);
+        m_lockLabel->setAnchorPoint({0.f, .5f});
         top->addChild(m_lockLabel);
 
         auto lockControls = CCMenu::create();
-        lockControls->setContentSize({205.f, 40.f});
+        lockControls->setContentSize({235.f, 42.f});
         lockControls->setAnchorPoint({.5f, .5f});
         lockControls->setLayout(RowLayout::create()
-            ->setAxisAlignment(AxisAlignment::Start)
+            ->setAxisAlignment(AxisAlignment::End)
             ->setCrossAxisAlignment(AxisAlignment::Center)
             ->setGap(4.f));
 
@@ -709,15 +710,14 @@ class CommentsLayer : public CCLayer {
             char const* text, char const* value, char const* texture
         ) {
             auto sprite = ButtonSprite::create(
-                text, "chatFont.fnt", texture, .34f
+                text, "chatFont.fnt", texture, .42f
             );
-            sprite->setScale(.44f);
+            sprite->setScale(.52f);
             lockControls->addChild(CCMenuItemExt::createSpriteExtra(
                 sprite, [this, value](auto) { setLock(value); }
             ));
         };
 
-        // Use the existing button textures for the lock states instead of recoloring sprites.
         makeLockButton("Lock", "locked", "GJ_button_06.png");
         makeLockButton("Internal", "internal", "GJ_button_02.png");
         makeLockButton("Unlock", "none", "GJ_button_01.png");
