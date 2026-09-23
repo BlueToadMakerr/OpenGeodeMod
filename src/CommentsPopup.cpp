@@ -642,7 +642,7 @@ class CommentsLayer : public CCLayer {
     CCMenuItemSpriteExtra* m_versionButton = nullptr;
     CCLabelBMFont* m_attachmentCountLabel = nullptr;
     CCLabelBMFont* m_lockLabel = nullptr;
-    CCMenuItemSpriteExtra* m_lockButton = nullptr;
+    CCMenu* m_lockControls = nullptr;
     TextInput* m_input = nullptr;
     CCMenuItemSpriteExtra* m_sendButton = nullptr;
     CCLabelBMFont* m_statusLabel = nullptr;
@@ -698,6 +698,7 @@ class CommentsLayer : public CCLayer {
         top->addChild(m_lockLabel);
 
         auto lockControls = CCMenu::create();
+        m_lockControls = lockControls;
         lockControls->setContentSize({235.f, 42.f});
         lockControls->setAnchorPoint({.5f, .5f});
         lockControls->setLayout(RowLayout::create()
@@ -1396,6 +1397,8 @@ class CommentsLayer : public CCLayer {
         else if (m_state.lock == "locked")
             lockColor = ccRED;
         m_lockLabel->setColor(lockColor);
+        if (m_lockControls)
+            m_lockControls->setVisible(m_state.currentDeveloperAdmin);
 
         if (!m_state.loggedIn)
             m_statusLabel->setString("Log in to comment.");
