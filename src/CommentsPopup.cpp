@@ -510,21 +510,21 @@ class CommentsLayer : public CCLayer {
             ->setGap(4.f));
 
         auto makeLockButton = [this, lockControls](
-            char const* text, char const* value, ccColor3B color
+            char const* text, char const* value, char const* texture
         ) {
             auto sprite = ButtonSprite::create(
-                text, "goldFont.fnt", "GJ_button_01.png", .30f
+                text, "goldFont.fnt", texture, .30f
             );
             sprite->setScale(.30f);
-            sprite->setColor(color);
             lockControls->addChild(CCMenuItemExt::createSpriteExtra(
                 sprite, [this, value](auto) { setLock(value); }
             ));
         };
 
-        makeLockButton("Lock", "locked", ccRED);
-        makeLockButton("Internal", "internal", cc3BFromHexString("00D9FF"));
-        makeLockButton("Unlock", "none", ccGREEN);
+        // Use the existing button textures for the lock states instead of recoloring sprites.
+        makeLockButton("Lock", "locked", "GJ_button_06.png");
+        makeLockButton("Internal", "internal", "GJ_button_02.png");
+        makeLockButton("Unlock", "none", "GJ_button_01.png");
         lockControls->updateLayout();
         top->addChild(lockControls);
         top->updateLayout();
