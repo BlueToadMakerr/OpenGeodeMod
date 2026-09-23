@@ -312,10 +312,7 @@ class AttachmentPopup : public Popup {
         ) {
             auto row = CCNode::create();
             row->setContentSize({370.f, 68.f});
-            row->setLayout(RowLayout::create()
-                ->setAxisAlignment(AxisAlignment::Between)
-                ->setCrossAxisAlignment(AxisAlignment::Center)
-                ->setPadding(Padding::horizontal(8.f)));
+            row->setLayout(AnchorLayout::create());
 
             auto bg = NineSlice::create("square02b_001.png");
             bg->setColor(ccBLACK);
@@ -324,12 +321,21 @@ class AttachmentPopup : public Popup {
             bg->setContentSize(row->getContentSize() / bg->getScale());
             row->addChildAtPosition(bg, Anchor::Center);
 
+            auto rowContent = CCNode::create();
+            rowContent->setContentSize(row->getContentSize());
+            rowContent->setLayout(RowLayout::create()
+                ->setAxisAlignment(AxisAlignment::Between)
+                ->setCrossAxisAlignment(AxisAlignment::Center)
+                ->setPadding(Padding::horizontal(8.f)));
+            row->addChild(rowContent);
+            rowContent->setLayoutOptions(AnchorLayoutOptions::create()->setAnchor(Anchor::Center));
+
             auto previewHolder = CCNode::create();
             previewHolder->setContentSize({62.f, 58.f});
             previewHolder->setLayout(RowLayout::create()
                 ->setAxisAlignment(AxisAlignment::Center)
                 ->setCrossAxisAlignment(AxisAlignment::Center));
-            row->addChild(previewHolder);
+            rowContent->addChild(previewHolder);
             addPreview(previewHolder, url, localPath);
 
             auto info = CCNode::create();
@@ -349,7 +355,7 @@ class AttachmentPopup : public Popup {
                 info->addChild(statusLabel);
             }
             info->updateLayout();
-            row->addChild(info);
+            rowContent->addChild(info);
 
             if (attachmentID != 0) {
                 auto actions = CCMenu::create();
@@ -365,7 +371,7 @@ class AttachmentPopup : public Popup {
                     }
                 ));
                 actions->updateLayout();
-                row->addChild(actions);
+                rowContent->addChild(actions);
             }
 
             content->addChild(row);
@@ -489,7 +495,8 @@ class CommentsLayer : public CCLayer {
         topBg->setOpacity(130);
         topBg->setScale(.3f);
         topBg->setContentSize(top->getContentSize() / topBg->getScale());
-        top->addChildAtPosition(topBg, Anchor::Center);
+        root->addChild(topBg, -1);
+        topBg->setLayoutOptions(AnchorLayoutOptions::create()->setAnchor(Anchor::Top)->setOffset(ccp(0.f, -2.f)));
 
         auto lockSpr = ButtonSprite::create("Lock", "goldFont.fnt", "GJ_button_01.png", .40f);
         lockSpr->setScale(.40f);
@@ -543,7 +550,8 @@ class CommentsLayer : public CCLayer {
         bottomBg->setOpacity(115);
         bottomBg->setScale(.3f);
         bottomBg->setContentSize(bottom->getContentSize() / bottomBg->getScale());
-        bottom->addChildAtPosition(bottomBg, Anchor::Center);
+        root->addChild(bottomBg, -1);
+        bottomBg->setLayoutOptions(AnchorLayoutOptions::create()->setAnchor(Anchor::Bottom)->setOffset(ccp(0.f, 2.f)));
 
         auto versionMenu = CCMenu::create();
         versionMenu->setContentSize({150.f, 48.f});
