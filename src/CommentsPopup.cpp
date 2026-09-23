@@ -644,12 +644,9 @@ class CommentsLayer : public CCLayer {
     CCMenuItemSpriteExtra* m_lockButton = nullptr;
     TextInput* m_input = nullptr;
     CCMenuItemSpriteExtra* m_sendButton = nullptr;
-    CCLabelBMFont* m_attachmentLabel = nullptr;
     CCLabelBMFont* m_statusLabel = nullptr;
-    CCMenuItemSpriteExtra* m_exitEditButton = nullptr;
     CCNode* m_commentsContainer = nullptr;
     CCNode* m_bottom = nullptr;
-    CCMenu* m_exitEditMenu = nullptr;
     std::unordered_map<int, int> m_attachmentOffsets;
 
     bool init(std::string modID, CCNode* textArea) {
@@ -859,8 +856,6 @@ class CommentsLayer : public CCLayer {
                 ->setAnchor(Anchor::TopRight)
                 ->setOffset(ccp(-8.f, -48.f))
         );
-
-        m_exitEditButton->setVisible(false);
         root->updateLayout();
         top->updateLayout();
         commentsArea->updateLayout();
@@ -1460,7 +1455,6 @@ class CommentsLayer : public CCLayer {
                 m_pendingFiles.clear();
                 m_removedAttachments.clear();
                 m_input->setString("");
-                m_attachmentLabel->setString("");
                 loadSelectedVersion();
             }
         );
@@ -1584,13 +1578,7 @@ class CommentsLayer : public CCLayer {
                     std::make_move_iterator(files.begin()),
                     std::make_move_iterator(files.end())
                 );
-                m_attachmentLabel->setString(
-                    fmt::format(
-                        "{} file{}",
-                        m_pendingFiles.size(),
-                        m_pendingFiles.size() == 1 ? "" : "s"
-                    ).c_str()
-                );
+                rebuild();
             }
         );
     }
@@ -1717,9 +1705,7 @@ class CommentsLayer : public CCLayer {
             m_removedAttachments.clear();
             m_editingCommentID = 0;
             if (m_exitEditButton)
-                m_exitEditButton->setVisible(false);
             m_input->setString("");
-            m_attachmentLabel->setString("");
             m_sendButton->setEnabled(true);
             m_statusLabel->setString(editing ? "Comment updated." : "Comment posted.");
             loadSelectedVersion();
@@ -1845,16 +1831,10 @@ class CommentsLayer : public CCLayer {
         m_removedAttachments.clear();
         m_pendingFiles.clear();
         m_input->setString("");
-        m_attachmentLabel->setString("");
         m_statusLabel->setString("");
         m_sendButton->setEnabled(true);
         if (m_exitEditButton)
-            m_exitEditButton->setVisible(false);
         updateBottomLayout();
-        if (m_exitEditMenu) {
-            m_exitEditMenu->setContentSize({0.f, 38.f});
-            m_exitEditMenu->updateLayout();
-        }
         if (m_bottom) m_bottom->updateLayout();
         rebuild();
     }
@@ -1866,10 +1846,7 @@ class CommentsLayer : public CCLayer {
         m_removedAttachments.clear();
         m_pendingFiles.clear();
         m_input->setString(comment.body.c_str());
-        m_attachmentLabel->setString("");
         m_statusLabel->setString("Editing comment. Press Send to save.");
-        if (m_exitEditButton)
-            m_exitEditButton->setVisible(true);
         updateBottomLayout();
         rebuild();
         m_input->focus();
