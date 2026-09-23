@@ -96,14 +96,28 @@ class VersionSelectPopup : public Popup {
     std::vector<std::string> m_versions;
     std::function<void(std::string)> m_onSelect;
     bool init(std::vector<std::string> versions, std::function<void(std::string)> cb) {
-        if (!Popup::init(210.f, 210.f)) return false;
-        m_versions=std::move(versions); m_onSelect=std::move(cb); setTitle("Select Version");
-        auto scroll=ScrollLayer::create({184.f,155.f}); scroll->setPosition({13.f,17.f});
+        if (!Popup::init(250.f, 240.f)) return false;
+        m_versions = std::move(versions);
+        m_onSelect = std::move(cb);
+        setTitle("Select Version");
+        auto scroll = ScrollLayer::create({224.f, 184.f});
+        scroll->setPosition({13.f, 17.f});
         auto content=scroll->m_contentLayer; float y=8.f;
         for (auto const& version:m_versions) {
-            auto spr=ButtonSprite::create(version.c_str(),"bigFont.fnt","GJ_button_01.png",.30f); spr->setScale(.30f);
-            auto item=CCMenuItemExt::createSpriteExtra(spr,[this,version](auto){if(m_onSelect)m_onSelect(version);removeFromParent();});
-            item->setPosition({scroll->getContentWidth()/2.f,y+9.f}); content->addChild(item); y+=19.f;
+            auto spr = ButtonSprite::create(
+                version.c_str(), "bigFont.fnt", "GJ_button_01.png", .40f
+            );
+            spr->setScale(.40f);
+            auto item = CCMenuItemExt::createSpriteExtra(
+                spr,
+                [this, version](auto) {
+                    if (m_onSelect) m_onSelect(version);
+                    removeFromParent();
+                }
+            );
+            item->setPosition({scroll->getContentWidth() / 2.f, y + 13.f});
+            content->addChild(item);
+            y += 28.f;
         }
         content->setContentSize({scroll->getContentWidth(),std::max(scroll->getContentHeight(),y+4.f)});
         addChild(scroll); return true;
@@ -655,8 +669,12 @@ class CommentsLayer : public CCLayer {
 
         auto allowed=canComment();m_input->setVisible(allowed);m_sendButton->setVisible(allowed);m_attachmentLabel->setVisible(allowed&&canUploadAttachments());
         m_lockButton->setVisible(m_state.currentDeveloperAdmin);m_lockLabel->setVisible(true);
-        auto lockText=m_state.lock=="none"?"Unlocked":(m_state.lock=="internal"?"Internal":"Locked");
-        auto lockDisplayText = fmt::format("{} by {}", lockText, m_state.lockedByName);
+        auto lockText = m_state.lock == "none"
+            ? "Unlocked"
+            : (m_state.lock == "internal" ? "Internal" : "Locked");
+        auto lockDisplayText = m_state.lock == "none"
+            ? std::string("Unlocked")
+            : fmt::format("{} by {}", lockText, m_state.lockedByName);
         m_lockLabel->setString(lockDisplayText.c_str());
         if(!m_state.loggedIn)m_statusLabel->setString("Log in to comment.");
         else if(m_state.lock=="locked"&&!m_state.currentDeveloperAdmin)m_statusLabel->setString("This submission is locked.");
