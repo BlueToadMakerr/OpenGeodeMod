@@ -331,7 +331,7 @@ class AttachmentPopup : public Popup {
             bg->setOpacity(70);
             bg->setScale(.3f);
             bg->setContentSize(row->getContentSize() / bg->getScale());
-            row->addChildAtPosition(bg, Anchor::Center, 0, false);
+            row->addChildAtPosition(bg, Anchor::Center, ccp(0.f, 0.f), false);
 
             auto previewHolder = CCNode::create();
             previewHolder->setContentSize({58.f, 54.f});
