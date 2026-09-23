@@ -413,9 +413,9 @@ class CommentsLayer : public CCLayer {
             body->setAnchorPoint({0.f,1.f});body->setPosition({38.f,-25.f});body->getScrollLayer()->m_cutContent=false;body->getScrollLayer()->m_disableMovement=true;body->getScrollLayer()->setMouseEnabled(false);
             if(auto bg=body->getChildByType<CCScale9Sprite>(0))bg->setVisible(false);card->addChild(body);
             auto bh=std::max(24.f,std::min(58.f,body->getScrollLayer()->m_contentLayer->getContentHeight())); float ch=34.f+bh;
-            auto cbg=NineSlice::create("square02b_001.png");cbg->setColor(ccBLACK);cbg->setOpacity(75);cbg->setScale(.3f);cbg->setContentSize({w/.3f,ch/.3f});cbg->setPosition({w/2.f,-ch/2.f});card->addChild(cbg,-1);
-            auto av=CCScale9Sprite::create("square02_small.png");av->setColor(ccBLACK);av->setOpacity(100);av->setContentSize({28.f,28.f});av->setPosition({18.f,-18.f});card->addChild(av);addAvatar(card,comment);
-            auto name=CCLabelBMFont::create(comment.username.c_str(),"goldFont.fnt");name->setScale(.28f);name->setAnchorPoint({0.f,.5f});name->setPosition({38.f,-10.f});card->addChild(name);
+            auto cbg=NineSlice::create("square02b_001.png");cbg->setColor(ccBLACK);cbg->setOpacity(75);cbg->setScale(.3f);cbg->setContentSize({w/.3f,ch/.3f});cbg->setPosition({w/2.f,0.f});card->addChild(cbg,-1);
+            auto av=CCScale9Sprite::create("square02_small.png");av->setColor(ccBLACK);av->setOpacity(100);av->setContentSize({28.f,28.f});av->setPosition({18.f,ch/2.f-18.f});card->addChild(av);addAvatar(card,comment);
+            auto name=CCLabelBMFont::create(comment.username.c_str(),"goldFont.fnt");name->setScale(.28f);name->setAnchorPoint({0.f,.5f});name->setPosition({38.f,ch/2.f-10.f});card->addChild(name);
             float ay=-ch+10.f;
             for(auto const& a:comment.attachments){
                 auto spr=LazySprite::create({24.f,24.f},false);spr->loadFromUrl(a.url);
@@ -423,12 +423,12 @@ class CommentsLayer : public CCLayer {
                 auto menu=CCMenu::create();menu->setContentSize({w,28.f});menu->addChild(item);card->addChild(menu);ay-=27.f;ch+=27.f;
             }
             if(comment.canEdit||comment.canDelete){
-                auto actions=CCMenu::create();actions->setContentSize({w-8.f,28.f});actions->setPosition({4.f,-ch+9.f});
+                auto actions=CCMenu::create();actions->setContentSize({w-8.f,28.f});actions->setPosition({4.f,-ch/2.f+9.f});
                 if(comment.canEdit){auto s=ButtonSprite::create("Edit","goldFont.fnt","GJ_button_01.png",.34f);s->setScale(.34f);actions->addChild(CCMenuItemExt::createSpriteExtra(s,[this,comment](auto){beginEdit(comment);}));}
                 if(comment.canDelete){auto s=ButtonSprite::create("Delete","goldFont.fnt","GJ_button_06.png",.34f);s->setScale(.34f);actions->addChild(CCMenuItemExt::createSpriteExtra(s,[this,comment](auto){deleteComment(comment.id);}));}
                 actions->setLayout(RowLayout::create()->setAxisAlignment(AxisAlignment::End)->setGap(4.f));actions->updateLayout();card->addChild(actions);ch+=27.f;
             }
-            card->setContentSize({w,ch});cbg->setContentSize({w/.3f,ch/.3f});cbg->setPosition({w/2.f,-ch/2.f});card->setPosition({scroll->getContentWidth()/2.f,-y});m_commentsContainer->addChild(card);y+=ch+6.f;
+            card->setContentSize({w,ch});cbg->setContentSize({w/.3f,ch/.3f});cbg->setPosition({w/2.f,0.f});card->setPosition({scroll->getContentWidth()/2.f,y+ch/2.f});m_commentsContainer->addChild(card);y+=ch+6.f;
         }
         if(!any){auto e=CCLabelBMFont::create("No comments yet.","chatFont.fnt");e->setScale(.35f);e->setPosition({scroll->getContentWidth()/2.f,55.f});m_commentsContainer->addChild(e);}
         m_commentsContainer->setContentSize({scroll->getContentWidth(),std::max(scroll->getContentHeight(),y+8.f)});scroll->scrollToTop();
