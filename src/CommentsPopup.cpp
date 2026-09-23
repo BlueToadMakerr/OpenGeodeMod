@@ -1236,7 +1236,9 @@ class CommentsLayer : public CCLayer {
         for(auto const& c:m_state.comments)if(c.id==m_editingCommentID){attachments=c.attachments;break;}
         auto popup=AttachmentPopup::create(
             std::move(attachments), m_pendingFiles,
-            [this](int id) { removeAttachment(id); },\n            [this]() { pickAttachments(); }\n        );
+            [this](int id) { removeAttachment(id); },
+            [this]() { pickAttachments(); }
+        );
         if(popup){popup->m_noElasticity=true;popup->show();}
     }
 
