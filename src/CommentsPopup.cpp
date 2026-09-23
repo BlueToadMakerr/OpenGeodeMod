@@ -890,9 +890,7 @@ class CommentsLayer : public CCLayer {
         float totalHeight = 8.f;
         bool any = false;
 
-        auto list = CCNode::create();
-        list->setContentSize({width, 0.f});
-        list->setLayout(
+        m_commentsContainer->setLayout(
             ColumnLayout::create()
                 ->setAxisAlignment(AxisAlignment::Start)
                 ->setCrossAxisAlignment(AxisAlignment::Center)
@@ -1069,7 +1067,7 @@ class CommentsLayer : public CCLayer {
             }
 
             stack->updateLayout();
-            list->addChild(card);
+            m_commentsContainer->addChild(card);
             totalHeight += cardHeight + 7.f;
         }
 
@@ -1078,21 +1076,15 @@ class CommentsLayer : public CCLayer {
                 "No comments yet.", "chatFont.fnt"
             );
             empty->setScale(.35f);
-            list->addChild(empty);
+            m_commentsContainer->addChild(empty);
             totalHeight += 35.f;
         }
 
-        list->setContentSize({width, std::max(totalHeight, 20.f)});
-        list->updateLayout();
         m_commentsContainer->setContentSize({
             scroll->getContentWidth(),
             std::max(scroll->getContentHeight(), totalHeight + 8.f)
         });
-        list->setPosition({
-            scroll->getContentWidth() / 2.f,
-            list->getContentHeight() / 2.f
-        });
-        m_commentsContainer->addChild(list);
+        m_commentsContainer->updateLayout();
         scroll->scrollToTop();
 
         if (!m_state.selectedVersion.empty()) {
