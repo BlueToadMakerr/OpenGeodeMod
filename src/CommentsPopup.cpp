@@ -338,7 +338,7 @@ class CommentsLayer : public CCLayer {
         versionMenu->addChild(versionItem);
         left->addChild(versionMenu);
 
-        m_versionLabel = CCLabelBMFont::create("Current:\\n-", "chatFont.fnt");
+        m_versionLabel = CCLabelBMFont::create("Current:\n-", "chatFont.fnt");
         m_versionLabel->setScale(.31f);
         m_versionLabel->setAnchorPoint({.5f, .5f});
         m_versionLabel->setPosition({38.f, 29.f});
@@ -649,7 +649,7 @@ class CommentsLayer : public CCLayer {
 
         if (!m_state.selectedVersion.empty()) {
             m_versionLabel->setString(
-                fmt::format("Current:\\n{}", m_state.selectedVersion).c_str()
+                fmt::format("Current:\n{}", m_state.selectedVersion).c_str()
             );
         }
 
