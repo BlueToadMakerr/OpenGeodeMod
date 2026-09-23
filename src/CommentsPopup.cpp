@@ -1869,6 +1869,7 @@ class CommentsLayer : public CCLayer {
             m_removedAttachments.erase(it);
             m_statusLabel->setString("Attachment restored.");
         }
+        rebuild();
     }
 
     void removePendingFile(std::filesystem::path const& path) {
