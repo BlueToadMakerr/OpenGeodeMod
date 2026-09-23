@@ -66,7 +66,7 @@ class OpenGeodeTabSprite : public CCNode {
     }
 
 public:
-    static OpenOpenGeodeTabSprite* create(char const* iconFrame, char const* text, float width) {
+    static OpenGeodeTabSprite* create(char const* iconFrame, char const* text, float width) {
         auto ret = new OpenGeodeTabSprite();
         if (ret && ret->init(iconFrame, text, width)) {
             ret->autorelease();
