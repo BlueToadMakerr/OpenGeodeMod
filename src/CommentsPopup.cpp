@@ -637,7 +637,8 @@ class CommentsLayer : public CCLayer {
 
     int m_editingCommentID = 0;
 
-    CCLabelBMFont* m_versionLabel = nullptr;
+    CCMenuItemSpriteExtra* m_versionButton = nullptr;
+    CCLabelBMFont* m_attachmentCountLabel = nullptr;
     CCLabelBMFont* m_lockLabel = nullptr;
     CCMenuItemSpriteExtra* m_lockButton = nullptr;
     TextInput* m_input = nullptr;
@@ -781,51 +782,30 @@ class CommentsLayer : public CCLayer {
             bottomBg, Anchor::Bottom, ccp(0.f, 3.f), false
         );
 
-        auto versionGroup = CCNode::create();
-        versionGroup->setContentSize({132.f, 42.f});
-        versionGroup->setAnchorPoint({.5f, .5f});
-        versionGroup->setLayout(RowLayout::create()
-            ->setAxisAlignment(AxisAlignment::Center)
-            ->setCrossAxisAlignment(AxisAlignment::Center)
-            ->setGap(5.f));
-
-        m_versionLabel = CCLabelBMFont::create("v-", "chatFont.fnt");
-        m_versionLabel->setScale(.30f);
-        versionGroup->addChild(m_versionLabel);
-
-        auto versionItem = CCMenuItemExt::createSpriteExtra(
-            OpenGeodeTabSprite::create("version.png"_spr, "Versions", 104.f),
-            [this](auto) { showVersionPicker(); }
-        );
         auto versionMenu = CCMenu::create();
-        versionMenu->setContentSize({108.f, 42.f});
+        versionMenu->setContentSize({92.f, 42.f});
         versionMenu->setAnchorPoint({.5f, .5f});
         versionMenu->setLayout(RowLayout::create()
             ->setAxisAlignment(AxisAlignment::Center)
             ->setCrossAxisAlignment(AxisAlignment::Center));
-        versionMenu->addChild(versionItem);
+
+        auto versionSprite = ButtonSprite::create(
+            "v-", "chatFont.fnt", "GJ_button_01.png", .50f
+        );
+        versionSprite->setScale(.50f);
+        m_versionButton = CCMenuItemExt::createSpriteExtra(
+            versionSprite, [this](auto) { showVersionPicker(); }
+        );
+        versionMenu->addChild(m_versionButton);
         versionMenu->updateLayout();
-        versionGroup->addChild(versionMenu);
-        versionGroup->updateLayout();
-        bottom->addChild(versionGroup);
+        bottom->addChild(versionMenu);
 
-        auto exitSprite = ButtonSprite::create(
-            "Exit Edit", "goldFont.fnt", "GJ_button_06.png", .28f
-        );
-        exitSprite->setScale(.28f);
-        m_exitEditButton = CCMenuItemExt::createSpriteExtra(
-            exitSprite, [this](auto) { exitEditMode(); }
-        );
-
-        m_exitEditMenu = CCMenu::create();
-        m_exitEditMenu->setContentSize({82.f, 42.f});
-        m_exitEditMenu->setAnchorPoint({.5f, .5f});
-        m_exitEditMenu->setLayout(RowLayout::create()
+        auto attachMenu = CCMenu::create();
+        attachMenu->setContentSize({40.f, 42.f});
+        attachMenu->setAnchorPoint({.5f, .5f});
+        attachMenu->setLayout(RowLayout::create()
             ->setAxisAlignment(AxisAlignment::Center)
             ->setCrossAxisAlignment(AxisAlignment::Center));
-        m_exitEditMenu->addChild(m_exitEditButton);
-        m_exitEditMenu->updateLayout();
-        bottom->addChild(m_exitEditMenu);
 
         auto attachSprite = CCSprite::createWithSpriteFrameName("GJ_plusBtn_001.png");
         if (attachSprite)
@@ -836,31 +816,17 @@ class CommentsLayer : public CCLayer {
                          : static_cast<CCNode*>(CCLabelBMFont::create("+", "bigFont.fnt")),
             [this](auto) { showAttachmentsPopup(); }
         );
-        auto attachmentGroup = CCNode::create();
-        attachmentGroup->setContentSize({92.f, 42.f});
-        attachmentGroup->setAnchorPoint({.5f, .5f});
-        attachmentGroup->setLayout(RowLayout::create()
-            ->setAxisAlignment(AxisAlignment::Center)
-            ->setCrossAxisAlignment(AxisAlignment::Center)
-            ->setGap(3.f));
-
-        auto attachMenu = CCMenu::create();
-        attachMenu->setContentSize({42.f, 42.f});
-        attachMenu->setLayout(RowLayout::create()
-            ->setAxisAlignment(AxisAlignment::Center)
-            ->setCrossAxisAlignment(AxisAlignment::Center));
         attachMenu->addChild(attachItem);
         attachMenu->updateLayout();
-        attachmentGroup->addChild(attachMenu);
+        bottom->addChild(attachMenu);
 
-        m_attachmentLabel = CCLabelBMFont::create("", "chatFont.fnt");
-        m_attachmentLabel->setScale(.20f);
-        m_attachmentLabel->limitLabelWidth(46.f, .20f, .1f);
-        attachmentGroup->addChild(m_attachmentLabel);
-        attachmentGroup->updateLayout();
-        bottom->addChild(attachmentGroup);
+        m_attachmentCountLabel = CCLabelBMFont::create("", "chatFont.fnt");
+        m_attachmentCountLabel->setScale(.28f);
+        m_attachmentCountLabel->setAnchorPoint({.5f, .5f});
+        m_attachmentCountLabel->setVisible(false);
+        bottom->addChild(m_attachmentCountLabel);
 
-        m_input = TextInput::create(100.f, "Write a comment...", "chatFont.fnt");
+        m_input = TextInput::create(100.f, "Add a comment...", "chatFont.fnt");
         m_input->setID("opengeode-comment-input"_spr);
         m_input->setCommonFilter(CommonFilter::Any);
         m_input->setMaxCharCount(2000);
@@ -903,32 +869,24 @@ class CommentsLayer : public CCLayer {
     }
 
     void updateBottomLayout() {
-        if (!m_bottom || !m_input || !m_exitEditMenu) return;
+        if (!m_bottom || !m_input) return;
 
-        constexpr float versionWidth = 132.f;
-        constexpr float exitWidth = 82.f;
-        constexpr float attachWidth = 92.f;
+        constexpr float versionWidth = 92.f;
+        constexpr float attachWidth = 40.f;
+        constexpr float countWidth = 26.f;
         constexpr float sendWidth = 68.f;
-        constexpr float gaps = 5.f * 5.f;
+        constexpr float gaps = 5.f * 4.f;
         constexpr float horizontalPadding = 16.f;
 
         auto available = m_bottom->getContentWidth()
-            - versionWidth - attachWidth - sendWidth
+            - versionWidth - attachWidth - countWidth - sendWidth
             - horizontalPadding - gaps;
-
-        if (m_exitEditButton && m_exitEditButton->isVisible())
-            available -= exitWidth;
 
         m_input->setContentSize({
             std::max(80.f, available),
             34.f
         });
 
-        m_exitEditMenu->setContentSize({
-            m_exitEditButton && m_exitEditButton->isVisible() ? exitWidth : 0.f,
-            42.f
-        });
-        m_exitEditMenu->updateLayout();
         m_bottom->updateLayout();
     }
 
