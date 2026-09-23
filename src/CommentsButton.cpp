@@ -1,21 +1,20 @@
 #include "CommentsPopup.hpp"
 
 #include <Geode/Geode.hpp>
-#include <Geode/loader/Event.hpp>
+#include <Geode/ui/GeodeUI.hpp>
 
 using namespace geode::prelude;
 
 namespace opengeode {
 
 $execute {
-    new EventListener<EventFilter<ModPopupUIEvent>>(
-        +[](ModPopupUIEvent* event) {
-            auto popup = event->getPopup();
-            if (!popup) return ListenerResult::Propagate;
+    ModPopupUIEvent().listen(
+        +[](FLAlertLayer* popup, std::string_view, std::optional<Mod*>) {
+            if (!popup) return false;
             ensureCommentsTab(popup);
-            return ListenerResult::Propagate;
+            return false;
         }
-    );
+    ).leak();
 }
 
 } // namespace opengeode
