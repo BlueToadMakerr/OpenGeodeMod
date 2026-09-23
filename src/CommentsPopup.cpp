@@ -520,7 +520,7 @@ class CommentsLayer : public CCLayer {
         bg->setOpacity(105);
         bg->setScale(.3f);
         bg->setContentSize(getContentSize() / bg->getScale());
-        addChildAtPosition(bg, Anchor::Center, 0, false);
+        addChildAtPosition(bg, Anchor::Center, ccp(0.f, 0.f), false);
 
         auto root = CCNode::create();
         root->setContentSize(getContentSize());
@@ -534,7 +534,7 @@ class CommentsLayer : public CCLayer {
         topBg->setOpacity(130);
         topBg->setScale(.3f);
         topBg->setContentSize(top->getContentSize() / topBg->getScale());
-        top->addChildAtPosition(topBg, Anchor::Center, 0, false);
+        top->addChildAtPosition(topBg, Anchor::Center, ccp(0.f, 0.f), false);
 
         m_lockLabel = CCLabelBMFont::create("Unlocked", "goldFont.fnt");
         m_lockLabel->setScale(.38f);
