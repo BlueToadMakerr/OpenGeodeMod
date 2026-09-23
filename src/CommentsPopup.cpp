@@ -7,6 +7,7 @@
 #include <Geode/ui/TextInput.hpp>
 #include <Geode/utils/async.hpp>
 #include <Geode/utils/file.hpp>
+#include <Geode/utils/string.hpp>
 #include <Geode/utils/web.hpp>
 #include <Geode/ui/BasedButtonSprite.hpp>
 #include <Geode/ui/LazySprite.hpp>
@@ -302,8 +303,10 @@ class AttachmentPopup : public Popup {
     static void addPreview(CCNode* row, std::string const& url, std::filesystem::path const* localPath) {
         CCNode* previewNode = nullptr;
 
-        if (localPath && std::filesystem::exists(*localPath)) {
-            auto sprite = CCSprite::create(localPath->string().c_str());
+        std::error_code ec;
+        if (localPath && std::filesystem::exists(*localPath, ec) && !ec) {
+            auto pathString = pathToString(*localPath);
+            auto sprite = CCSprite::create(pathString.c_str());
             if (sprite) {
                 limitNodeSize(sprite, {36.f, 36.f}, 1.f, .1f);
                 previewNode = sprite;
@@ -433,7 +436,7 @@ class AttachmentPopup : public Popup {
         for (auto const& attachment : attachments)
             addRow(fmt::format("Attachment {}", attachment.id), "", attachment.url, nullptr, attachment.id);
         for (auto const& path : pending)
-            addRow(path.filename().string(), "Pending upload", "", &path, 0);
+            addRow(pathToString(path.filename()), "Pending upload", "", &path, 0);
 
         if (attachments.empty() && pending.empty()) {
             auto empty = CCLabelBMFont::create("No attachments.", "chatFont.fnt");
@@ -604,11 +607,14 @@ class CommentsLayer : public CCLayer {
             commentsArea->getContentHeight()
         });
         scroll->setID("opengeode-comments-scroll"_spr);
+        scroll->setAnchorPoint({0.f, 0.f});
         commentsArea->addChild(scroll);
         scroll->setLayoutOptions(
-            AnchorLayoutOptions::create()->setAnchor(Anchor::Center)
+            AnchorLayoutOptions::create()->setAnchor(Anchor::BottomLeft)
         );
         m_commentsContainer = scroll->m_contentLayer;
+        if (m_commentsContainer)
+            m_commentsContainer->setAnchorPoint({0.f, 0.f});
 
         // BOTTOM: v1.0.0 [Versions] [Exit Edit] [+] [input] [Send]
         auto bottom = CCNode::create();
@@ -1165,6 +1171,7 @@ class CommentsLayer : public CCLayer {
 
             auto card = CCNode::create();
             card->setContentSize({width, cardHeight});
+            card->setAnchorPoint({0.f, 0.f});
             card->setLayout(AnchorLayout::create());
 
             auto cardBG = NineSlice::create("square02b_001.png");
@@ -1205,6 +1212,7 @@ class CommentsLayer : public CCLayer {
             totalHeight += 35.f;
         }
 
+        m_commentsContainer->setAnchorPoint({0.f, 0.f});
         m_commentsContainer->setContentSize({
             scroll->getContentWidth(),
             std::max(scroll->getContentHeight(), totalHeight + 8.f)
@@ -1256,8 +1264,10 @@ class CommentsLayer : public CCLayer {
         auto path = Mod::get()->getSaveDir() /
             fmt::format("pfp-{:x}.png", key);
 
-        if (std::filesystem::exists(path)) {
-            auto sprite = CCSprite::create(path.string().c_str());
+        std::error_code ec;
+        if (std::filesystem::exists(path, ec) && !ec) {
+            auto pathString = pathToString(path);
+            auto sprite = CCSprite::create(pathString.c_str());
             if (sprite) {
                 limitNodeSize(sprite, {28.f, 28.f}, 1.f, .1f);
                 avatar->addChildAtPosition(
@@ -1414,7 +1424,15 @@ class CommentsLayer : public CCLayer {
             [this](file::PickManyResult result) {
                 if (!result) return;
 
-                m_pendingFiles = std::move(result).unwrap();
+                auto files = std::move(result).unwrap();
+                if (files.empty())
+                    return;
+
+                m_pendingFiles.insert(
+                    m_pendingFiles.end(),
+                    std::make_move_iterator(files.begin()),
+                    std::make_move_iterator(files.end())
+                );
                 m_attachmentLabel->setString(
                     fmt::format(
                         "{} file{}",
@@ -1697,13 +1715,13 @@ class CommentsLayer : public CCLayer {
         m_removedAttachments.clear();
         m_pendingFiles.clear();
         m_input->setString(comment.body.c_str());
-        m_input->focus();
         m_attachmentLabel->setString("");
         m_statusLabel->setString("Editing comment. Press Send to save.");
         if (m_exitEditButton)
             m_exitEditButton->setVisible(true);
         updateBottomLayout();
         rebuild();
+        m_input->focus();
     }
 
     void removeAttachment(int attachmentID) {
