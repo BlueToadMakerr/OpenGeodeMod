@@ -821,7 +821,6 @@ class CommentsLayer : public CCLayer {
             ->setAxisAlignment(AxisAlignment::Center)
             ->setCrossAxisAlignment(AxisAlignment::Center)
             ->setAutoScale(false)
-            ->setIgnoreInvisibleChildren(true)
             ->setPadding(Padding::horizontal(8.f))
             ->setGap(5.f));
         root->addChild(bottom);
@@ -870,6 +869,7 @@ class CommentsLayer : public CCLayer {
         ));
         exitMenu->updateLayout();
         exitMenu->setVisible(false);
+        exitMenu->setContentSize({0.f, 42.f});
         bottom->addChild(exitMenu);
 
         // Add attachment (+)
@@ -947,18 +947,20 @@ class CommentsLayer : public CCLayer {
     void updateBottomLayout() {
         if (!m_bottom || !m_input) return;
 
+        // Hidden items (Exit Edit, the attachment count) are given a width of 0
+        // so they take no room whether or not the layout skips invisible nodes.
+        // Gaps are counted for every child so the row can never overflow.
         float used = 0.f;
-        int visibleCount = 0;
+        int childCount = 0;
         for (auto child : m_bottom->getChildrenExt()) {
-            if (!child->isVisible()) continue;
-            ++visibleCount;
-            if (child == m_input) continue;
+            ++childCount;
+            if (child == m_input || !child->isVisible()) continue;
             used += child->getScaledContentSize().width;
         }
 
         constexpr float gap = 5.f;
         constexpr float horizontalPadding = 16.f;
-        auto gaps = gap * static_cast<float>(std::max(0, visibleCount - 1));
+        auto gaps = gap * static_cast<float>(std::max(0, childCount - 1));
         auto available = m_bottom->getContentWidth()
             - used - gaps - horizontalPadding - 4.f;
 
@@ -1463,14 +1465,21 @@ class CommentsLayer : public CCLayer {
                     break;
                 }
             }
+            // Empty string = zero width when there's nothing to show.
             m_attachmentCountLabel->setString(
-                std::to_string(attachmentCount).c_str()
+                attachmentCount > 0
+                    ? std::to_string(attachmentCount).c_str()
+                    : ""
             );
             m_attachmentCountLabel->setVisible(attachmentCount > 0);
         }
 
-        if (m_exitEditMenu)
-            m_exitEditMenu->setVisible(m_editingCommentID != 0);
+        if (m_exitEditMenu) {
+            auto editing = m_editingCommentID != 0;
+            m_exitEditMenu->setVisible(editing);
+            m_exitEditMenu->setContentSize({editing ? 72.f : 0.f, 42.f});
+            m_exitEditMenu->updateLayout();
+        }
 
         auto allowed = canComment();
         m_input->setVisible(allowed);
