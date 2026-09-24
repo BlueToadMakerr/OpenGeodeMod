@@ -84,6 +84,20 @@ public:
 namespace opengeode {
 namespace {
 
+// ---------------------------------------------------------------------------
+// Comments window layout constants (top / middle / bottom sections).
+// ---------------------------------------------------------------------------
+constexpr float kTopHeight = 48.f;
+constexpr float kTopInset = 3.f;
+constexpr float kBottomHeight = 62.f;
+constexpr float kBottomInset = 3.f;
+constexpr float kSectionGap = 3.f;
+
+// Lock / Internal / Unlock buttons: the old node scale was .52, they are now
+// 2.5x bigger and use the gold Pusab font (goldFont.fnt).
+constexpr float kLockTextScale = .42f;
+constexpr float kLockButtonScale = .52f * 2.5f;
+
 struct CommentAttachment {
     int id = 0;
     std::string url;
@@ -348,21 +362,20 @@ class AttachmentPopup : public Popup {
         return std::find(m_removed.begin(), m_removed.end(), id) != m_removed.end();
     }
 
-    static void addPreview(
-        CCNode* holder,
-        std::string const& url,
-        std::filesystem::path const* localPath
-    ) {
-        createContainedImage(holder, {40.f, 40.f}, url, localPath);
-    }
-
     void rebuild() {
         if (!m_content) return;
 
         m_content->removeAllChildren();
 
+        // Row geometry. The image and the Remove/Restore button both span the
+        // full height of the two-line name/status block.
         constexpr float rowWidth = 258.f;
         constexpr float rowHeight = 48.f;
+        constexpr float pad = 6.f;
+        constexpr float blockHeight = 40.f;
+        constexpr float imageSize = blockHeight;
+        constexpr float actionWidth = 72.f;
+        constexpr float infoWidth = rowWidth - pad * 4.f - imageSize - actionWidth;
 
         auto addRow = [this](std::string name, std::string status,
                              std::string url,
@@ -370,8 +383,11 @@ class AttachmentPopup : public Popup {
                              int attachmentID,
                              bool removed,
                              bool pendingUpload) {
+            // The row is a plain AnchorLayout node. Everything inside is
+            // pinned to the left / right edge so nothing depends on a nested
+            // RowLayout (which was centering the text and shrinking the row).
             auto row = CCNode::create();
-            row->setContentSize({258.f, 48.f});
+            row->setContentSize({rowWidth, rowHeight});
             row->setAnchorPoint({.5f, .5f});
             row->setLayout(AnchorLayout::create());
 
@@ -382,69 +398,59 @@ class AttachmentPopup : public Popup {
             bg->setContentSize(row->getContentSize() / bg->getScale());
             row->addChildAtPosition(bg, Anchor::Center);
 
-            auto rowContent = CCNode::create();
-            rowContent->setContentSize({rowWidth, rowHeight});
-            rowContent->setAnchorPoint({.5f, .5f});
-            rowContent->setLayout(RowLayout::create()
-                ->setAxisAlignment(AxisAlignment::Start)
-                ->setCrossAxisAlignment(AxisAlignment::Center)
-                ->setPadding(Padding::horizontal(5.f))
-                ->setGap(4.f));
-            row->addChildAtPosition(rowContent, Anchor::Center);
-
-            // Image: one column spanning both rows.
+            // [Image] - left, full block height.
             auto previewHolder = CCNode::create();
-            previewHolder->setContentSize({44.f, 44.f});
+            previewHolder->setContentSize({imageSize, imageSize});
             previewHolder->setAnchorPoint({.5f, .5f});
             previewHolder->setLayout(AnchorLayout::create());
-            rowContent->addChild(previewHolder);
-            addPreview(previewHolder, url, localPath);
+            row->addChildAtPosition(
+                previewHolder, Anchor::Left, ccp(pad + imageSize / 2.f, 0.f)
+            );
+            createContainedImage(
+                previewHolder, {imageSize - 2.f, imageSize - 2.f}, url, localPath
+            );
 
-            // Name/status: two rows, left-aligned from the image.
+            // File name (top line) + upload status (bottom line), both
+            // left-aligned right next to the image.
             auto info = CCNode::create();
-            info->setContentSize({128.f, 44.f});
-            info->setAnchorPoint({.5f, .5f});
-            info->setLayout(ColumnLayout::create()
-                ->setAxisAlignment(AxisAlignment::Center)
-                ->setCrossAxisAlignment(AxisAlignment::Start)
-                ->setGap(0.f));
+            info->setContentSize({infoWidth, blockHeight});
+            info->setAnchorPoint({0.f, .5f});
+            info->setLayout(AnchorLayout::create());
+            row->addChildAtPosition(
+                info, Anchor::Left, ccp(pad * 2.f + imageSize, 0.f)
+            );
 
             auto nameLabel = CCLabelBMFont::create(name.c_str(), "chatFont.fnt");
-            nameLabel->setScale(.27f);
             nameLabel->setAnchorPoint({0.f, .5f});
-            nameLabel->limitLabelWidth(122.f, .27f, .1f);
-            info->addChild(nameLabel);
+            nameLabel->limitLabelWidth(infoWidth, .27f, .1f);
+            info->addChildAtPosition(nameLabel, Anchor::Left, ccp(0.f, 8.f));
 
             auto statusLabel = CCLabelBMFont::create(status.c_str(), "chatFont.fnt");
-            statusLabel->setScale(.22f);
             statusLabel->setAnchorPoint({0.f, .5f});
-            statusLabel->limitLabelWidth(122.f, .22f, .1f);
-            info->addChild(statusLabel);
-            info->updateLayout();
-            rowContent->addChild(info);
+            statusLabel->limitLabelWidth(infoWidth, .22f, .1f);
+            info->addChildAtPosition(statusLabel, Anchor::Left, ccp(0.f, -8.f));
 
-            // Action: one button spanning both rows.
+            // [Remove/Restore] - right, full block height.
             auto actions = CCMenu::create();
-            actions->setContentSize({78.f, 44.f});
+            actions->setContentSize({actionWidth, blockHeight});
             actions->setAnchorPoint({.5f, .5f});
-            actions->setLayout(RowLayout::create()
-                ->setAxisAlignment(AxisAlignment::Center)
-                ->setCrossAxisAlignment(AxisAlignment::Center));
+            actions->ignoreAnchorPointForPosition(false);
+            row->addChildAtPosition(
+                actions, Anchor::Right, ccp(-(pad + actionWidth / 2.f), 0.f)
+            );
 
             auto actionText = removed ? "Restore" : "Remove";
             auto actionTexture = removed ? "GJ_button_01.png" : "GJ_button_06.png";
             auto action = ButtonSprite::create(
-                actionText, "goldFont.fnt", actionTexture, .40f
+                actionText, 0, false, "goldFont.fnt", actionTexture, blockHeight, .4f
             );
-            action->setScale(1.28f);
-            action->setAnchorPoint({.5f, .5f});
 
+            CCMenuItemSpriteExtra* actionItem = nullptr;
             if (pendingUpload) {
-                auto actionItem = CCMenuItemExt::createSpriteExtra(
+                actionItem = CCMenuItemExt::createSpriteExtra(
                     action,
-                    [this, localPath](auto) {
-                        if (!localPath) return;
-                        auto path = *localPath;
+                    [this, path = localPath ? *localPath : std::filesystem::path()](auto) {
+                        if (path.empty()) return;
                         if (m_onRemovePending)
                             m_onRemovePending(path);
                         m_pending.erase(
@@ -454,11 +460,9 @@ class AttachmentPopup : public Popup {
                         rebuild();
                     }
                 );
-                actionItem->setAnchorPoint({.5f, .5f});
-                actions->addChild(actionItem);
             }
             else {
-                auto actionItem = CCMenuItemExt::createSpriteExtra(
+                actionItem = CCMenuItemExt::createSpriteExtra(
                     action,
                     [this, attachmentID](auto) {
                         if (m_onToggleDelete)
@@ -477,12 +481,15 @@ class AttachmentPopup : public Popup {
                         rebuild();
                     }
                 );
-                actionItem->setAnchorPoint({.5f, .5f});
-                actions->addChild(actionItem);
             }
 
-            rowContent->addChild(actions);
-            rowContent->updateLayout();
+            // Fit the button into its slot, then centre it in the menu by hand.
+            // (The old code never ran updateLayout() on the menu, so the item
+            // stayed at the menu's (0, 0) = bottom-left corner.)
+            limitNodeSize(actionItem, {actionWidth, blockHeight}, 1.f, .1f);
+            actionItem->setPosition(actions->getContentSize() / 2.f);
+            actions->addChild(actionItem);
+
             m_content->addChild(row);
         };
 
@@ -556,34 +563,41 @@ class AttachmentPopup : public Popup {
         // Keep the attachment window contents flush to the popup's left side
         // instead of centering the whole root around its left edge.
         m_root->setAnchorPoint({0.f, .5f});
+        // ColumnLayout lays out bottom-to-top by default. Reverse it so the
+        // list is first (top) and the "Add Image" button is last (bottom).
         m_root->setLayout(ColumnLayout::create()
+            ->setAxisReverse(true)
             ->setAxisAlignment(AxisAlignment::Between)
             ->setCrossAxisAlignment(AxisAlignment::Center)
+            ->setAutoScale(false)
             ->setPadding(Padding::symmetric(0.f, 5.f))
             ->setGap(5.f));
         m_mainLayer->addChildAtPosition(m_root, Anchor::Left, ccp(8.f, 0.f), false);
 
-        m_scroll = ScrollLayer::create({270.f, 122.f});
+        m_scroll = ScrollLayer::create({270.f, 116.f});
         m_scroll->setAnchorPoint({.5f, .5f});
         m_content = m_scroll->m_contentLayer;
         m_content->setAnchorPoint({0.f, 0.f});
+        // Rows are listed top-to-bottom.
         m_content->setLayout(ColumnLayout::create()
+            ->setAxisReverse(true)
             ->setAxisAlignment(AxisAlignment::Start)
             ->setCrossAxisAlignment(AxisAlignment::Center)
+            ->setAutoScale(false)
             ->setGap(6.f)
             ->setPadding(Padding::uniform(5.f)));
 
         m_root->addChild(m_scroll);
 
         auto addMenu = CCMenu::create();
-        addMenu->setContentSize({270.f, 40.f});
+        addMenu->setContentSize({270.f, 36.f});
         addMenu->setAnchorPoint({.5f, .5f});
         addMenu->setLayout(RowLayout::create()
             ->setAxisAlignment(AxisAlignment::Center)
             ->setCrossAxisAlignment(AxisAlignment::Center));
 
         auto add = ButtonSprite::create(
-            "Add image", "goldFont.fnt", "GJ_button_01.png", .48f
+            "Add Image", "goldFont.fnt", "GJ_button_01.png", .48f
         );
         add->setScale(.48f);
         addMenu->addChild(CCMenuItemExt::createSpriteExtra(
@@ -599,6 +613,7 @@ class AttachmentPopup : public Popup {
 
         rebuild();
         m_root->updateLayout();
+        m_scroll->scrollToTop();
         return true;
     }
 
@@ -642,7 +657,9 @@ class CommentsLayer : public CCLayer {
     CCMenuItemSpriteExtra* m_versionButton = nullptr;
     CCLabelBMFont* m_attachmentCountLabel = nullptr;
     CCLabelBMFont* m_lockLabel = nullptr;
+    float m_lockLabelMaxWidth = 200.f;
     CCMenu* m_lockControls = nullptr;
+    CCMenu* m_exitEditMenu = nullptr;
     TextInput* m_input = nullptr;
     CCMenuItemSpriteExtra* m_sendButton = nullptr;
     CCLabelBMFont* m_statusLabel = nullptr;
@@ -678,19 +695,24 @@ class CommentsLayer : public CCLayer {
         bg->setContentSize(getContentSize() / bg->getScale());
         root->addChildAtPosition(bg, Anchor::Center);
 
-        // TOP: status on the left, lock controls on the right.
+        // ------------------------------------------------------------------
+        // TOP (anchored to the top):
+        //   left  = unlock status (chatFont)
+        //   right = Lock / Internal / Unlock (gold Pusab, 2.5x bigger)
+        // ------------------------------------------------------------------
         auto top = CCNode::create();
-        top->setContentSize({width - 8.f, 44.f});
+        top->setContentSize({width - 8.f, kTopHeight});
         top->setAnchorPoint({.5f, 1.f});
         top->setLayout(RowLayout::create()
             ->setAxisAlignment(AxisAlignment::Between)
             ->setCrossAxisAlignment(AxisAlignment::Center)
+            ->setAutoScale(false)
             ->setPadding(Padding::horizontal(8.f))
             ->setGap(5.f));
         root->addChild(top);
         top->setLayoutOptions(AnchorLayoutOptions::create()
             ->setAnchor(Anchor::Top)
-            ->setOffset(ccp(0.f, -3.f)));
+            ->setOffset(ccp(0.f, -kTopInset)));
 
         m_lockLabel = CCLabelBMFont::create("Unlocked", "chatFont.fnt");
         m_lockLabel->setScale(.42f);
@@ -699,43 +721,68 @@ class CommentsLayer : public CCLayer {
 
         auto lockControls = CCMenu::create();
         m_lockControls = lockControls;
-        lockControls->setContentSize({235.f, 42.f});
         lockControls->setAnchorPoint({.5f, .5f});
         lockControls->setLayout(RowLayout::create()
             ->setAxisAlignment(AxisAlignment::End)
             ->setCrossAxisAlignment(AxisAlignment::Center)
+            ->setAutoScale(false)
             ->setGap(4.f));
 
         auto makeLockButton = [this, lockControls](
             char const* text, char const* value, char const* texture
         ) {
             auto sprite = ButtonSprite::create(
-                text, "chatFont.fnt", texture, .42f
+                text, "goldFont.fnt", texture, kLockTextScale
             );
-            sprite->setScale(.52f);
-            lockControls->addChild(CCMenuItemExt::createSpriteExtra(
+            auto item = CCMenuItemExt::createSpriteExtra(
                 sprite, [this, value](auto) { setLock(value); }
-            ));
+            );
+            // Scale the item (not the sprite) so the layout and the touch
+            // area both see the real, bigger size.
+            item->setScale(kLockButtonScale);
+            lockControls->addChild(item);
         };
 
         makeLockButton("Lock", "locked", "GJ_button_06.png");
         makeLockButton("Internal", "internal", "GJ_button_02.png");
         makeLockButton("Unlock", "none", "GJ_button_01.png");
+
+        float lockWidth = 4.f * 2.f; // two gaps
+        for (auto child : lockControls->getChildrenExt())
+            lockWidth += child->getScaledContentSize().width;
+        lockControls->setContentSize({lockWidth, kTopHeight - 2.f});
         lockControls->updateLayout();
         top->addChild(lockControls);
+
+        // Keep the status text from running into the (now much bigger) buttons.
+        m_lockLabelMaxWidth = std::max(60.f, width - 8.f - 16.f - lockWidth - 5.f);
+        m_lockLabel->limitLabelWidth(m_lockLabelMaxWidth, .42f, .1f);
         top->updateLayout();
 
-        // MIDDLE: comments only.
+        // ------------------------------------------------------------------
+        // MIDDLE (anchored to the middle): comments scroll layer only.
+        // It is centred in the space between the top and bottom sections.
+        // ------------------------------------------------------------------
+        auto middleHeight = std::max(
+            1.f,
+            height
+                - (kTopHeight + kTopInset)
+                - (kBottomHeight + kBottomInset)
+                - kSectionGap * 2.f
+        );
+        // Centre of the free space, relative to the window's centre.
+        auto middleOffsetY =
+            ((kBottomHeight + kBottomInset) - (kTopHeight + kTopInset)) / 2.f;
+
         auto commentsArea = CCNode::create();
-        commentsArea->setContentSize({
-            width - 8.f,
-            std::max(1.f, height - 116.f)
-        });
+        commentsArea->setContentSize({width - 8.f, middleHeight});
         commentsArea->setAnchorPoint({.5f, .5f});
         commentsArea->setLayout(AnchorLayout::create());
         root->addChild(commentsArea);
         commentsArea->setLayoutOptions(
-            AnchorLayoutOptions::create()->setAnchor(Anchor::Center)
+            AnchorLayoutOptions::create()
+                ->setAnchor(Anchor::Center)
+                ->setOffset(ccp(0.f, middleOffsetY))
         );
 
         auto scroll = ScrollLayer::create({
@@ -745,10 +792,6 @@ class CommentsLayer : public CCLayer {
         scroll->setID("opengeode-comments-scroll"_spr);
         scroll->setAnchorPoint({0.f, 0.f});
         commentsArea->addChild(scroll);
-        commentsArea->setAnchorPoint({0.f, 0.f});
-        commentsArea->setLayoutOptions(
-            AnchorLayoutOptions::create()->setAnchor(Anchor::BottomLeft)
-        );
         scroll->setLayoutOptions(
             AnchorLayoutOptions::create()->setAnchor(Anchor::BottomLeft)
         );
@@ -756,13 +799,29 @@ class CommentsLayer : public CCLayer {
         if (m_commentsContainer)
             m_commentsContainer->setAnchorPoint({0.f, 0.f});
 
-        // BOTTOM: v1.0.0 [Versions] [Exit Edit] [+] [input] [Send]
+        // ------------------------------------------------------------------
+        // BOTTOM (anchored to the bottom):
+        //   [v1.0.0] [Exit Edit] [+] [count] [Add a comment...] [Send]
+        // ------------------------------------------------------------------
+        auto bottomBg = NineSlice::create("square02b_001.png");
+        bottomBg->setColor(ccBLACK);
+        bottomBg->setOpacity(115);
+        bottomBg->setScale(.3f);
+        bottomBg->setAnchorPoint({.5f, 0.f});
+        bottomBg->setContentSize(
+            CCSize{width - 8.f, kBottomHeight} / bottomBg->getScale()
+        );
+        // Added BEFORE the row so it is drawn behind the buttons.
+        root->addChildAtPosition(bottomBg, Anchor::Bottom, ccp(0.f, kBottomInset));
+
         auto bottom = CCNode::create();
-        bottom->setContentSize({width - 8.f, 62.f});
+        bottom->setContentSize({width - 8.f, kBottomHeight});
         bottom->setAnchorPoint({.5f, 0.f});
         bottom->setLayout(RowLayout::create()
             ->setAxisAlignment(AxisAlignment::Center)
             ->setCrossAxisAlignment(AxisAlignment::Center)
+            ->setAutoScale(false)
+            ->setIgnoreInvisibleChildren(true)
             ->setPadding(Padding::horizontal(8.f))
             ->setGap(5.f));
         root->addChild(bottom);
@@ -770,18 +829,11 @@ class CommentsLayer : public CCLayer {
         bottom->setLayoutOptions(
             AnchorLayoutOptions::create()
                 ->setAnchor(Anchor::Bottom)
-                ->setOffset(ccp(0.f, 3.f))
+                ->setOffset(ccp(0.f, kBottomInset))
         );
 
-        auto bottomBg = NineSlice::create("square02b_001.png");
-        bottomBg->setColor(ccBLACK);
-        bottomBg->setOpacity(115);
-        bottomBg->setScale(.3f);
-        bottomBg->setContentSize(bottom->getContentSize() / bottomBg->getScale());
-        root->addChildAtPosition(
-            bottomBg, Anchor::Bottom, ccp(0.f, 3.f), false
-        );
-
+        // Version button: a regular green button whose label IS the version
+        // ("v1.0.0"). There is no separate version text any more.
         auto versionMenu = CCMenu::create();
         versionMenu->setContentSize({92.f, 42.f});
         versionMenu->setAnchorPoint({.5f, .5f});
@@ -800,6 +852,27 @@ class CommentsLayer : public CCLayer {
         versionMenu->updateLayout();
         bottom->addChild(versionMenu);
 
+        // Exit Edit: only visible while a comment is being edited.
+        auto exitMenu = CCMenu::create();
+        m_exitEditMenu = exitMenu;
+        exitMenu->setContentSize({72.f, 42.f});
+        exitMenu->setAnchorPoint({.5f, .5f});
+        exitMenu->setLayout(RowLayout::create()
+            ->setAxisAlignment(AxisAlignment::Center)
+            ->setCrossAxisAlignment(AxisAlignment::Center));
+
+        auto exitSprite = ButtonSprite::create(
+            "Exit Edit", "goldFont.fnt", "GJ_button_06.png", .48f
+        );
+        exitSprite->setScale(.48f);
+        exitMenu->addChild(CCMenuItemExt::createSpriteExtra(
+            exitSprite, [this](auto) { exitEdit(); }
+        ));
+        exitMenu->updateLayout();
+        exitMenu->setVisible(false);
+        bottom->addChild(exitMenu);
+
+        // Add attachment (+)
         auto attachMenu = CCMenu::create();
         attachMenu->setContentSize({40.f, 42.f});
         attachMenu->setAnchorPoint({.5f, .5f});
@@ -820,18 +893,21 @@ class CommentsLayer : public CCLayer {
         attachMenu->updateLayout();
         bottom->addChild(attachMenu);
 
+        // How many attachments
         m_attachmentCountLabel = CCLabelBMFont::create("", "chatFont.fnt");
         m_attachmentCountLabel->setScale(.28f);
         m_attachmentCountLabel->setAnchorPoint({.5f, .5f});
         m_attachmentCountLabel->setVisible(false);
         bottom->addChild(m_attachmentCountLabel);
 
+        // Add a comment...
         m_input = TextInput::create(100.f, "Add a comment...", "chatFont.fnt");
         m_input->setID("opengeode-comment-input"_spr);
         m_input->setCommonFilter(CommonFilter::Any);
         m_input->setMaxCharCount(2000);
         bottom->addChild(m_input);
 
+        // Send
         auto send = ButtonSprite::create(
             "Send", "goldFont.fnt", "GJ_button_01.png", .48f
         );
@@ -856,29 +932,35 @@ class CommentsLayer : public CCLayer {
         m_statusLabel->setLayoutOptions(
             AnchorLayoutOptions::create()
                 ->setAnchor(Anchor::TopRight)
-                ->setOffset(ccp(-8.f, -48.f))
+                ->setOffset(ccp(-8.f, -(kTopInset + kTopHeight + 2.f)))
         );
         root->updateLayout();
         top->updateLayout();
         commentsArea->updateLayout();
-        bottom->updateLayout();
+        updateBottomLayout();
         load();
         return true;
     }
 
+    // Sizes the comment input to whatever room is left in the bottom row
+    // (hidden items such as "Exit Edit" or the attachment count don't count).
     void updateBottomLayout() {
         if (!m_bottom || !m_input) return;
 
-        constexpr float versionWidth = 92.f;
-        constexpr float attachWidth = 40.f;
-        constexpr float countWidth = 26.f;
-        constexpr float sendWidth = 68.f;
-        constexpr float gaps = 5.f * 4.f;
-        constexpr float horizontalPadding = 16.f;
+        float used = 0.f;
+        int visibleCount = 0;
+        for (auto child : m_bottom->getChildrenExt()) {
+            if (!child->isVisible()) continue;
+            ++visibleCount;
+            if (child == m_input) continue;
+            used += child->getScaledContentSize().width;
+        }
 
+        constexpr float gap = 5.f;
+        constexpr float horizontalPadding = 16.f;
+        auto gaps = gap * static_cast<float>(std::max(0, visibleCount - 1));
         auto available = m_bottom->getContentWidth()
-            - versionWidth - attachWidth - countWidth - sendWidth
-            - horizontalPadding - gaps;
+            - used - gaps - horizontalPadding - 4.f;
 
         m_input->setContentSize({
             std::max(80.f, available),
@@ -1112,10 +1194,14 @@ class CommentsLayer : public CCLayer {
         float totalHeight = 8.f;
         bool any = false;
 
+        // Axis reversed: ColumnLayout stacks bottom-to-top by default, so the
+        // comment list would otherwise hug the bottom of the scroll layer.
         m_commentsContainer->setLayout(
             ColumnLayout::create()
+                ->setAxisReverse(true)
                 ->setAxisAlignment(AxisAlignment::Start)
                 ->setCrossAxisAlignment(AxisAlignment::Center)
+                ->setAutoScale(false)
                 ->setGap(7.f)
                 ->setPadding(Padding::uniform(4.f))
         );
@@ -1304,6 +1390,7 @@ class CommentsLayer : public CCLayer {
             cardBG->setContentSize(card->getContentSize() / cardBG->getScale());
             card->addChildAtPosition(cardBG, Anchor::Center);
 
+            // username / comment / attachments, top-to-bottom (axis reversed).
             auto stack = CCNode::create();
             stack->setContentSize({width - 8.f, cardHeight - 8.f});
             stack->setAnchorPoint({.5f, .5f});
@@ -1311,6 +1398,7 @@ class CommentsLayer : public CCLayer {
                 ->setAxisAlignment(AxisAlignment::Start)
                 ->setCrossAxisAlignment(AxisAlignment::Center)
                 ->setAxisReverse(true)
+                ->setAutoScale(false)
                 ->setGap(4.f)
                 ->setPadding(Padding::uniform(2.f)));
             card->addChild(stack);
@@ -1354,6 +1442,8 @@ class CommentsLayer : public CCLayer {
                         : fmt::format("v{}", m_state.selectedVersion).c_str()
                 );
                 m_versionButton->updateSprite();
+                if (auto menu = m_versionButton->getParent())
+                    menu->updateLayout();
             }
         }
 
@@ -1379,6 +1469,9 @@ class CommentsLayer : public CCLayer {
             m_attachmentCountLabel->setVisible(attachmentCount > 0);
         }
 
+        if (m_exitEditMenu)
+            m_exitEditMenu->setVisible(m_editingCommentID != 0);
+
         auto allowed = canComment();
         m_input->setVisible(allowed);
         m_sendButton->setVisible(allowed);
@@ -1391,6 +1484,7 @@ class CommentsLayer : public CCLayer {
             ? std::string("Unlocked")
             : fmt::format("{} by {}", lockText, m_state.lockedByName.empty() ? "User" : m_state.lockedByName);
         m_lockLabel->setString(lockDisplayText.c_str());
+        m_lockLabel->limitLabelWidth(m_lockLabelMaxWidth, .42f, .1f);
         auto lockColor = ccGREEN;
         if (m_state.lock == "internal")
             lockColor = cc3bFromHexString("00D9FF").unwrapOr(ccGREEN);
@@ -1824,9 +1918,17 @@ class CommentsLayer : public CCLayer {
         m_pendingFiles.clear();
         m_input->setString(comment.body.c_str());
         m_statusLabel->setString("Editing comment. Press Send to save.");
-        updateBottomLayout();
         rebuild();
         m_input->focus();
+    }
+
+    // Leaves edit mode without saving anything.
+    void exitEdit() {
+        m_editingCommentID = 0;
+        m_removedAttachments.clear();
+        m_pendingFiles.clear();
+        m_input->setString("");
+        rebuild();
     }
 
     void toggleAttachmentRemoval(int attachmentID) {
