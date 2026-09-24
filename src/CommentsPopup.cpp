@@ -87,16 +87,22 @@ namespace {
 // ---------------------------------------------------------------------------
 // Comments window layout constants (top / middle / bottom sections).
 // ---------------------------------------------------------------------------
-constexpr float kTopHeight = 48.f;
+constexpr float kTopHeight = 34.f;
 constexpr float kTopInset = 3.f;
-constexpr float kBottomHeight = 62.f;
+constexpr float kBottomHeight = 44.f;
 constexpr float kBottomInset = 3.f;
 constexpr float kSectionGap = 3.f;
 
-// Lock / Internal / Unlock buttons: the old node scale was .52, they are now
-// 2.5x bigger and use the gold Pusab font (goldFont.fnt).
-constexpr float kLockTextScale = .42f;
-constexpr float kLockButtonScale = .52f * 2.5f;
+// Auto-sized buttons (text at scale 1 so the button hugs the text, then the
+// whole button is scaled). Tweak these two to make the buttons bigger/smaller.
+constexpr float kLockButtonScale = .55f;   // Lock / Internal / Unlock (gold Pusab)
+constexpr float kBarButtonScale = .65f;    // bottom bar: version / Exit Edit / Send
+
+// Attachment thumbnails.
+constexpr float kThumbSize = 36.f;         // in comments
+constexpr float kAttachmentAreaHeight = 42.f;
+constexpr int kAttachmentPageSize = 4;
+constexpr int kAttachmentImageTag = 7701;
 
 struct CommentAttachment {
     int id = 0;
@@ -155,6 +161,9 @@ int intValue(matjson::Value const& value, char const* key, int fallback = 0) {
     return value[key].asInt().unwrapOr(fallback);
 }
 
+// The single image path used for EVERY image (avatars, comment thumbnails,
+// attachment previews, the full-size viewer). The sprite is measured after it
+// loads and scaled down so it always stays inside `size`.
 LazySprite* createContainedImage(
     CCNode* holder,
     CCSize size,
@@ -179,7 +188,22 @@ LazySprite* createContainedImage(
             sprite->setVisible(false);
             return;
         }
-        limitNodeSize(sprite, size, 1.f, .1f);
+
+        // Use the real size of the loaded image (the inner sprite if there is
+        // one) so huge images can't spill out of their box.
+        auto real = sprite->getContentSize();
+        if (auto inner = sprite->getChildByType<CCSprite>(0)) {
+            auto innerSize = inner->getScaledContentSize();
+            if (innerSize.width > 0.f && innerSize.height > 0.f)
+                real = innerSize;
+        }
+        if (real.width > 0.f && real.height > 0.f) {
+            auto fit = std::min(
+                1.f,
+                std::min(size.width / real.width, size.height / real.height)
+            );
+            sprite->setScale(fit);
+        }
         if (auto parent = sprite->getParent())
             sprite->setPosition(parent->getContentSize() / 2.f);
     });
@@ -188,6 +212,29 @@ LazySprite* createContainedImage(
     else sprite->loadFromUrl(url);
 
     return sprite;
+}
+
+// A square box with a dark background that shows where an attachment lives,
+// with the image contained inside it.
+CCNode* createAttachmentBox(
+    float size,
+    std::string const& url,
+    std::filesystem::path const* localPath = nullptr
+) {
+    auto box = CCNode::create();
+    box->setContentSize({size, size});
+    box->setAnchorPoint({.5f, .5f});
+    box->setLayout(AnchorLayout::create());
+
+    auto bg = NineSlice::create("square02b_001.png");
+    bg->setColor(ccBLACK);
+    bg->setOpacity(120);
+    bg->setScale(.3f);
+    bg->setContentSize(box->getContentSize() / bg->getScale());
+    box->addChildAtPosition(bg, Anchor::Center);
+
+    createContainedImage(box, {size - 4.f, size - 4.f}, url, localPath);
+    return box;
 }
 
 std::string getModID(CCNode* popup) {
@@ -315,21 +362,9 @@ class AttachmentImagePopup : public Popup {
         auto holder = CCNode::create();
         holder->setContentSize({320.f, 250.f});
         holder->setAnchorPoint({.5f, .5f});
-        holder->setLayout(RowLayout::create()
-            ->setAxisAlignment(AxisAlignment::Center)
-            ->setCrossAxisAlignment(AxisAlignment::Center));
+        holder->setLayout(AnchorLayout::create());
         m_mainLayer->addChildAtPosition(holder, Anchor::Center);
-
-        auto image = LazySprite::create({320.f, 250.f}, false);
-        if (image) {
-            image->loadFromUrl(m_url);
-            image->setLoadCallback([image](Result<> result) {
-                if (result) limitNodeSize(image, {320.f, 250.f}, 1.f, .1f);
-                else image->setVisible(false);
-            });
-            holder->addChild(image);
-            holder->updateLayout();
-        }
+        createContainedImage(holder, {320.f, 250.f}, m_url);
         m_noElasticity = true;
         return true;
     }
@@ -354,7 +389,6 @@ class AttachmentPopup : public Popup {
     std::function<void(std::filesystem::path const&)> m_onRemovePending;
     std::function<void()> m_onAdd;
 
-    CCNode* m_root = nullptr;
     ScrollLayer* m_scroll = nullptr;
     CCNode* m_content = nullptr;
 
@@ -367,13 +401,11 @@ class AttachmentPopup : public Popup {
 
         m_content->removeAllChildren();
 
-        // Row geometry. The image and the Remove/Restore button both span the
-        // full height of the two-line name/status block.
+        // Row geometry (kept small so more rows fit on screen).
         constexpr float rowWidth = 258.f;
-        constexpr float rowHeight = 48.f;
+        constexpr float rowHeight = 40.f;
         constexpr float pad = 6.f;
-        constexpr float blockHeight = 40.f;
-        constexpr float imageSize = blockHeight;
+        constexpr float imageSize = 32.f;
         constexpr float actionWidth = 72.f;
         constexpr float infoWidth = rowWidth - pad * 4.f - imageSize - actionWidth;
 
@@ -383,9 +415,8 @@ class AttachmentPopup : public Popup {
                              int attachmentID,
                              bool removed,
                              bool pendingUpload) {
-            // The row is a plain AnchorLayout node. Everything inside is
-            // pinned to the left / right edge so nothing depends on a nested
-            // RowLayout (which was centering the text and shrinking the row).
+            // Everything in the row is pinned to the left / right edge with an
+            // AnchorLayout, so nothing depends on a nested RowLayout.
             auto row = CCNode::create();
             row->setContentSize({rowWidth, rowHeight});
             row->setAnchorPoint({.5f, .5f});
@@ -398,22 +429,15 @@ class AttachmentPopup : public Popup {
             bg->setContentSize(row->getContentSize() / bg->getScale());
             row->addChildAtPosition(bg, Anchor::Center);
 
-            // [Image] - left, full block height.
-            auto previewHolder = CCNode::create();
-            previewHolder->setContentSize({imageSize, imageSize});
-            previewHolder->setAnchorPoint({.5f, .5f});
-            previewHolder->setLayout(AnchorLayout::create());
+            // [Image] - left, in its own background box.
+            auto box = createAttachmentBox(imageSize, url, localPath);
             row->addChildAtPosition(
-                previewHolder, Anchor::Left, ccp(pad + imageSize / 2.f, 0.f)
-            );
-            createContainedImage(
-                previewHolder, {imageSize - 2.f, imageSize - 2.f}, url, localPath
+                box, Anchor::Left, ccp(pad + imageSize / 2.f, 0.f)
             );
 
-            // File name (top line) + upload status (bottom line), both
-            // left-aligned right next to the image.
+            // File name (top) + upload status (bottom), left-aligned.
             auto info = CCNode::create();
-            info->setContentSize({infoWidth, blockHeight});
+            info->setContentSize({infoWidth, imageSize});
             info->setAnchorPoint({0.f, .5f});
             info->setLayout(AnchorLayout::create());
             row->addChildAtPosition(
@@ -423,16 +447,18 @@ class AttachmentPopup : public Popup {
             auto nameLabel = CCLabelBMFont::create(name.c_str(), "chatFont.fnt");
             nameLabel->setAnchorPoint({0.f, .5f});
             nameLabel->limitLabelWidth(infoWidth, .27f, .1f);
-            info->addChildAtPosition(nameLabel, Anchor::Left, ccp(0.f, 8.f));
+            info->addChildAtPosition(nameLabel, Anchor::Left, ccp(0.f, 7.f));
 
             auto statusLabel = CCLabelBMFont::create(status.c_str(), "chatFont.fnt");
             statusLabel->setAnchorPoint({0.f, .5f});
             statusLabel->limitLabelWidth(infoWidth, .22f, .1f);
-            info->addChildAtPosition(statusLabel, Anchor::Left, ccp(0.f, -8.f));
+            info->addChildAtPosition(statusLabel, Anchor::Left, ccp(0.f, -7.f));
 
-            // [Remove/Restore] - right, full block height.
+            // [Remove/Restore] - right, vertically centred. Auto-sized like
+            // Edit/Delete: the button hugs its text (no empty space above or
+            // below) and is only scaled down if it would be too wide.
             auto actions = CCMenu::create();
-            actions->setContentSize({actionWidth, blockHeight});
+            actions->setContentSize({actionWidth, imageSize});
             actions->setAnchorPoint({.5f, .5f});
             actions->ignoreAnchorPointForPosition(false);
             row->addChildAtPosition(
@@ -442,7 +468,7 @@ class AttachmentPopup : public Popup {
             auto actionText = removed ? "Restore" : "Remove";
             auto actionTexture = removed ? "GJ_button_01.png" : "GJ_button_06.png";
             auto action = ButtonSprite::create(
-                actionText, 0, false, "goldFont.fnt", actionTexture, blockHeight, .4f
+                actionText, "goldFont.fnt", actionTexture, 1.f
             );
 
             CCMenuItemSpriteExtra* actionItem = nullptr;
@@ -483,10 +509,7 @@ class AttachmentPopup : public Popup {
                 );
             }
 
-            // Fit the button into its slot, then centre it in the menu by hand.
-            // (The old code never ran updateLayout() on the menu, so the item
-            // stayed at the menu's (0, 0) = bottom-left corner.)
-            limitNodeSize(actionItem, {actionWidth, blockHeight}, 1.f, .1f);
+            limitNodeSize(actionItem, {actionWidth, imageSize - 6.f}, .7f, .1f);
             actionItem->setPosition(actions->getContentSize() / 2.f);
             actions->addChild(actionItem);
 
@@ -534,7 +557,7 @@ class AttachmentPopup : public Popup {
             m_scroll->getContentWidth(),
             std::max(
                 m_scroll->getContentHeight(),
-                10.f + 54.f * static_cast<float>(count)
+                10.f + (rowHeight + 4.f) * static_cast<float>(count)
             )
         });
         m_content->updateLayout();
@@ -548,7 +571,7 @@ class AttachmentPopup : public Popup {
         std::function<void(std::filesystem::path const&)> onRemovePending,
         std::function<void()> onAdd
     ) {
-        if (!Popup::init(300.f, 220.f)) return false;
+        if (!Popup::init(300.f, 250.f)) return false;
 
         m_attachments = std::move(attachments);
         m_pending = std::move(pending);
@@ -558,24 +581,25 @@ class AttachmentPopup : public Popup {
         m_onAdd = std::move(onAdd);
         setTitle("Attachments");
 
-        m_root = CCNode::create();
-        m_root->setContentSize({278.f, 168.f});
-        // Keep the attachment window contents flush to the popup's left side
-        // instead of centering the whole root around its left edge.
-        m_root->setAnchorPoint({0.f, .5f});
-        // ColumnLayout lays out bottom-to-top by default. Reverse it so the
-        // list is first (top) and the "Add Image" button is last (bottom).
-        m_root->setLayout(ColumnLayout::create()
-            ->setAxisReverse(true)
-            ->setAxisAlignment(AxisAlignment::Between)
-            ->setCrossAxisAlignment(AxisAlignment::Center)
-            ->setAutoScale(false)
-            ->setPadding(Padding::symmetric(0.f, 5.f))
-            ->setGap(5.f));
-        m_mainLayer->addChildAtPosition(m_root, Anchor::Left, ccp(8.f, 0.f), false);
+        auto size = m_mainLayer->getContentSize();
+        constexpr float scrollWidth = 270.f;
+        constexpr float scrollHeight = 168.f;
+        constexpr float scrollBottom = 46.f;
 
-        m_scroll = ScrollLayer::create({270.f, 116.f});
-        m_scroll->setAnchorPoint({.5f, .5f});
+        // Background behind the (now longer) list.
+        auto listBG = NineSlice::create("square02b_001.png");
+        listBG->setColor(ccBLACK);
+        listBG->setOpacity(90);
+        listBG->setScale(.3f);
+        listBG->setContentSize(
+            CCSize{scrollWidth + 6.f, scrollHeight + 6.f} / listBG->getScale()
+        );
+        listBG->setPosition({size.width / 2.f, scrollBottom + scrollHeight / 2.f});
+        m_mainLayer->addChild(listBG);
+
+        m_scroll = ScrollLayer::create({scrollWidth, scrollHeight});
+        // ScrollLayer positions from its bottom-left corner.
+        m_scroll->setPosition({(size.width - scrollWidth) / 2.f, scrollBottom});
         m_content = m_scroll->m_contentLayer;
         m_content->setAnchorPoint({0.f, 0.f});
         // Rows are listed top-to-bottom.
@@ -584,35 +608,26 @@ class AttachmentPopup : public Popup {
             ->setAxisAlignment(AxisAlignment::Start)
             ->setCrossAxisAlignment(AxisAlignment::Center)
             ->setAutoScale(false)
-            ->setGap(6.f)
+            ->setGap(4.f)
             ->setPadding(Padding::uniform(5.f)));
+        m_mainLayer->addChild(m_scroll);
 
-        m_root->addChild(m_scroll);
-
-        auto addMenu = CCMenu::create();
-        addMenu->setContentSize({270.f, 36.f});
-        addMenu->setAnchorPoint({.5f, .5f});
-        addMenu->setLayout(RowLayout::create()
-            ->setAxisAlignment(AxisAlignment::Center)
-            ->setCrossAxisAlignment(AxisAlignment::Center));
-
+        // "+ Add Image": bigger, at the bottom of the popup.
         auto add = ButtonSprite::create(
-            "Add Image", "goldFont.fnt", "GJ_button_01.png", .48f
+            "+ Add Image", "goldFont.fnt", "GJ_button_01.png", 1.f
         );
-        add->setScale(.48f);
-        addMenu->addChild(CCMenuItemExt::createSpriteExtra(
+        auto addItem = CCMenuItemExt::createSpriteExtra(
             add, [this](auto) {
                 if (m_onAdd) {
                     m_onAdd();
                     removeFromParent();
                 }
             }
-        ));
-        addMenu->updateLayout();
-        m_root->addChild(addMenu);
+        );
+        addItem->setScale(.85f);
+        m_buttonMenu->addChildAtPosition(addItem, Anchor::Bottom, ccp(0.f, 24.f));
 
         rebuild();
-        m_root->updateLayout();
         m_scroll->scrollToTop();
         return true;
     }
@@ -659,7 +674,8 @@ class CommentsLayer : public CCLayer {
     CCLabelBMFont* m_lockLabel = nullptr;
     float m_lockLabelMaxWidth = 200.f;
     CCMenu* m_lockControls = nullptr;
-    CCMenu* m_exitEditMenu = nullptr;
+    CCMenuItemSpriteExtra* m_exitButton = nullptr;
+    CCMenuItemSpriteExtra* m_attachButton = nullptr;
     TextInput* m_input = nullptr;
     CCMenuItemSpriteExtra* m_sendButton = nullptr;
     CCLabelBMFont* m_statusLabel = nullptr;
@@ -698,17 +714,12 @@ class CommentsLayer : public CCLayer {
         // ------------------------------------------------------------------
         // TOP (anchored to the top):
         //   left  = unlock status (chatFont)
-        //   right = Lock / Internal / Unlock (gold Pusab, 2.5x bigger)
+        //   right = Lock / Internal / Unlock (gold Pusab, auto-sized)
         // ------------------------------------------------------------------
         auto top = CCNode::create();
         top->setContentSize({width - 8.f, kTopHeight});
         top->setAnchorPoint({.5f, 1.f});
-        top->setLayout(RowLayout::create()
-            ->setAxisAlignment(AxisAlignment::Between)
-            ->setCrossAxisAlignment(AxisAlignment::Center)
-            ->setAutoScale(false)
-            ->setPadding(Padding::horizontal(8.f))
-            ->setGap(5.f));
+        top->setLayout(AnchorLayout::create());
         root->addChild(top);
         top->setLayoutOptions(AnchorLayoutOptions::create()
             ->setAnchor(Anchor::Top)
@@ -717,11 +728,12 @@ class CommentsLayer : public CCLayer {
         m_lockLabel = CCLabelBMFont::create("Unlocked", "chatFont.fnt");
         m_lockLabel->setScale(.42f);
         m_lockLabel->setAnchorPoint({0.f, .5f});
-        top->addChild(m_lockLabel);
 
         auto lockControls = CCMenu::create();
         m_lockControls = lockControls;
-        lockControls->setAnchorPoint({.5f, .5f});
+        // Right edge of the menu = right edge of the window.
+        lockControls->setAnchorPoint({1.f, .5f});
+        lockControls->ignoreAnchorPointForPosition(false);
         lockControls->setLayout(RowLayout::create()
             ->setAxisAlignment(AxisAlignment::End)
             ->setCrossAxisAlignment(AxisAlignment::Center)
@@ -731,14 +743,14 @@ class CommentsLayer : public CCLayer {
         auto makeLockButton = [this, lockControls](
             char const* text, char const* value, char const* texture
         ) {
+            // Text at scale 1 so the button hugs the text (no empty space
+            // above/below), then the whole button is scaled.
             auto sprite = ButtonSprite::create(
-                text, "goldFont.fnt", texture, kLockTextScale
+                text, "goldFont.fnt", texture, 1.f
             );
             auto item = CCMenuItemExt::createSpriteExtra(
                 sprite, [this, value](auto) { setLock(value); }
             );
-            // Scale the item (not the sprite) so the layout and the touch
-            // area both see the real, bigger size.
             item->setScale(kLockButtonScale);
             lockControls->addChild(item);
         };
@@ -750,14 +762,15 @@ class CommentsLayer : public CCLayer {
         float lockWidth = 4.f * 2.f; // two gaps
         for (auto child : lockControls->getChildrenExt())
             lockWidth += child->getScaledContentSize().width;
-        lockControls->setContentSize({lockWidth, kTopHeight - 2.f});
+        lockControls->setContentSize({lockWidth, kTopHeight});
         lockControls->updateLayout();
-        top->addChild(lockControls);
 
-        // Keep the status text from running into the (now much bigger) buttons.
+        top->addChildAtPosition(lockControls, Anchor::Right, ccp(-8.f, 0.f));
+        top->addChildAtPosition(m_lockLabel, Anchor::Left, ccp(8.f, 0.f));
+
+        // Keep the status text from running into the buttons.
         m_lockLabelMaxWidth = std::max(60.f, width - 8.f - 16.f - lockWidth - 5.f);
         m_lockLabel->limitLabelWidth(m_lockLabelMaxWidth, .42f, .1f);
-        top->updateLayout();
 
         // ------------------------------------------------------------------
         // MIDDLE (anchored to the middle): comments scroll layer only.
@@ -802,27 +815,12 @@ class CommentsLayer : public CCLayer {
         // ------------------------------------------------------------------
         // BOTTOM (anchored to the bottom):
         //   [v1.0.0] [Exit Edit] [+] [count] [Add a comment...] [Send]
+        // Positioned by updateBottomLayout(): the input stretches to fill
+        // every pixel the buttons leave over.
         // ------------------------------------------------------------------
-        auto bottomBg = NineSlice::create("square02b_001.png");
-        bottomBg->setColor(ccBLACK);
-        bottomBg->setOpacity(115);
-        bottomBg->setScale(.3f);
-        bottomBg->setAnchorPoint({.5f, 0.f});
-        bottomBg->setContentSize(
-            CCSize{width - 8.f, kBottomHeight} / bottomBg->getScale()
-        );
-        // Added BEFORE the row so it is drawn behind the buttons.
-        root->addChildAtPosition(bottomBg, Anchor::Bottom, ccp(0.f, kBottomInset));
-
         auto bottom = CCNode::create();
         bottom->setContentSize({width - 8.f, kBottomHeight});
         bottom->setAnchorPoint({.5f, 0.f});
-        bottom->setLayout(RowLayout::create()
-            ->setAxisAlignment(AxisAlignment::Center)
-            ->setCrossAxisAlignment(AxisAlignment::Center)
-            ->setAutoScale(false)
-            ->setPadding(Padding::horizontal(8.f))
-            ->setGap(5.f));
         root->addChild(bottom);
         m_bottom = bottom;
         bottom->setLayoutOptions(
@@ -831,67 +829,55 @@ class CommentsLayer : public CCLayer {
                 ->setOffset(ccp(0.f, kBottomInset))
         );
 
-        // Version button: a regular green button whose label IS the version
-        // ("v1.0.0"). There is no separate version text any more.
-        auto versionMenu = CCMenu::create();
-        versionMenu->setContentSize({92.f, 42.f});
-        versionMenu->setAnchorPoint({.5f, .5f});
-        versionMenu->setLayout(RowLayout::create()
-            ->setAxisAlignment(AxisAlignment::Center)
-            ->setCrossAxisAlignment(AxisAlignment::Center));
+        // Background lives INSIDE the row and is centred on it, so it is
+        // exactly as tall as the row.
+        auto bottomBg = NineSlice::create("square02b_001.png");
+        bottomBg->setColor(ccBLACK);
+        bottomBg->setOpacity(115);
+        bottomBg->setScale(.3f);
+        bottomBg->setContentSize(bottom->getContentSize() / bottomBg->getScale());
+        bottomBg->setPosition(bottom->getContentSize() / 2.f);
+        bottom->addChild(bottomBg);
 
+        auto bottomMenu = CCMenu::create();
+        bottomMenu->setContentSize(bottom->getContentSize());
+        bottomMenu->setAnchorPoint({0.f, 0.f});
+        bottomMenu->setPosition({0.f, 0.f});
+        bottom->addChild(bottomMenu);
+
+        // Version button: a regular green button whose label IS the version
+        // ("v1.0.0"), in the Pusab font.
         auto versionSprite = ButtonSprite::create(
-            "v-", "chatFont.fnt", "GJ_button_01.png", .50f
+            "v-", "bigFont.fnt", "GJ_button_01.png", 1.f
         );
-        versionSprite->setScale(.50f);
         m_versionButton = CCMenuItemExt::createSpriteExtra(
             versionSprite, [this](auto) { showVersionPicker(); }
         );
-        versionMenu->addChild(m_versionButton);
-        versionMenu->updateLayout();
-        bottom->addChild(versionMenu);
+        m_versionButton->setScale(kBarButtonScale);
+        bottomMenu->addChild(m_versionButton);
 
         // Exit Edit: only visible while a comment is being edited.
-        auto exitMenu = CCMenu::create();
-        m_exitEditMenu = exitMenu;
-        exitMenu->setContentSize({72.f, 42.f});
-        exitMenu->setAnchorPoint({.5f, .5f});
-        exitMenu->setLayout(RowLayout::create()
-            ->setAxisAlignment(AxisAlignment::Center)
-            ->setCrossAxisAlignment(AxisAlignment::Center));
-
         auto exitSprite = ButtonSprite::create(
-            "Exit Edit", "goldFont.fnt", "GJ_button_06.png", .48f
+            "Exit Edit", "goldFont.fnt", "GJ_button_06.png", 1.f
         );
-        exitSprite->setScale(.48f);
-        exitMenu->addChild(CCMenuItemExt::createSpriteExtra(
+        m_exitButton = CCMenuItemExt::createSpriteExtra(
             exitSprite, [this](auto) { exitEdit(); }
-        ));
-        exitMenu->updateLayout();
-        exitMenu->setVisible(false);
-        exitMenu->setContentSize({0.f, 42.f});
-        bottom->addChild(exitMenu);
+        );
+        m_exitButton->setScale(kBarButtonScale);
+        m_exitButton->setVisible(false);
+        bottomMenu->addChild(m_exitButton);
 
         // Add attachment (+)
-        auto attachMenu = CCMenu::create();
-        attachMenu->setContentSize({40.f, 42.f});
-        attachMenu->setAnchorPoint({.5f, .5f});
-        attachMenu->setLayout(RowLayout::create()
-            ->setAxisAlignment(AxisAlignment::Center)
-            ->setCrossAxisAlignment(AxisAlignment::Center));
-
         auto attachSprite = CCSprite::createWithSpriteFrameName("GJ_plusBtn_001.png");
         if (attachSprite)
             limitNodeSize(attachSprite, {26.f, 26.f}, 1.f, .1f);
 
-        auto attachItem = CCMenuItemExt::createSpriteExtra(
+        m_attachButton = CCMenuItemExt::createSpriteExtra(
             attachSprite ? static_cast<CCNode*>(attachSprite)
                          : static_cast<CCNode*>(CCLabelBMFont::create("+", "bigFont.fnt")),
             [this](auto) { showAttachmentsPopup(); }
         );
-        attachMenu->addChild(attachItem);
-        attachMenu->updateLayout();
-        bottom->addChild(attachMenu);
+        bottomMenu->addChild(m_attachButton);
 
         // How many attachments
         m_attachmentCountLabel = CCLabelBMFont::create("", "chatFont.fnt");
@@ -905,25 +891,18 @@ class CommentsLayer : public CCLayer {
         m_input->setID("opengeode-comment-input"_spr);
         m_input->setCommonFilter(CommonFilter::Any);
         m_input->setMaxCharCount(2000);
+        m_input->setAnchorPoint({.5f, .5f});
         bottom->addChild(m_input);
 
         // Send
         auto send = ButtonSprite::create(
-            "Send", "goldFont.fnt", "GJ_button_01.png", .48f
+            "Send", "goldFont.fnt", "GJ_button_01.png", 1.f
         );
-        send->setScale(.48f);
         m_sendButton = CCMenuItemExt::createSpriteExtra(
             send, [this](auto) { submitComment(); }
         );
-        auto sendMenu = CCMenu::create();
-        sendMenu->setContentSize({68.f, 42.f});
-        sendMenu->setAnchorPoint({.5f, .5f});
-        sendMenu->setLayout(RowLayout::create()
-            ->setAxisAlignment(AxisAlignment::Center)
-            ->setCrossAxisAlignment(AxisAlignment::Center));
-        sendMenu->addChild(m_sendButton);
-        sendMenu->updateLayout();
-        bottom->addChild(sendMenu);
+        m_sendButton->setScale(kBarButtonScale);
+        bottomMenu->addChild(m_sendButton);
 
         m_statusLabel = CCLabelBMFont::create("", "chatFont.fnt");
         m_statusLabel->setScale(.20f);
@@ -935,41 +914,53 @@ class CommentsLayer : public CCLayer {
                 ->setOffset(ccp(-8.f, -(kTopInset + kTopHeight + 2.f)))
         );
         root->updateLayout();
-        top->updateLayout();
-        commentsArea->updateLayout();
         updateBottomLayout();
         load();
         return true;
     }
 
-    // Sizes the comment input to whatever room is left in the bottom row
-    // (hidden items such as "Exit Edit" or the attachment count don't count).
+    // Lays the bottom row out by hand, left to right:
+    //   [version] [Exit Edit] [+] [count] [input .......] [Send]
+    // Hidden items take no room, and the input stretches to fill whatever
+    // width the buttons leave over (nothing can go out of bounds).
     void updateBottomLayout() {
         if (!m_bottom || !m_input) return;
 
-        // Hidden items (Exit Edit, the attachment count) are given a width of 0
-        // so they take no room whether or not the layout skips invisible nodes.
-        // Gaps are counted for every child so the row can never overflow.
-        float used = 0.f;
-        int childCount = 0;
-        for (auto child : m_bottom->getChildrenExt()) {
-            ++childCount;
-            if (child == m_input || !child->isVisible()) continue;
-            used += child->getScaledContentSize().width;
+        constexpr float pad = 8.f;
+        constexpr float gap = 5.f;
+        auto rowWidth = m_bottom->getContentWidth();
+        auto centerY = m_bottom->getContentHeight() / 2.f;
+
+        std::vector<CCNode*> order {
+            m_versionButton, m_exitButton, m_attachButton,
+            m_attachmentCountLabel, m_input, m_sendButton
+        };
+
+        float fixedWidth = 0.f;
+        int shown = 0;
+        for (auto node : order) {
+            if (!node || !node->isVisible()) continue;
+            ++shown;
+            if (node != m_input)
+                fixedWidth += node->getScaledContentSize().width;
         }
 
-        constexpr float gap = 5.f;
-        constexpr float horizontalPadding = 16.f;
-        auto gaps = gap * static_cast<float>(std::max(0, childCount - 1));
-        auto available = m_bottom->getContentWidth()
-            - used - gaps - horizontalPadding - 4.f;
+        auto inputWidth = std::max(
+            60.f,
+            rowWidth - pad * 2.f - fixedWidth
+                - gap * static_cast<float>(std::max(0, shown - 1))
+        );
+        m_input->setContentSize({inputWidth, 34.f});
 
-        m_input->setContentSize({
-            std::max(80.f, available),
-            34.f
-        });
-
-        m_bottom->updateLayout();
+        float x = pad;
+        for (auto node : order) {
+            if (!node || !node->isVisible()) continue;
+            auto w = node == m_input
+                ? inputWidth
+                : node->getScaledContentSize().width;
+            node->setPosition({x + w / 2.f, centerY});
+            x += w + gap;
+        }
     }
 
     void request(
@@ -1297,88 +1288,100 @@ class CommentsLayer : public CCLayer {
             if (auto bodyBG = body->getChildByType<CCScale9Sprite>(0))
                 bodyBG->setVisible(false);
 
-            auto attachmentArea = CCNode::create();
+            // The attachment strip is a CCMenu whose DIRECT children are the
+            // thumbnails and arrows (a CCMenu only sees its direct children,
+            // which is why nested items weren't clickable before).
+            auto attachmentArea = CCMenu::create();
             attachmentArea->setAnchorPoint({.5f, .5f});
+            attachmentArea->ignoreAnchorPointForPosition(false);
             attachmentArea->setContentSize({
                 width - 18.f,
-                comment.attachments.empty() ? 0.f : 48.f
+                comment.attachments.empty() ? 0.f : kAttachmentAreaHeight
             });
-            attachmentArea->setLayout(RowLayout::create()
-                ->setAxisAlignment(AxisAlignment::Center)
-                ->setCrossAxisAlignment(AxisAlignment::Center)
-                ->setGap(4.f));
 
             if (!comment.attachments.empty()) {
-                auto& offset = m_attachmentOffsets[comment.id];
-                auto count = static_cast<int>(comment.attachments.size());
-                constexpr int pageSize = 4;
-                auto maxOffset = std::max(0, count - pageSize);
-                offset = std::clamp(offset, 0, maxOffset);
+                auto areaWidth = attachmentArea->getContentWidth();
+                auto areaHeight = attachmentArea->getContentHeight();
+                auto total = static_cast<int>(comment.attachments.size());
 
-                auto makeArrow = [this](char const* label, int delta, int commentID) {
-                    auto sprite = ButtonSprite::create(
-                        label, "bigFont.fnt", "GJ_button_01.png", .24f
+                // Swaps only the thumbnails; the rest of the chat is untouched.
+                auto populate = std::make_shared<std::function<void()>>();
+                *populate = [
+                    this,
+                    commentID = comment.id,
+                    attachments = comment.attachments,
+                    area = attachmentArea,
+                    areaWidth,
+                    areaHeight
+                ]() {
+                    while (area->getChildByTag(kAttachmentImageTag))
+                        area->removeChildByTag(kAttachmentImageTag);
+
+                    auto& offset = m_attachmentOffsets[commentID];
+                    auto count = static_cast<int>(attachments.size());
+                    offset = std::clamp(
+                        offset, 0, std::max(0, count - kAttachmentPageSize)
                     );
-                    sprite->setScale(.24f);
-                    return CCMenuItemExt::createSpriteExtra(
-                        sprite, [this, delta, commentID](auto) {
-                            auto& value = m_attachmentOffsets[commentID];
-                            value = std::max(0, value + delta);
-                            rebuild();
-                        }
-                    );
+                    auto visible = std::min(kAttachmentPageSize, count - offset);
+
+                    float gap = 4.f;
+                    float span = static_cast<float>(visible) * kThumbSize
+                        + static_cast<float>(std::max(0, visible - 1)) * gap;
+                    float x = (areaWidth - span) / 2.f;
+
+                    for (int i = 0; i < visible; ++i) {
+                        auto const& attachment = attachments[offset + i];
+                        auto box = createAttachmentBox(kThumbSize, attachment.url);
+                        auto item = CCMenuItemExt::createSpriteExtra(
+                            box,
+                            [this, url = attachment.url](auto) {
+                                showAttachmentImage(url);
+                            }
+                        );
+                        item->setTag(kAttachmentImageTag);
+                        item->setPosition({x + kThumbSize / 2.f, areaHeight / 2.f});
+                        area->addChild(item);
+                        x += kThumbSize + gap;
+                    }
                 };
 
-                if (count > pageSize)
-                    attachmentArea->addChild(makeArrow("<", -1, comment.id));
+                if (total > kAttachmentPageSize) {
+                    auto makeArrow = [
+                        this, populate, commentID = comment.id, areaWidth, areaHeight
+                    ](bool right) {
+                        // In-game arrow texture (points left; flipped for right).
+                        auto arrow = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
+                        CCNode* image = arrow
+                            ? static_cast<CCNode*>(arrow)
+                            : static_cast<CCNode*>(
+                                CCLabelBMFont::create(right ? ">" : "<", "bigFont.fnt")
+                            );
+                        if (arrow) arrow->setFlipX(right);
 
-                auto images = CCNode::create();
-                images->setAnchorPoint({.5f, .5f});
-                images->setContentSize({
-                    std::min(190.f, width - 70.f), 46.f
-                });
-                images->setLayout(RowLayout::create()
-                    ->setAxisAlignment(AxisAlignment::Start)
-                    ->setCrossAxisAlignment(AxisAlignment::Center)
-                    ->setGap(5.f));
-
-                auto visible = std::min(pageSize, count - offset);
-                for (int i = 0; i < visible; ++i) {
-                    auto const& attachment = comment.attachments[offset + i];
-                    auto imageHolder = CCNode::create();
-                    imageHolder->setContentSize({42.f, 42.f});
-                    imageHolder->setAnchorPoint({.5f, .5f});
-                    imageHolder->setLayout(AnchorLayout::create());
-
-                    createContainedImage(imageHolder, {42.f, 42.f}, attachment.url);
-
-                    auto item = CCMenuItemExt::createSpriteExtra(
-                        imageHolder,
-                        [this, attachment](auto) {
-                            showAttachmentImage(attachment.url);
-                        }
-                    );
-                    auto itemMenu = CCMenu::create();
-                    itemMenu->setContentSize({44.f, 44.f});
-                    itemMenu->setAnchorPoint({.5f, .5f});
-                    itemMenu->setLayout(RowLayout::create()
-                        ->setAxisAlignment(AxisAlignment::Center)
-                        ->setCrossAxisAlignment(AxisAlignment::Center));
-                    itemMenu->addChild(item);
-                    itemMenu->updateLayout();
-                    images->addChild(itemMenu);
+                        auto item = CCMenuItemExt::createSpriteExtra(
+                            image,
+                            [this, populate, commentID, right](auto) {
+                                m_attachmentOffsets[commentID] += right ? 1 : -1;
+                                (*populate)();
+                            }
+                        );
+                        item->setScale(.6f);
+                        auto half = item->getScaledContentSize().width / 2.f;
+                        item->setPosition({
+                            right ? areaWidth - half : half,
+                            areaHeight / 2.f
+                        });
+                        return item;
+                    };
+                    attachmentArea->addChild(makeArrow(false));
+                    attachmentArea->addChild(makeArrow(true));
                 }
-                images->updateLayout();
-                attachmentArea->addChild(images);
 
-                if (count > pageSize)
-                    attachmentArea->addChild(makeArrow(">", 1, comment.id));
-
-                attachmentArea->updateLayout();
+                (*populate)();
             }
 
             auto cardHeight = 36.f + 4.f + 66.f +
-                (comment.attachments.empty() ? 0.f : 52.f);
+                (comment.attachments.empty() ? 0.f : kAttachmentAreaHeight + 4.f);
 
             auto card = CCNode::create();
             card->setContentSize({width, cardHeight});
@@ -1444,8 +1447,6 @@ class CommentsLayer : public CCLayer {
                         : fmt::format("v{}", m_state.selectedVersion).c_str()
                 );
                 m_versionButton->updateSprite();
-                if (auto menu = m_versionButton->getParent())
-                    menu->updateLayout();
             }
         }
 
@@ -1474,12 +1475,8 @@ class CommentsLayer : public CCLayer {
             m_attachmentCountLabel->setVisible(attachmentCount > 0);
         }
 
-        if (m_exitEditMenu) {
-            auto editing = m_editingCommentID != 0;
-            m_exitEditMenu->setVisible(editing);
-            m_exitEditMenu->setContentSize({editing ? 72.f : 0.f, 42.f});
-            m_exitEditMenu->updateLayout();
-        }
+        if (m_exitButton)
+            m_exitButton->setVisible(m_editingCommentID != 0);
 
         auto allowed = canComment();
         m_input->setVisible(allowed);
