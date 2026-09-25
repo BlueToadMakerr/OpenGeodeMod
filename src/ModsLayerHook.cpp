@@ -82,7 +82,12 @@ protected:
         if (g_switchNotif) { g_switchNotif->cancel(); g_switchNotif = nullptr; }
         if (auto overlay = scene->getChildByID("switch-overlay"_spr)) overlay->removeFromParentAndCleanup(true);
 
-        auto topContainer = listFrame->getChildByID("top-container");
+        // mod-list-frame is only the outer frame. The actual ModsLayer
+        // contents (including the OpenGeode action controls) live in ModList.
+        auto modList = listFrame->getChildByID("ModList");
+        if (!modList) return;
+
+        auto topContainer = modList->getChildByID("top-container");
         if (!topContainer) return;
         auto searchMenu = topContainer->getChildByID("search-menu");
         if (!searchMenu) return;
