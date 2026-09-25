@@ -85,11 +85,11 @@ namespace opengeode {
 namespace {
 
 // ---------------------------------------------------------------------------
-// Comments window layout constants (shrunk top and bottom rows slightly).
+// Comments window layout constants (halved top and bottom heights).
 // ---------------------------------------------------------------------------
-constexpr float kTopHeight = 25.f;
+constexpr float kTopHeight = 12.5f;
 constexpr float kTopInset = 3.f;
-constexpr float kBottomHeight = 32.f;
+constexpr float kBottomHeight = 16.f;
 constexpr float kBottomInset = 3.f;
 constexpr float kSectionGap = 3.f;
 
@@ -100,6 +100,42 @@ constexpr float kThumbSize = 36.f;
 constexpr float kAttachmentAreaHeight = 42.f;
 constexpr int kAttachmentPageSize = 4;
 constexpr int kAttachmentImageTag = 7701;
+
+void showNotification(
+    std::string message,
+    NotificationIcon icon,
+    float time
+) {
+    geode::queueInMainThread(
+        [message = std::move(message), icon, time] {
+            Notification::create(message, icon, time)->show();
+        }
+    );
+}
+
+void notifyStatus(std::string const& message) {
+    showNotification(message, NotificationIcon::Info, 1.5f);
+}
+
+struct LoadingNotification {
+    Notification* notification = nullptr;
+
+    static std::shared_ptr<LoadingNotification> create(std::string message) {
+        auto ref = std::make_shared<LoadingNotification>();
+        geode::queueInMainThread([ref, message = std::move(message)] {
+            ref->notification = Notification::create(message, NotificationIcon::Loading, 0.f);
+            ref->notification->show();
+        });
+        return ref;
+    }
+
+    void hide() const {
+        auto n = notification;
+        geode::queueInMainThread([n] {
+            if (n) n->hide();
+        });
+    }
+};
 
 struct CommentAttachment {
     int id = 0;
@@ -663,14 +699,6 @@ class CommentsLayer : public CCLayer {
     CCNode* m_bottom = nullptr;
     std::unordered_map<int, int> m_attachmentOffsets;
 
-    void notifyStatus(std::string const& message) {
-        Notification::create(
-            message,
-            NotificationIcon::Info,
-            1.5f
-        )->show();
-    }
-
     bool init(std::string modID, CCNode* textArea) {
         if (!CCLayer::init()) return false;
 
@@ -930,8 +958,7 @@ class CommentsLayer : public CCLayer {
 
     void load() {
         m_state.loggedIn = hasAuthTokens();
-        auto loading = Notification::create("Loading comments...", NotificationIcon::Loading, 0.f);
-        loading->show();
+        auto loading = LoadingNotification::create("Loading comments...");
 
         if (!m_state.loggedIn) {
             loading->hide();
@@ -1005,8 +1032,7 @@ class CommentsLayer : public CCLayer {
     void loadSelectedVersion() {
         if (m_state.selectedVersion.empty()) return;
 
-        auto loading = Notification::create("Loading submission...", NotificationIcon::Loading, 0.f);
-        loading->show();
+        auto loading = LoadingNotification::create("Loading submission...");
 
         request(
             "GET",
@@ -1034,8 +1060,7 @@ class CommentsLayer : public CCLayer {
                 m_state.lockedBy = lockedBy.isObject() ? intValue(lockedBy, "id") : 0;
                 m_state.lockedByName = lockedBy.isObject() ? stringValue(lockedBy, "username", "Unknown") : "";
 
-                auto commentsLoading = Notification::create("Loading comments...", NotificationIcon::Loading, 0.f);
-                commentsLoading->show();
+                auto commentsLoading = LoadingNotification::create("Loading comments...");
 
                 request(
                     "GET",
@@ -1566,8 +1591,7 @@ class CommentsLayer : public CCLayer {
         );
         request.bodyJSON(json);
 
-        auto loading = Notification::create("Updating lock...", NotificationIcon::Loading, 0.f);
-        loading->show();
+        auto loading = LoadingNotification::create("Updating lock...");
 
         m_requestTask.spawn(
             request.put(
@@ -1659,8 +1683,7 @@ class CommentsLayer : public CCLayer {
         request.bodyJSON(json);
 
         m_sendButton->setEnabled(false);
-        auto loading = Notification::create("Posting...", NotificationIcon::Loading, 0.f);
-        loading->show();
+        auto loading = LoadingNotification::create("Posting...");
 
         m_requestTask.spawn(
             request.post(
@@ -1710,8 +1733,7 @@ class CommentsLayer : public CCLayer {
         request.bodyJSON(json);
 
         m_sendButton->setEnabled(false);
-        auto loading = Notification::create("Saving...", NotificationIcon::Loading, 0.f);
-        loading->show();
+        auto loading = LoadingNotification::create("Saving...");
 
         m_requestTask.spawn(
             request.put(
@@ -1785,8 +1807,7 @@ class CommentsLayer : public CCLayer {
         );
         request.bodyMultipart(form);
 
-        auto loading = Notification::create("Uploading attachments...", NotificationIcon::Loading, 0.f);
-        loading->show();
+        auto loading = LoadingNotification::create("Uploading attachments...");
 
         m_requestTask.spawn(
             request.post(
@@ -1920,8 +1941,7 @@ class CommentsLayer : public CCLayer {
                     "Bearer " + getAuthAccessToken()
                 );
 
-                auto loading = Notification::create("Deleting comment...", NotificationIcon::Loading, 0.f);
-                loading->show();
+                auto loading = LoadingNotification::create("Deleting comment...");
 
                 m_requestTask.spawn(
                     request.send(
