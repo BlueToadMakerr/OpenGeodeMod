@@ -93,8 +93,8 @@ constexpr float kBottomHeight = 16.f;
 constexpr float kBottomInset = 3.f;
 constexpr float kSectionGap = 3.f;
 
-constexpr float kLockButtonScale = .55f;   
-constexpr float kBarButtonScale = .65f;    
+constexpr float kLockButtonScale = .17f;   
+constexpr float kBarButtonScale = .275f;    
 
 constexpr float kThumbSize = 36.f;         
 constexpr float kAttachmentAreaHeight = 42.f;
@@ -117,22 +117,44 @@ void notifyStatus(std::string const& message) {
     showNotification(message, NotificationIcon::Info, 1.5f);
 }
 
-struct LoadingNotification {
-    Notification* notification = nullptr;
+struct LoadingNotification : std::enable_shared_from_this<LoadingNotification> {
+    Ref<Notification> notification;
+    bool hideRequested = false;
 
     static std::shared_ptr<LoadingNotification> create(std::string message) {
         auto ref = std::make_shared<LoadingNotification>();
-        geode::queueInMainThread([ref, message = std::move(message)] {
-            ref->notification = Notification::create(message, NotificationIcon::Loading, 0.f);
+
+        geode::queueInMainThread([
+            ref,
+            message = std::move(message)
+        ] {
+            ref->notification = Notification::create(
+                message,
+                NotificationIcon::Loading,
+                0.f
+            );
+
             ref->notification->show();
+
+            if (ref->hideRequested) {
+                ref->notification->hide();
+                ref->notification = nullptr;
+            }
         });
+
         return ref;
     }
 
-    void hide() const {
-        auto n = notification;
-        geode::queueInMainThread([n] {
-            if (n) n->hide();
+    void hide() {
+        auto self = shared_from_this();
+
+        geode::queueInMainThread([self] {
+            self->hideRequested = true;
+
+            if (self->notification) {
+                self->notification->hide();
+                self->notification = nullptr;
+            }
         });
     }
 };
@@ -860,7 +882,7 @@ class CommentsLayer : public CCLayer {
 
         auto attachSprite = CCSprite::createWithSpriteFrameName("GJ_plusBtn_001.png");
         if (attachSprite)
-            limitNodeSize(attachSprite, {26.f, 26.f}, 1.f, .1f);
+            limitNodeSize(attachSprite, {13.f, 13.f}, 1.f, .1f);
 
         m_attachButton = CCMenuItemExt::createSpriteExtra(
             attachSprite ? static_cast<CCNode*>(attachSprite)
@@ -870,7 +892,7 @@ class CommentsLayer : public CCLayer {
         bottomMenu->addChild(m_attachButton);
 
         m_attachmentCountLabel = CCLabelBMFont::create("", "chatFont.fnt");
-        m_attachmentCountLabel->setScale(.28f);
+        m_attachmentCountLabel->setScale(.14f);
         m_attachmentCountLabel->setAnchorPoint({.5f, .5f});
         m_attachmentCountLabel->setVisible(false);
         bottom->addChild(m_attachmentCountLabel);
@@ -925,7 +947,7 @@ class CommentsLayer : public CCLayer {
             rowWidth - pad * 2.f - fixedWidth
                 - gap * static_cast<float>(std::max(0, shown - 1))
         );
-        m_input->setContentSize({inputWidth, 30.f});
+        m_input->setContentSize({inputWidth, 15.f});
 
         float x = pad;
         for (auto node : order) {
@@ -1226,27 +1248,27 @@ class CommentsLayer : public CCLayer {
 
             if (comment.canEdit) {
                 auto button = ButtonSprite::create(
-                    "Edit", "goldFont.fnt", "GJ_button_01.png", .81f
+                    "Edit", "goldFont.fnt", "GJ_button_01.png", .17f
                 );
-                button->setScale(.81f);
+                button->setScale(.17f);
                 auto editItem = CCMenuItemExt::createSpriteExtra(
                     button, [this, comment](auto) { beginEdit(comment); }
                 );
-                editItem->setScale(.81f);
-                editItem->m_baseScale = .81f;
+                editItem->setScale(.17f);
+                editItem->m_baseScale = .17f;
                 editItem->setAnchorPoint({.5f, .5f});
                 actions->addChild(editItem);
             }
             if (comment.canDelete) {
                 auto button = ButtonSprite::create(
-                    "Delete", "goldFont.fnt", "GJ_button_06.png", .81f
+                    "Delete", "goldFont.fnt", "GJ_button_06.png", .17f
                 );
-                button->setScale(.81f);
+                button->setScale(.17f);
                 auto deleteItem = CCMenuItemExt::createSpriteExtra(
                     button, [this, comment](auto) { deleteComment(comment.id); }
                 );
-                deleteItem->setScale(.81f);
-                deleteItem->m_baseScale = .81f;
+                deleteItem->setScale(.17f);
+                deleteItem->m_baseScale = .17f;
                 deleteItem->setAnchorPoint({.5f, .5f});
                 actions->addChild(deleteItem);
             }
@@ -1472,15 +1494,6 @@ class CommentsLayer : public CCLayer {
         m_lockLabel->setColor(lockColor);
         if (m_lockControls)
             m_lockControls->setVisible(m_state.currentDeveloperAdmin);
-
-        if (!m_state.loggedIn)
-            notifyStatus("Log in to comment.");
-        else if (m_state.lock == "locked" && !m_state.currentDeveloperAdmin)
-            notifyStatus("This submission is locked.");
-        else if (m_state.lock == "internal" && !m_state.currentDeveloperAdmin)
-            notifyStatus("This submission is locked to the index team.");
-        else if (!any)
-            notifyStatus("No comments yet.");
     }
 
     void addAvatar(CCNode* avatar, CommentData const& comment) {
