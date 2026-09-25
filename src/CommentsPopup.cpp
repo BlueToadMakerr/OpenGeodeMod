@@ -4,6 +4,7 @@
 #include <Geode/Geode.hpp>
 #include <Geode/ui/MDTextArea.hpp>
 #include <Geode/ui/Popup.hpp>
+#include <Geode/ui/Notification.hpp>
 #include <Geode/ui/TextInput.hpp>
 #include <Geode/utils/async.hpp>
 #include <Geode/utils/file.hpp>
@@ -87,11 +88,12 @@ namespace {
 // ---------------------------------------------------------------------------
 // Comments window layout constants (top / middle / bottom sections).
 // ---------------------------------------------------------------------------
-constexpr float kTopHeight = 34.f;
+constexpr float kTopHeight = 29.f;
 constexpr float kTopInset = 3.f;
-constexpr float kBottomHeight = 44.f;
+constexpr float kBottomHeight = 38.f;
 constexpr float kBottomInset = 3.f;
 constexpr float kSectionGap = 3.f;
+constexpr float kHorizontalMargin = 20.f; // top/bottom bars inset from each edge
 
 // Auto-sized buttons (text at scale 1 so the button hugs the text, then the
 // whole button is scaled). Tweak these two to make the buttons bigger/smaller.
@@ -237,6 +239,16 @@ CCNode* createAttachmentBox(
     return box;
 }
 
+// CCMenuItemSprite eases its OWN scale down/up on press/release; a fast tap
+// can catch that ease mid-flight and leave the button bigger than it started.
+// Call this at the top of a button's callback to force it back to its real
+// size every time, regardless of where the ease landed.
+void pinScale(CCMenuItemSpriteExtra* item, float scale) {
+    if (!item) return;
+    item->stopAllActions();
+    item->setScale(scale);
+}
+
 std::string getModID(CCNode* popup) {
     auto label = typeinfo_cast<CCLabelBMFont*>(popup->getChildByIDRecursive("mod-id-label"));
     if (!label) return "";
@@ -355,16 +367,16 @@ class AttachmentImagePopup : public Popup {
     std::string m_url;
 
     bool init(std::string url) {
-        if (!Popup::init(350.f, 300.f)) return false;
+        if (!Popup::init(350.f, 260.f)) return false;
         m_url = std::move(url);
         setTitle("Attachment");
 
         auto holder = CCNode::create();
-        holder->setContentSize({320.f, 250.f});
+        holder->setContentSize({320.f, 210.f});
         holder->setAnchorPoint({.5f, .5f});
         holder->setLayout(AnchorLayout::create());
         m_mainLayer->addChildAtPosition(holder, Anchor::Center);
-        createContainedImage(holder, {320.f, 250.f}, m_url);
+        createContainedImage(holder, {320.f, 210.f}, m_url);
         m_noElasticity = true;
         return true;
     }
@@ -571,7 +583,7 @@ class AttachmentPopup : public Popup {
         std::function<void(std::filesystem::path const&)> onRemovePending,
         std::function<void()> onAdd
     ) {
-        if (!Popup::init(300.f, 250.f)) return false;
+        if (!Popup::init(300.f, 200.f)) return false;
 
         m_attachments = std::move(attachments);
         m_pending = std::move(pending);
@@ -583,8 +595,8 @@ class AttachmentPopup : public Popup {
 
         auto size = m_mainLayer->getContentSize();
         constexpr float scrollWidth = 270.f;
-        constexpr float scrollHeight = 168.f;
-        constexpr float scrollBottom = 46.f;
+        constexpr float scrollHeight = 128.f;
+        constexpr float scrollBottom = 36.f;
 
         // Background behind the (now longer) list.
         auto listBG = NineSlice::create("square02b_001.png");
@@ -616,8 +628,10 @@ class AttachmentPopup : public Popup {
         auto add = ButtonSprite::create(
             "+ Add Image", "goldFont.fnt", "GJ_button_01.png", 1.f
         );
-        auto addItem = CCMenuItemExt::createSpriteExtra(
-            add, [this](auto) {
+        auto addItem = CCMenuItemExt::createSpriteExtra(add, [](auto) {});
+        CCMenuItemExt::assignCallback<CCMenuItemSpriteExtra>(
+            addItem, [this, addItem](auto) {
+                pinScale(addItem, .85f);
                 if (m_onAdd) {
                     m_onAdd();
                     removeFromParent();
@@ -625,7 +639,9 @@ class AttachmentPopup : public Popup {
             }
         );
         addItem->setScale(.85f);
-        m_buttonMenu->addChildAtPosition(addItem, Anchor::Bottom, ccp(0.f, 24.f));
+        m_buttonMenu->addChildAtPosition(
+            addItem, Anchor::Bottom, ccp(0.f, scrollBottom / 2.f)
+        );
 
         rebuild();
         m_scroll->scrollToTop();
@@ -678,7 +694,6 @@ class CommentsLayer : public CCLayer {
     CCMenuItemSpriteExtra* m_attachButton = nullptr;
     TextInput* m_input = nullptr;
     CCMenuItemSpriteExtra* m_sendButton = nullptr;
-    CCLabelBMFont* m_statusLabel = nullptr;
     CCNode* m_commentsContainer = nullptr;
     CCNode* m_bottom = nullptr;
     std::unordered_map<int, int> m_attachmentOffsets;
@@ -717,7 +732,7 @@ class CommentsLayer : public CCLayer {
         //   right = Lock / Internal / Unlock (gold Pusab, auto-sized)
         // ------------------------------------------------------------------
         auto top = CCNode::create();
-        top->setContentSize({width - 8.f, kTopHeight});
+        top->setContentSize({width - kHorizontalMargin, kTopHeight});
         top->setAnchorPoint({.5f, 1.f});
         top->setLayout(AnchorLayout::create());
         root->addChild(top);
@@ -748,8 +763,17 @@ class CommentsLayer : public CCLayer {
             auto sprite = ButtonSprite::create(
                 text, "goldFont.fnt", texture, 1.f
             );
-            auto item = CCMenuItemExt::createSpriteExtra(
-                sprite, [this, value](auto) { setLock(value); }
+            // CCMenuItemSprite's built-in press animation eases the item's
+            // OWN scale down then back "up" to whatever scale it reads at
+            // release time; a fast tap can catch it mid-ease and leave the
+            // button permanently bigger. Pin the scale back explicitly every
+            // time the button is used.
+            auto item = CCMenuItemExt::createSpriteExtra(sprite, [](auto) {});
+            CCMenuItemExt::assignCallback<CCMenuItemSpriteExtra>(
+                item, [this, item, value](auto) {
+                    pinScale(item, kLockButtonScale);
+                    setLock(value);
+                }
             );
             item->setScale(kLockButtonScale);
             lockControls->addChild(item);
@@ -769,7 +793,7 @@ class CommentsLayer : public CCLayer {
         top->addChildAtPosition(m_lockLabel, Anchor::Left, ccp(8.f, 0.f));
 
         // Keep the status text from running into the buttons.
-        m_lockLabelMaxWidth = std::max(60.f, width - 8.f - 16.f - lockWidth - 5.f);
+        m_lockLabelMaxWidth = std::max(60.f, width - kHorizontalMargin - 16.f - lockWidth - 5.f);
         m_lockLabel->limitLabelWidth(m_lockLabelMaxWidth, .42f, .1f);
 
         // ------------------------------------------------------------------
@@ -819,7 +843,7 @@ class CommentsLayer : public CCLayer {
         // every pixel the buttons leave over.
         // ------------------------------------------------------------------
         auto bottom = CCNode::create();
-        bottom->setContentSize({width - 8.f, kBottomHeight});
+        bottom->setContentSize({width - kHorizontalMargin, kBottomHeight});
         bottom->setAnchorPoint({.5f, 0.f});
         root->addChild(bottom);
         m_bottom = bottom;
@@ -850,8 +874,12 @@ class CommentsLayer : public CCLayer {
         auto versionSprite = ButtonSprite::create(
             "v-", "bigFont.fnt", "GJ_button_01.png", 1.f
         );
-        m_versionButton = CCMenuItemExt::createSpriteExtra(
-            versionSprite, [this](auto) { showVersionPicker(); }
+        m_versionButton = CCMenuItemExt::createSpriteExtra(versionSprite, [](auto) {});
+        CCMenuItemExt::assignCallback<CCMenuItemSpriteExtra>(
+            m_versionButton, [this](auto) {
+                pinScale(m_versionButton, kBarButtonScale);
+                showVersionPicker();
+            }
         );
         m_versionButton->setScale(kBarButtonScale);
         bottomMenu->addChild(m_versionButton);
@@ -860,8 +888,12 @@ class CommentsLayer : public CCLayer {
         auto exitSprite = ButtonSprite::create(
             "Exit Edit", "goldFont.fnt", "GJ_button_06.png", 1.f
         );
-        m_exitButton = CCMenuItemExt::createSpriteExtra(
-            exitSprite, [this](auto) { exitEdit(); }
+        m_exitButton = CCMenuItemExt::createSpriteExtra(exitSprite, [](auto) {});
+        CCMenuItemExt::assignCallback<CCMenuItemSpriteExtra>(
+            m_exitButton, [this](auto) {
+                pinScale(m_exitButton, kBarButtonScale);
+                exitEdit();
+            }
         );
         m_exitButton->setScale(kBarButtonScale);
         m_exitButton->setVisible(false);
@@ -898,21 +930,16 @@ class CommentsLayer : public CCLayer {
         auto send = ButtonSprite::create(
             "Send", "goldFont.fnt", "GJ_button_01.png", 1.f
         );
-        m_sendButton = CCMenuItemExt::createSpriteExtra(
-            send, [this](auto) { submitComment(); }
+        m_sendButton = CCMenuItemExt::createSpriteExtra(send, [](auto) {});
+        CCMenuItemExt::assignCallback<CCMenuItemSpriteExtra>(
+            m_sendButton, [this](auto) {
+                pinScale(m_sendButton, kBarButtonScale);
+                submitComment();
+            }
         );
         m_sendButton->setScale(kBarButtonScale);
         bottomMenu->addChild(m_sendButton);
 
-        m_statusLabel = CCLabelBMFont::create("", "chatFont.fnt");
-        m_statusLabel->setScale(.20f);
-        m_statusLabel->setAnchorPoint({1.f, .5f});
-        root->addChild(m_statusLabel);
-        m_statusLabel->setLayoutOptions(
-            AnchorLayoutOptions::create()
-                ->setAnchor(Anchor::TopRight)
-                ->setOffset(ccp(-8.f, -(kTopInset + kTopHeight + 2.f)))
-        );
         root->updateLayout();
         updateBottomLayout();
         load();
@@ -983,7 +1010,7 @@ class CommentsLayer : public CCLayer {
 
     void load() {
         m_state.loggedIn = hasAuthTokens();
-        m_statusLabel->setString("Loading comments...");
+        beginLoading("Loading comments...");
 
         if (!m_state.loggedIn) {
             loadMod();
@@ -1005,7 +1032,8 @@ class CommentsLayer : public CCLayer {
     void loadMod() {
         request("GET", fmt::format("/v1/mods/{}", m_modID), [this](web::WebResponse response) {
             if (!response.ok()) {
-                m_statusLabel->setString(errorText(response).c_str());
+                endLoading();
+                notify(errorText(response), NotificationIcon::Error);
                 return;
             }
 
@@ -1045,6 +1073,7 @@ class CommentsLayer : public CCLayer {
 
             if (m_state.selectedVersion.empty()) {
                 rebuild();
+                endLoading();
                 return;
             }
 
@@ -1055,7 +1084,7 @@ class CommentsLayer : public CCLayer {
     void loadSelectedVersion() {
         if (m_state.selectedVersion.empty()) return;
 
-        m_statusLabel->setString("Loading submission...");
+        beginLoading("Loading submission...");
 
         request(
             "GET",
@@ -1070,9 +1099,8 @@ class CommentsLayer : public CCLayer {
                     m_state.lock = "none";
                     m_state.lockedBy = 0;
                     rebuild();
-                    m_statusLabel->setString(
-                        "This version does not have a submission."
-                    );
+                    endLoading();
+                    notify("This version does not have a submission.", NotificationIcon::Info);
                     return;
                 }
 
@@ -1095,14 +1123,14 @@ class CommentsLayer : public CCLayer {
                         if (!commentsResponse.ok()) {
                             m_state.comments.clear();
                             rebuild();
-                            m_statusLabel->setString(
-                                errorText(commentsResponse).c_str()
-                            );
+                            endLoading();
+                            notify(errorText(commentsResponse), NotificationIcon::Error);
                             return;
                         }
 
                         parseComments(commentsResponse.json().unwrapOr(matjson::Value()));
                         rebuild();
+                        endLoading();
                     }
                 );
             }
@@ -1172,6 +1200,33 @@ class CommentsLayer : public CCLayer {
             (m_state.currentDeveloperVerified ||
              m_state.currentDeveloperAdmin ||
              m_state.currentDeveloperModDeveloper);
+    }
+
+    // Status messages now surface as Geode notifications instead of a label
+    // pinned to the popup.
+    static void notify(
+        std::string const& text,
+        NotificationIcon icon = NotificationIcon::Info
+    ) {
+        if (text.empty()) return;
+        Notification::create(text, icon)->show();
+    }
+
+    // For a request that actually waits on the network: show a spinner that
+    // stays up for the whole operation, one notification per operation (not
+    // one per retry/tick). beginLoading() replaces whatever loading
+    // notification is currently showing; endLoading() dismisses it.
+    Ref<Notification> m_loading;
+
+    void beginLoading(std::string const& text) {
+        endLoading();
+        m_loading = Notification::create(text, NotificationIcon::Loading, 0.f);
+        m_loading->show();
+    }
+
+    void endLoading() {
+        if (m_loading) m_loading->hide();
+        m_loading = nullptr;
     }
 
     void rebuild() {
@@ -1501,15 +1556,15 @@ class CommentsLayer : public CCLayer {
             m_lockControls->setVisible(m_state.currentDeveloperAdmin);
 
         if (!m_state.loggedIn)
-            m_statusLabel->setString("Log in to comment.");
+            notify("Log in to comment.", NotificationIcon::Warning);
         else if (m_state.lock == "locked" && !m_state.currentDeveloperAdmin)
-            m_statusLabel->setString("This submission is locked.");
+            notify("This submission is locked.", NotificationIcon::Info);
         else if (m_state.lock == "internal" && !m_state.currentDeveloperAdmin)
-            m_statusLabel->setString("This submission is locked to the index team.");
+            notify("This submission is locked to the index team.", NotificationIcon::Info);
         else if (!any)
-            m_statusLabel->setString("No comments yet.");
+            notify("No comments yet.", NotificationIcon::Info);
         else
-            m_statusLabel->setString("");
+            ;
     }
 
     void addAvatar(CCNode* avatar, CommentData const& comment) {
@@ -1620,7 +1675,7 @@ class CommentsLayer : public CCLayer {
         );
         request.bodyJSON(json);
 
-        m_statusLabel->setString("Updating lock...");
+        beginLoading("Updating lock...");
 
         m_requestTask.spawn(
             request.put(
@@ -1632,8 +1687,9 @@ class CommentsLayer : public CCLayer {
                 )
             ),
             [this](web::WebResponse response) {
+                endLoading();
                 if (!response.ok()) {
-                    m_statusLabel->setString(errorText(response).c_str());
+                    notify(errorText(response), NotificationIcon::Error);
                     return;
                 }
                 loadSelectedVersion();
@@ -1643,9 +1699,7 @@ class CommentsLayer : public CCLayer {
 
     void pickAttachments() {
         if (!canUploadAttachments()) {
-            m_statusLabel->setString(
-                "Attachments require a verified developer, mod developer, or admin."
-            );
+            notify("Attachments require a verified developer, mod developer, or admin.", NotificationIcon::Warning);
             return;
         }
 
@@ -1676,25 +1730,23 @@ class CommentsLayer : public CCLayer {
 
     void submitComment() {
         if (m_state.selectedVersion.empty()) {
-            m_statusLabel->setString("Select a version first.");
+            notify("Select a version first.", NotificationIcon::Warning);
             return;
         }
 
         if (!canComment()) {
-            m_statusLabel->setString("You cannot comment on this submission.");
+            notify("You cannot comment on this submission.", NotificationIcon::Error);
             return;
         }
 
         auto text = std::string(m_input->getString().c_str());
         if (text.empty() && m_pendingFiles.empty() && m_editingCommentID == 0) {
-            m_statusLabel->setString(
-                "Write something or attach an image."
-            );
+            notify("Write something or attach an image.", NotificationIcon::Warning);
             return;
         }
 
         if (!hasAuthTokens()) {
-            m_statusLabel->setString("Log in to comment.");
+            notify("Log in to comment.", NotificationIcon::Warning);
             return;
         }
 
@@ -1715,7 +1767,7 @@ class CommentsLayer : public CCLayer {
         request.bodyJSON(json);
 
         m_sendButton->setEnabled(false);
-        m_statusLabel->setString("Posting...");
+        beginLoading("Posting...");
 
         m_requestTask.spawn(
             request.post(
@@ -1728,8 +1780,9 @@ class CommentsLayer : public CCLayer {
             ),
             [this](web::WebResponse response) {
                 if (!response.ok()) {
+                    endLoading();
                     m_sendButton->setEnabled(true);
-                    m_statusLabel->setString(errorText(response).c_str());
+                    notify(errorText(response), NotificationIcon::Error);
                     return;
                 }
 
@@ -1740,14 +1793,16 @@ class CommentsLayer : public CCLayer {
                 auto commentID = intValue(payload, "id");
 
                 if (commentID == 0) {
+                    endLoading();
                     m_sendButton->setEnabled(true);
-                    m_statusLabel->setString(
-                        "Comment was created but no ID was returned."
-                    );
+                    notify("Comment was created but no ID was returned.", NotificationIcon::Info);
                     loadSelectedVersion();
                     return;
                 }
 
+                // Posting is done; the next stage (attachments, if any)
+                // shows its own loading notification.
+                endLoading();
                 finishCommentAttachments(commentID, false);
             }
         );
@@ -1766,7 +1821,7 @@ class CommentsLayer : public CCLayer {
         request.bodyJSON(json);
 
         m_sendButton->setEnabled(false);
-        m_statusLabel->setString("Saving...");
+        beginLoading("Saving...");
 
         m_requestTask.spawn(
             request.put(
@@ -1780,11 +1835,13 @@ class CommentsLayer : public CCLayer {
             ),
             [this](web::WebResponse response) {
                 if (!response.ok()) {
+                    endLoading();
                     m_sendButton->setEnabled(true);
-                    m_statusLabel->setString(errorText(response).c_str());
+                    notify(errorText(response), NotificationIcon::Error);
                     return;
                 }
 
+                endLoading();
                 finishCommentAttachments(m_editingCommentID, true);
             }
         );
@@ -1792,16 +1849,20 @@ class CommentsLayer : public CCLayer {
 
     void finishCommentAttachments(int commentID, bool editing) {
         auto finish = [this, editing]() {
+            endLoading();
             m_pendingFiles.clear();
             m_removedAttachments.clear();
             m_editingCommentID = 0;
             m_input->setString("");
             m_sendButton->setEnabled(true);
-            m_statusLabel->setString(editing ? "Comment updated." : "Comment posted.");
+            notify(editing ? "Comment updated." : "Comment posted.", NotificationIcon::Success);
             loadSelectedVersion();
         };
 
         if (!m_removedAttachments.empty()) {
+            // One notification for the whole removal pass, not one per
+            // attachment: removeNextAttachment() recurses without touching it.
+            beginLoading("Removing attachments...");
             removeNextAttachment(commentID, std::move(finish));
             return;
         }
@@ -1816,10 +1877,9 @@ class CommentsLayer : public CCLayer {
 
     void uploadAttachments(int commentID, std::function<void()> finish) {
         if (!canUploadAttachments()) {
+            endLoading();
             m_pendingFiles.clear();
-            m_statusLabel->setString(
-                "Comment saved, but you cannot upload attachments."
-            );
+            notify("Comment saved, but you cannot upload attachments.", NotificationIcon::Error);
             finish();
             return;
         }
@@ -1828,10 +1888,9 @@ class CommentsLayer : public CCLayer {
         for (auto const& path : m_pendingFiles) {
             auto result = form.file("image", path);
             if (!result) {
+                endLoading();
                 m_sendButton->setEnabled(true);
-                m_statusLabel->setString(
-                    "Could not read an attachment."
-                );
+                notify("Could not read an attachment.", NotificationIcon::Error);
                 return;
             }
         }
@@ -1843,7 +1902,8 @@ class CommentsLayer : public CCLayer {
         );
         request.bodyMultipart(form);
 
-        m_statusLabel->setString("Uploading attachments...");
+        // Replaces the "Removing attachments..." spinner if there was one.
+        beginLoading("Uploading attachments...");
 
         m_requestTask.spawn(
             request.post(
@@ -1857,13 +1917,12 @@ class CommentsLayer : public CCLayer {
             ),
             [this, finish = std::move(finish)](web::WebResponse response) mutable {
                 if (!response.ok()) {
+                    endLoading();
                     m_sendButton->setEnabled(true);
-                    m_statusLabel->setString(
-                        fmt::format(
+                    notify(fmt::format(
                             "Comment saved, attachment upload failed: {}",
                             errorText(response)
-                        ).c_str()
-                    );
+                        ), NotificationIcon::Error);
                     return;
                 }
                 finish();
@@ -1873,6 +1932,8 @@ class CommentsLayer : public CCLayer {
 
     void removeNextAttachment(int commentID, std::function<void()> finish) {
         if (m_removedAttachments.empty()) {
+            // uploadAttachments() shows its own loading notification; finish()
+            // dismisses the "Removing attachments..." one via endLoading().
             if (!m_pendingFiles.empty())
                 uploadAttachments(commentID, std::move(finish));
             else
@@ -1905,10 +1966,9 @@ class CommentsLayer : public CCLayer {
                 web::WebResponse response
             ) mutable {
                 if (!response.ok()) {
+                    endLoading();
                     m_sendButton->setEnabled(true);
-                    m_statusLabel->setString(
-                        errorText(response).c_str()
-                    );
+                    notify(errorText(response), NotificationIcon::Error);
                     return;
                 }
                 removeNextAttachment(commentID, std::move(finish));
@@ -1923,7 +1983,7 @@ class CommentsLayer : public CCLayer {
         m_removedAttachments.clear();
         m_pendingFiles.clear();
         m_input->setString(comment.body.c_str());
-        m_statusLabel->setString("Editing comment. Press Send to save.");
+        notify("Editing comment. Press Send to save.", NotificationIcon::Info);
         rebuild();
         m_input->focus();
     }
@@ -1948,11 +2008,11 @@ class CommentsLayer : public CCLayer {
 
         if (it == m_removedAttachments.end()) {
             m_removedAttachments.push_back(attachmentID);
-            m_statusLabel->setString("Attachment marked for removal.");
+            notify("Attachment marked for removal.", NotificationIcon::Info);
         }
         else {
             m_removedAttachments.erase(it);
-            m_statusLabel->setString("Attachment restored.");
+            notify("Attachment restored.", NotificationIcon::Success);
         }
         rebuild();
     }
@@ -1962,7 +2022,7 @@ class CommentsLayer : public CCLayer {
         if (it == m_pendingFiles.end()) return;
 
         m_pendingFiles.erase(it);
-        m_statusLabel->setString("Attachment removed.");
+        notify("Attachment removed.", NotificationIcon::Success);
         rebuild();
     }
 
@@ -1981,6 +2041,8 @@ class CommentsLayer : public CCLayer {
                     "Bearer " + getAuthAccessToken()
                 );
 
+                beginLoading("Deleting comment...");
+
                 m_requestTask.spawn(
                     request.send(
                         "DELETE",
@@ -1993,10 +2055,9 @@ class CommentsLayer : public CCLayer {
                         )
                     ),
                     [this](web::WebResponse response) {
+                        endLoading();
                         if (!response.ok()) {
-                            m_statusLabel->setString(
-                                errorText(response).c_str()
-                            );
+                            notify(errorText(response), NotificationIcon::Error);
                             return;
                         }
                         loadSelectedVersion();
