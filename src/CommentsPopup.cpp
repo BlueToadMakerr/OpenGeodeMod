@@ -85,21 +85,18 @@ namespace opengeode {
 namespace {
 
 // ---------------------------------------------------------------------------
-// Comments window layout constants (top / middle / bottom sections).
+// Comments window layout constants (shrunk top and bottom rows slightly).
 // ---------------------------------------------------------------------------
-constexpr float kTopHeight = 29.f;
+constexpr float kTopHeight = 25.f;
 constexpr float kTopInset = 3.f;
-constexpr float kBottomHeight = 38.f;
+constexpr float kBottomHeight = 32.f;
 constexpr float kBottomInset = 3.f;
 constexpr float kSectionGap = 3.f;
 
-// Auto-sized buttons (text at scale 1 so the button hugs the text, then the
-// whole button is scaled). Tweak these two to make the buttons bigger/smaller.
-constexpr float kLockButtonScale = .55f;   // Lock / Internal / Unlock (gold Pusab)
-constexpr float kBarButtonScale = .65f;    // bottom bar: version / Exit Edit / Send
+constexpr float kLockButtonScale = .55f;   
+constexpr float kBarButtonScale = .65f;    
 
-// Attachment thumbnails.
-constexpr float kThumbSize = 36.f;         // in comments
+constexpr float kThumbSize = 36.f;         
 constexpr float kAttachmentAreaHeight = 42.f;
 constexpr int kAttachmentPageSize = 4;
 constexpr int kAttachmentImageTag = 7701;
@@ -161,9 +158,6 @@ int intValue(matjson::Value const& value, char const* key, int fallback = 0) {
     return value[key].asInt().unwrapOr(fallback);
 }
 
-// The single image path used for EVERY image (avatars, comment thumbnails,
-// attachment previews, the full-size viewer). The sprite is measured after it
-// loads and scaled down so it always stays inside `size`.
 LazySprite* createContainedImage(
     CCNode* holder,
     CCSize size,
@@ -189,8 +183,6 @@ LazySprite* createContainedImage(
             return;
         }
 
-        // Use the real size of the loaded image (the inner sprite if there is
-        // one) so huge images can't spill out of their box.
         auto real = sprite->getContentSize();
         if (auto inner = sprite->getChildByType<CCSprite>(0)) {
             auto innerSize = inner->getScaledContentSize();
@@ -214,8 +206,6 @@ LazySprite* createContainedImage(
     return sprite;
 }
 
-// A square box with a dark background that shows where an attachment lives,
-// with the image contained inside it.
 CCNode* createAttachmentBox(
     float size,
     std::string const& url,
@@ -249,7 +239,6 @@ std::string getModID(CCNode* popup) {
     if (!value.empty() && value.back() == ')') value.pop_back();
     return value;
 }
-
 
 class VersionSelectPopup : public Popup {
     std::vector<std::string> m_versions;
@@ -403,7 +392,6 @@ class AttachmentPopup : public Popup {
 
         m_content->removeAllChildren();
 
-        // Row geometry (kept small so more rows fit on screen).
         constexpr float rowWidth = 258.f;
         constexpr float rowHeight = 40.f;
         constexpr float pad = 6.f;
@@ -417,8 +405,6 @@ class AttachmentPopup : public Popup {
                              int attachmentID,
                              bool removed,
                              bool pendingUpload) {
-            // Everything in the row is pinned to the left / right edge with an
-            // AnchorLayout, so nothing depends on a nested RowLayout.
             auto row = CCNode::create();
             row->setContentSize({rowWidth, rowHeight});
             row->setAnchorPoint({.5f, .5f});
@@ -431,13 +417,11 @@ class AttachmentPopup : public Popup {
             bg->setContentSize(row->getContentSize() / bg->getScale());
             row->addChildAtPosition(bg, Anchor::Center);
 
-            // [Image] - left, in its own background box.
             auto box = createAttachmentBox(imageSize, url, localPath);
             row->addChildAtPosition(
                 box, Anchor::Left, ccp(pad + imageSize / 2.f, 0.f)
             );
 
-            // File name (top) + upload status (bottom), left-aligned.
             auto info = CCNode::create();
             info->setContentSize({infoWidth, imageSize});
             info->setAnchorPoint({0.f, .5f});
@@ -456,9 +440,6 @@ class AttachmentPopup : public Popup {
             statusLabel->limitLabelWidth(infoWidth, .22f, .1f);
             info->addChildAtPosition(statusLabel, Anchor::Left, ccp(0.f, -7.f));
 
-            // [Remove/Restore] - right, vertically centred. Auto-sized like
-            // Edit/Delete: the button hugs its text (no empty space above or
-            // below) and is only scaled down if it would be too wide.
             auto actions = CCMenu::create();
             actions->setContentSize({actionWidth, imageSize});
             actions->setAnchorPoint({.5f, .5f});
@@ -589,7 +570,6 @@ class AttachmentPopup : public Popup {
         constexpr float scrollHeight = 153.f;
         constexpr float scrollBottom = 46.f;
 
-        // Background behind the (now longer) list.
         auto listBG = NineSlice::create("square02b_001.png");
         listBG->setColor(ccBLACK);
         listBG->setOpacity(90);
@@ -601,11 +581,9 @@ class AttachmentPopup : public Popup {
         m_mainLayer->addChild(listBG);
 
         m_scroll = ScrollLayer::create({scrollWidth, scrollHeight});
-        // ScrollLayer positions from its bottom-left corner.
         m_scroll->setPosition({(size.width - scrollWidth) / 2.f, scrollBottom});
         m_content = m_scroll->m_contentLayer;
         m_content->setAnchorPoint({0.f, 0.f});
-        // Rows are listed top-to-bottom.
         m_content->setLayout(ColumnLayout::create()
             ->setAxisReverse(true)
             ->setAxisAlignment(AxisAlignment::Start)
@@ -615,7 +593,6 @@ class AttachmentPopup : public Popup {
             ->setPadding(Padding::uniform(5.f)));
         m_mainLayer->addChild(m_scroll);
 
-        // "+ Add Image": bigger, at the bottom of the popup.
         auto add = ButtonSprite::create(
             "+ Add Image", "goldFont.fnt", "GJ_button_01.png", 1.f
         );
@@ -690,7 +667,7 @@ class CommentsLayer : public CCLayer {
         Notification::create(
             message,
             NotificationIcon::Info,
-            1.f
+            1.5f
         )->show();
     }
 
@@ -920,7 +897,7 @@ class CommentsLayer : public CCLayer {
             rowWidth - pad * 2.f - fixedWidth
                 - gap * static_cast<float>(std::max(0, shown - 1))
         );
-        m_input->setContentSize({inputWidth, 34.f});
+        m_input->setContentSize({inputWidth, 30.f});
 
         float x = pad;
         for (auto node : order) {
