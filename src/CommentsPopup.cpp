@@ -4,7 +4,6 @@
 #include <Geode/Geode.hpp>
 #include <Geode/ui/MDTextArea.hpp>
 #include <Geode/ui/Popup.hpp>
-#include <Geode/ui/Notification.hpp>
 #include <Geode/ui/TextInput.hpp>
 #include <Geode/utils/async.hpp>
 #include <Geode/utils/file.hpp>
@@ -93,7 +92,6 @@ constexpr float kTopInset = 3.f;
 constexpr float kBottomHeight = 38.f;
 constexpr float kBottomInset = 3.f;
 constexpr float kSectionGap = 3.f;
-constexpr float kHorizontalMargin = 20.f; // top/bottom bars inset from each edge
 
 // Auto-sized buttons (text at scale 1 so the button hugs the text, then the
 // whole button is scaled). Tweak these two to make the buttons bigger/smaller.
@@ -239,16 +237,6 @@ CCNode* createAttachmentBox(
     return box;
 }
 
-// CCMenuItemSprite eases its OWN scale down/up on press/release; a fast tap
-// can catch that ease mid-flight and leave the button bigger than it started.
-// Call this at the top of a button's callback to force it back to its real
-// size every time, regardless of where the ease landed.
-void pinScale(CCMenuItemSpriteExtra* item, float scale) {
-    if (!item) return;
-    item->stopAllActions();
-    item->setScale(scale);
-}
-
 std::string getModID(CCNode* popup) {
     auto label = typeinfo_cast<CCLabelBMFont*>(popup->getChildByIDRecursive("mod-id-label"));
     if (!label) return "";
@@ -305,6 +293,7 @@ class VersionSelectPopup : public Popup {
                 .40f
             );
             button->setScale(.40f);
+            button->m_baseScale = .40f;
 
             auto item = CCMenuItemExt::createSpriteExtra(
                 button,
@@ -522,6 +511,7 @@ class AttachmentPopup : public Popup {
             }
 
             limitNodeSize(actionItem, {actionWidth, imageSize - 6.f}, .7f, .1f);
+            actionItem->m_baseScale = actionItem->getScale();
             actionItem->setPosition(actions->getContentSize() / 2.f);
             actions->addChild(actionItem);
 
@@ -583,7 +573,7 @@ class AttachmentPopup : public Popup {
         std::function<void(std::filesystem::path const&)> onRemovePending,
         std::function<void()> onAdd
     ) {
-        if (!Popup::init(300.f, 200.f)) return false;
+        if (!Popup::init(300.f, 235.f)) return false;
 
         m_attachments = std::move(attachments);
         m_pending = std::move(pending);
@@ -595,8 +585,8 @@ class AttachmentPopup : public Popup {
 
         auto size = m_mainLayer->getContentSize();
         constexpr float scrollWidth = 270.f;
-        constexpr float scrollHeight = 128.f;
-        constexpr float scrollBottom = 36.f;
+        constexpr float scrollHeight = 153.f;
+        constexpr float scrollBottom = 46.f;
 
         // Background behind the (now longer) list.
         auto listBG = NineSlice::create("square02b_001.png");
@@ -628,10 +618,8 @@ class AttachmentPopup : public Popup {
         auto add = ButtonSprite::create(
             "+ Add Image", "goldFont.fnt", "GJ_button_01.png", 1.f
         );
-        auto addItem = CCMenuItemExt::createSpriteExtra(add, [](auto) {});
-        CCMenuItemExt::assignCallback<CCMenuItemSpriteExtra>(
-            addItem, [this, addItem](auto) {
-                pinScale(addItem, .85f);
+        auto addItem = CCMenuItemExt::createSpriteExtra(
+            add, [this](auto) {
                 if (m_onAdd) {
                     m_onAdd();
                     removeFromParent();
@@ -639,9 +627,8 @@ class AttachmentPopup : public Popup {
             }
         );
         addItem->setScale(.85f);
-        m_buttonMenu->addChildAtPosition(
-            addItem, Anchor::Bottom, ccp(0.f, scrollBottom / 2.f)
-        );
+        addItem->m_baseScale = .85f;
+        m_buttonMenu->addChildAtPosition(addItem, Anchor::Bottom, ccp(0.f, 24.f));
 
         rebuild();
         m_scroll->scrollToTop();
@@ -684,6 +671,7 @@ class CommentsLayer : public CCLayer {
     std::vector<int> m_removedAttachments;
 
     int m_editingCommentID = 0;
+    Notification* m_loadingNotification = nullptr;
 
     CCMenuItemSpriteExtra* m_versionButton = nullptr;
     CCLabelBMFont* m_attachmentCountLabel = nullptr;
@@ -697,6 +685,33 @@ class CommentsLayer : public CCLayer {
     CCNode* m_commentsContainer = nullptr;
     CCNode* m_bottom = nullptr;
     std::unordered_map<int, int> m_attachmentOffsets;
+
+    void notifyStatus(std::string const& message) {
+        Notification::create(
+            message,
+            NotificationIcon::Info,
+            1.f
+        )->show();
+    }
+
+    void showLoading(std::string const& message) {
+        if (m_loadingNotification) {
+            m_loadingNotification->hide();
+        }
+        m_loadingNotification = Notification::create(
+            message,
+            NotificationIcon::Loading,
+            0.f
+        );
+        m_loadingNotification->show();
+    }
+
+    void hideLoading() {
+        if (m_loadingNotification) {
+            m_loadingNotification->hide();
+            m_loadingNotification = nullptr;
+        }
+    }
 
     bool init(std::string modID, CCNode* textArea) {
         if (!CCLayer::init()) return false;
@@ -732,7 +747,7 @@ class CommentsLayer : public CCLayer {
         //   right = Lock / Internal / Unlock (gold Pusab, auto-sized)
         // ------------------------------------------------------------------
         auto top = CCNode::create();
-        top->setContentSize({width - kHorizontalMargin, kTopHeight});
+        top->setContentSize({width - 8.f, kTopHeight});
         top->setAnchorPoint({.5f, 1.f});
         top->setLayout(AnchorLayout::create());
         root->addChild(top);
@@ -763,19 +778,11 @@ class CommentsLayer : public CCLayer {
             auto sprite = ButtonSprite::create(
                 text, "goldFont.fnt", texture, 1.f
             );
-            // CCMenuItemSprite's built-in press animation eases the item's
-            // OWN scale down then back "up" to whatever scale it reads at
-            // release time; a fast tap can catch it mid-ease and leave the
-            // button permanently bigger. Pin the scale back explicitly every
-            // time the button is used.
-            auto item = CCMenuItemExt::createSpriteExtra(sprite, [](auto) {});
-            CCMenuItemExt::assignCallback<CCMenuItemSpriteExtra>(
-                item, [this, item, value](auto) {
-                    pinScale(item, kLockButtonScale);
-                    setLock(value);
-                }
+            auto item = CCMenuItemExt::createSpriteExtra(
+                sprite, [this, value](auto) { setLock(value); }
             );
             item->setScale(kLockButtonScale);
+            item->m_baseScale = kLockButtonScale;
             lockControls->addChild(item);
         };
 
@@ -793,7 +800,7 @@ class CommentsLayer : public CCLayer {
         top->addChildAtPosition(m_lockLabel, Anchor::Left, ccp(8.f, 0.f));
 
         // Keep the status text from running into the buttons.
-        m_lockLabelMaxWidth = std::max(60.f, width - kHorizontalMargin - 16.f - lockWidth - 5.f);
+        m_lockLabelMaxWidth = std::max(60.f, width - 8.f - 16.f - lockWidth - 5.f);
         m_lockLabel->limitLabelWidth(m_lockLabelMaxWidth, .42f, .1f);
 
         // ------------------------------------------------------------------
@@ -843,7 +850,7 @@ class CommentsLayer : public CCLayer {
         // every pixel the buttons leave over.
         // ------------------------------------------------------------------
         auto bottom = CCNode::create();
-        bottom->setContentSize({width - kHorizontalMargin, kBottomHeight});
+        bottom->setContentSize({width - 8.f, kBottomHeight});
         bottom->setAnchorPoint({.5f, 0.f});
         root->addChild(bottom);
         m_bottom = bottom;
@@ -874,28 +881,22 @@ class CommentsLayer : public CCLayer {
         auto versionSprite = ButtonSprite::create(
             "v-", "bigFont.fnt", "GJ_button_01.png", 1.f
         );
-        m_versionButton = CCMenuItemExt::createSpriteExtra(versionSprite, [](auto) {});
-        CCMenuItemExt::assignCallback<CCMenuItemSpriteExtra>(
-            m_versionButton, [this](auto) {
-                pinScale(m_versionButton, kBarButtonScale);
-                showVersionPicker();
-            }
+        m_versionButton = CCMenuItemExt::createSpriteExtra(
+            versionSprite, [this](auto) { showVersionPicker(); }
         );
         m_versionButton->setScale(kBarButtonScale);
+        m_versionButton->m_baseScale = kBarButtonScale;
         bottomMenu->addChild(m_versionButton);
 
         // Exit Edit: only visible while a comment is being edited.
         auto exitSprite = ButtonSprite::create(
             "Exit Edit", "goldFont.fnt", "GJ_button_06.png", 1.f
         );
-        m_exitButton = CCMenuItemExt::createSpriteExtra(exitSprite, [](auto) {});
-        CCMenuItemExt::assignCallback<CCMenuItemSpriteExtra>(
-            m_exitButton, [this](auto) {
-                pinScale(m_exitButton, kBarButtonScale);
-                exitEdit();
-            }
+        m_exitButton = CCMenuItemExt::createSpriteExtra(
+            exitSprite, [this](auto) { exitEdit(); }
         );
         m_exitButton->setScale(kBarButtonScale);
+        m_exitButton->m_baseScale = kBarButtonScale;
         m_exitButton->setVisible(false);
         bottomMenu->addChild(m_exitButton);
 
@@ -930,14 +931,11 @@ class CommentsLayer : public CCLayer {
         auto send = ButtonSprite::create(
             "Send", "goldFont.fnt", "GJ_button_01.png", 1.f
         );
-        m_sendButton = CCMenuItemExt::createSpriteExtra(send, [](auto) {});
-        CCMenuItemExt::assignCallback<CCMenuItemSpriteExtra>(
-            m_sendButton, [this](auto) {
-                pinScale(m_sendButton, kBarButtonScale);
-                submitComment();
-            }
+        m_sendButton = CCMenuItemExt::createSpriteExtra(
+            send, [this](auto) { submitComment(); }
         );
         m_sendButton->setScale(kBarButtonScale);
+        m_sendButton->m_baseScale = kBarButtonScale;
         bottomMenu->addChild(m_sendButton);
 
         root->updateLayout();
@@ -977,7 +975,7 @@ class CommentsLayer : public CCLayer {
             rowWidth - pad * 2.f - fixedWidth
                 - gap * static_cast<float>(std::max(0, shown - 1))
         );
-        m_input->setContentSize({inputWidth, 34.f});
+        m_input->setContentSize({inputWidth, kBottomHeight - 4.f});
 
         float x = pad;
         for (auto node : order) {
@@ -1010,7 +1008,7 @@ class CommentsLayer : public CCLayer {
 
     void load() {
         m_state.loggedIn = hasAuthTokens();
-        beginLoading("Loading comments...");
+        showLoading("Loading comments...");
 
         if (!m_state.loggedIn) {
             loadMod();
@@ -1032,8 +1030,8 @@ class CommentsLayer : public CCLayer {
     void loadMod() {
         request("GET", fmt::format("/v1/mods/{}", m_modID), [this](web::WebResponse response) {
             if (!response.ok()) {
-                endLoading();
-                notify(errorText(response), NotificationIcon::Error);
+                hideLoading();
+                notifyStatus(errorText(response));
                 return;
             }
 
@@ -1072,8 +1070,8 @@ class CommentsLayer : public CCLayer {
                 m_state.selectedVersion = m_state.versions.front();
 
             if (m_state.selectedVersion.empty()) {
+                hideLoading();
                 rebuild();
-                endLoading();
                 return;
             }
 
@@ -1084,7 +1082,7 @@ class CommentsLayer : public CCLayer {
     void loadSelectedVersion() {
         if (m_state.selectedVersion.empty()) return;
 
-        beginLoading("Loading submission...");
+        showLoading("Loading submission...");
 
         request(
             "GET",
@@ -1095,12 +1093,12 @@ class CommentsLayer : public CCLayer {
             ),
             [this](web::WebResponse response) {
                 if (!response.ok()) {
+                    hideLoading();
                     m_state.comments.clear();
                     m_state.lock = "none";
                     m_state.lockedBy = 0;
                     rebuild();
-                    endLoading();
-                    notify("This version does not have a submission.", NotificationIcon::Info);
+                    notifyStatus("This version does not have a submission.");
                     return;
                 }
 
@@ -1120,17 +1118,16 @@ class CommentsLayer : public CCLayer {
                         m_state.selectedVersion
                     ),
                     [this](web::WebResponse commentsResponse) {
+                        hideLoading();
                         if (!commentsResponse.ok()) {
                             m_state.comments.clear();
                             rebuild();
-                            endLoading();
-                            notify(errorText(commentsResponse), NotificationIcon::Error);
+                            notifyStatus(errorText(commentsResponse));
                             return;
                         }
 
                         parseComments(commentsResponse.json().unwrapOr(matjson::Value()));
                         rebuild();
-                        endLoading();
                     }
                 );
             }
@@ -1200,33 +1197,6 @@ class CommentsLayer : public CCLayer {
             (m_state.currentDeveloperVerified ||
              m_state.currentDeveloperAdmin ||
              m_state.currentDeveloperModDeveloper);
-    }
-
-    // Status messages now surface as Geode notifications instead of a label
-    // pinned to the popup.
-    static void notify(
-        std::string const& text,
-        NotificationIcon icon = NotificationIcon::Info
-    ) {
-        if (text.empty()) return;
-        Notification::create(text, icon)->show();
-    }
-
-    // For a request that actually waits on the network: show a spinner that
-    // stays up for the whole operation, one notification per operation (not
-    // one per retry/tick). beginLoading() replaces whatever loading
-    // notification is currently showing; endLoading() dismisses it.
-    Ref<Notification> m_loading;
-
-    void beginLoading(std::string const& text) {
-        endLoading();
-        m_loading = Notification::create(text, NotificationIcon::Loading, 0.f);
-        m_loading->show();
-    }
-
-    void endLoading() {
-        if (m_loading) m_loading->hide();
-        m_loading = nullptr;
     }
 
     void rebuild() {
@@ -1309,6 +1279,7 @@ class CommentsLayer : public CCLayer {
                     "Edit", "goldFont.fnt", "GJ_button_01.png", .81f
                 );
                 button->setScale(.81f);
+                button->m_baseScale = .81f;
                 auto editItem = CCMenuItemExt::createSpriteExtra(
                     button, [this, comment](auto) { beginEdit(comment); }
                 );
@@ -1320,6 +1291,7 @@ class CommentsLayer : public CCLayer {
                     "Delete", "goldFont.fnt", "GJ_button_06.png", .81f
                 );
                 button->setScale(.81f);
+                button->m_baseScale = .81f;
                 auto deleteItem = CCMenuItemExt::createSpriteExtra(
                     button, [this, comment](auto) { deleteComment(comment.id); }
                 );
@@ -1421,6 +1393,7 @@ class CommentsLayer : public CCLayer {
                             }
                         );
                         item->setScale(.6f);
+                        item->m_baseScale = .6f;
                         auto half = item->getScaledContentSize().width / 2.f;
                         item->setPosition({
                             right ? areaWidth - half : half,
@@ -1435,207 +1408,126 @@ class CommentsLayer : public CCLayer {
                 (*populate)();
             }
 
-            auto cardHeight = 36.f + 4.f + 66.f +
-                (comment.attachments.empty() ? 0.f : kAttachmentAreaHeight + 4.f);
-
-            auto card = CCNode::create();
-            card->setContentSize({width, cardHeight});
-            card->setAnchorPoint({.5f, .5f});
-            card->setLayout(AnchorLayout::create());
-
-            auto cardBG = NineSlice::create("square02b_001.png");
-            cardBG->setColor(ccBLACK);
-            cardBG->setOpacity(75);
-            cardBG->setScale(.3f);
-            cardBG->setContentSize(card->getContentSize() / cardBG->getScale());
-            card->addChildAtPosition(cardBG, Anchor::Center);
-
-            // username / comment / attachments, top-to-bottom (axis reversed).
-            auto stack = CCNode::create();
-            stack->setContentSize({width - 8.f, cardHeight - 8.f});
-            stack->setAnchorPoint({.5f, .5f});
-            stack->setLayout(ColumnLayout::create()
-                ->setAxisAlignment(AxisAlignment::Start)
-                ->setCrossAxisAlignment(AxisAlignment::Center)
-                ->setAxisReverse(true)
-                ->setAutoScale(false)
-                ->setGap(4.f)
-                ->setPadding(Padding::uniform(2.f)));
-            card->addChild(stack);
-            stack->setLayoutOptions(
-                AnchorLayoutOptions::create()->setAnchor(Anchor::Center)
-            );
-
-            stack->addChild(header);
-            stack->addChild(body);
+            auto itemHeight = header->getContentHeight() + body->getContentHeight() * 1.05f;
             if (!comment.attachments.empty())
-                stack->addChild(attachmentArea);
+                itemHeight += kAttachmentAreaHeight + 4.f;
 
-            stack->updateLayout();
-            m_commentsContainer->addChild(card);
-            totalHeight += cardHeight + 7.f;
+            auto item = CCNode::create();
+            item->setContentSize({width, itemHeight + 6.f});
+            item->setAnchorPoint({.5f, .5f});
+
+            auto itemBG = NineSlice::create("square02b_001.png");
+            itemBG->setColor(ccBLACK);
+            itemBG->setOpacity(115);
+            itemBG->setScale(.3f);
+            itemBG->setContentSize(item->getContentSize() / itemBG->getScale());
+            item->addChildAtPosition(itemBG, Anchor::Center);
+
+            item->setLayout(ColumnLayout::create()
+                ->setAxisReverse(true)
+                ->setAxisAlignment(AxisAlignment::End)
+                ->setCrossAxisAlignment(AxisAlignment::Center)
+                ->setGap(2.f));
+
+            item->addChild(header);
+            item->addChild(body);
+            if (!comment.attachments.empty())
+                item->addChild(attachmentArea);
+
+            item->updateLayout();
+            m_commentsContainer->addChild(item);
+            totalHeight += itemHeight + 6.f + 7.f;
         }
 
         if (!any) {
-            auto empty = CCLabelBMFont::create(
-                "No comments yet.", "chatFont.fnt"
-            );
+            auto empty = CCLabelBMFont::create("No comments yet.", "chatFont.fnt");
             empty->setScale(.35f);
+            empty->setAnchorPoint({.5f, .5f});
+            empty->setPosition(m_commentsContainer->getContentSize() / 2.f);
             m_commentsContainer->addChild(empty);
-            totalHeight += 35.f;
         }
 
-        m_commentsContainer->setAnchorPoint({0.f, 0.f});
         m_commentsContainer->setContentSize({
-            scroll->getContentWidth(),
-            std::max(scroll->getContentHeight(), totalHeight + 8.f)
+            width + 12.f,
+            std::max(scroll->getContentHeight(), totalHeight)
         });
         m_commentsContainer->updateLayout();
-        scroll->scrollToTop();
 
         if (m_versionButton) {
-            auto sprite = typeinfo_cast<ButtonSprite*>(m_versionButton->getNormalImage());
-            if (sprite) {
-                sprite->setString(
-                    m_state.selectedVersion.empty()
-                        ? "v-"
-                        : fmt::format("v{}", m_state.selectedVersion).c_str()
+            auto vSprite = typeinfo_cast<ButtonSprite*>(m_versionButton->getChildren()->objectAtIndex(0));
+            if (vSprite) {
+                vSprite->setString(
+                    m_state.selectedVersion.empty() ? "None" : m_state.selectedVersion.c_str()
                 );
-                m_versionButton->updateSprite();
             }
         }
 
-        if (m_attachmentCountLabel) {
-            size_t attachmentCount = m_pendingFiles.size();
-            if (m_editingCommentID != 0) {
-                for (auto const& c : m_state.comments) {
-                    if (c.id != m_editingCommentID) continue;
-                    attachmentCount += c.attachments.size();
-                    for (auto id : m_removedAttachments) {
-                        if (std::any_of(
-                                c.attachments.begin(), c.attachments.end(),
-                                [id](auto const& a) { return a.id == id; }
-                            ) && attachmentCount > 0)
-                            --attachmentCount;
-                    }
-                    break;
-                }
+        if (m_lockLabel) {
+            std::string text = "Unlocked";
+            if (m_state.lock == "locked") {
+                text = "Locked";
+                if (!m_state.lockedByName.empty())
+                    text += " by " + m_state.lockedByName;
             }
-            // Empty string = zero width when there's nothing to show.
-            m_attachmentCountLabel->setString(
-                attachmentCount > 0
-                    ? std::to_string(attachmentCount).c_str()
-                    : ""
-            );
-            m_attachmentCountLabel->setVisible(attachmentCount > 0);
+            else if (m_state.lock == "internal") {
+                text = "Internal";
+                if (!m_state.lockedByName.empty())
+                    text += " by " + m_state.lockedByName;
+            }
+            m_lockLabel->setString(text.c_str());
+            m_lockLabel->limitLabelWidth(m_lockLabelMaxWidth, .42f, .1f);
         }
 
-        if (m_exitButton)
-            m_exitButton->setVisible(m_editingCommentID != 0);
+        if (m_lockControls) {
+            m_lockControls->setVisible(m_state.loggedIn && m_state.currentDeveloperAdmin);
+        }
+        
+        // Ensure input field is hidden if user can't interact
+        if (m_input) m_input->setVisible(canComment());
+        if (m_sendButton) m_sendButton->setVisible(canComment());
+        if (m_attachButton) m_attachButton->setVisible(canComment());
 
-        auto allowed = canComment();
-        m_input->setVisible(allowed);
-        m_sendButton->setVisible(allowed);
         updateBottomLayout();
-
-        auto lockText = m_state.lock == "none"
-            ? "Unlocked"
-            : (m_state.lock == "internal" ? "Internal" : "Locked");
-        auto lockDisplayText = m_state.lock == "none"
-            ? std::string("Unlocked")
-            : fmt::format("{} by {}", lockText, m_state.lockedByName.empty() ? "User" : m_state.lockedByName);
-        m_lockLabel->setString(lockDisplayText.c_str());
-        m_lockLabel->limitLabelWidth(m_lockLabelMaxWidth, .42f, .1f);
-        auto lockColor = ccGREEN;
-        if (m_state.lock == "internal")
-            lockColor = cc3bFromHexString("00D9FF").unwrapOr(ccGREEN);
-        else if (m_state.lock == "locked")
-            lockColor = ccRED;
-        m_lockLabel->setColor(lockColor);
-        if (m_lockControls)
-            m_lockControls->setVisible(m_state.currentDeveloperAdmin);
-
-        if (!m_state.loggedIn)
-            notify("Log in to comment.", NotificationIcon::Warning);
-        else if (m_state.lock == "locked" && !m_state.currentDeveloperAdmin)
-            notify("This submission is locked.", NotificationIcon::Info);
-        else if (m_state.lock == "internal" && !m_state.currentDeveloperAdmin)
-            notify("This submission is locked to the index team.", NotificationIcon::Info);
-        else if (!any)
-            notify("No comments yet.", NotificationIcon::Info);
-        else
-            ;
+        updateAttachmentCount();
     }
 
-    void addAvatar(CCNode* avatar, CommentData const& comment) {
-        if (comment.pfp.empty()) return;
-
-        auto key = std::hash<std::string>{}(comment.pfp);
-        auto path = Mod::get()->getSaveDir() /
-            fmt::format("pfp-{:x}.png", key);
-
-        if (createContainedImage(
-                avatar, {28.f, 28.f}, comment.pfp, &path
-            ))
+    void addAvatar(CCNode* container, CommentData const& comment) {
+        if (!comment.pfp.empty()) {
+            createContainedImage(container, {30.f, 30.f}, comment.pfp);
             return;
+        }
 
-        createContainedImage(avatar, {28.f, 28.f}, comment.pfp);
-    }
+        auto inner = CCSprite::createWithSpriteFrameName(
+            "accountBtn_myProfile_001.png"
+        );
+        if (!inner) return;
 
-    void showAttachmentImage(std::string const& url) {
-        if (url.empty()) return;
-        if (auto popup = AttachmentImagePopup::create(url))
-            popup->show();
+        inner->setAnchorPoint({.5f, .5f});
+        limitNodeSize(inner, {30.f, 30.f}, 1.f, .1f);
+        container->addChildAtPosition(inner, Anchor::Center);
     }
 
     void showVersionPicker() {
-        if(m_state.versions.empty())return;
+        if (m_state.versions.empty()) return;
         auto popup = VersionSelectPopup::create(
             m_state.versions,
             [this](std::string version) {
-                if (version == m_state.selectedVersion)
-                    return;
-
                 m_state.selectedVersion = std::move(version);
-                m_editingCommentID = 0;
-                m_pendingFiles.clear();
-                m_removedAttachments.clear();
-                m_input->setString("");
                 loadSelectedVersion();
             }
         );
-        if(popup){popup->m_noElasticity=true;popup->show();}
-    }
-
-    void showAttachmentsPopup() {
-        std::vector<CommentAttachment> attachments;
-        for(auto const& c:m_state.comments)if(c.id==m_editingCommentID){attachments=c.attachments;break;}
-        auto popup = AttachmentPopup::create(
-            std::move(attachments),
-            m_pendingFiles,
-            m_removedAttachments,
-            [this](int id) { toggleAttachmentRemoval(id); },
-            [this](std::filesystem::path const& path) { removePendingFile(path); },
-            [this]() { pickAttachments(); }
-        );
-        if(popup){popup->m_noElasticity=true;popup->show();}
+        popup->show();
     }
 
     void showLockPicker() {
-        if (!m_state.currentDeveloperAdmin) return;
-
-        auto popup = createQuickPopup(
-            "Submission Lock",
-            "Choose who can comment on this submission.",
-            "Cancel",
-            nullptr,
-            nullptr
-        );
+        auto popup = Popup::create("Lock Settings", 200.f, 150.f);
         if (!popup) return;
 
         auto menu = CCMenu::create();
-        menu->setContentSize({190.f, 150.f});
-        menu->setLayout(ColumnLayout::create()->setGap(5.f));
+        menu->setContentSize({180.f, 100.f});
+        menu->setLayout(ColumnLayout::create()
+            ->setAxisAlignment(AxisAlignment::Center)
+            ->setGap(8.f));
 
         auto addChoice = [this, popup, menu](
             char const* label, char const* value
@@ -1644,52 +1536,53 @@ class CommentsLayer : public CCLayer {
                 label, "bigFont.fnt",
                 "GJ_button_01.png", .36f
             );
-            menu->addChild(
-                CCMenuItemExt::createSpriteExtra(
-                    button,
-                    [this, popup, value](auto) {
-                        setLock(value);
-                        popup->removeFromParent();
-                    }
-                )
+            auto item = CCMenuItemExt::createSpriteExtra(
+                button, [this, value, popup](auto) {
+                    popup->removeFromParent();
+                    setLock(value);
+                }
             );
+            menu->addChild(item);
         };
 
         addChoice("Unlocked", "none");
-        addChoice("Internal", "internal");
         addChoice("Locked", "locked");
+        addChoice("Internal", "internal");
 
+        menu->updateLayout();
         popup->m_mainLayer->addChildAtPosition(menu, Anchor::Center);
         popup->show();
     }
 
     void setLock(std::string value) {
-        auto json = matjson::makeObject({
-            {"lock", value}
-        });
+        if (!m_state.loggedIn || !m_state.currentDeveloperAdmin) return;
+        if (m_state.selectedVersion.empty()) return;
 
-        auto request = web::WebRequest();
-        request.header(
-            "Authorization",
-            "Bearer " + getAuthAccessToken()
-        );
-        request.bodyJSON(json);
+        showLoading("Updating lock...");
 
-        beginLoading("Updating lock...");
+        matjson::Value body = matjson::Object();
+        body["lock"] = value;
+
+        auto req = web::WebRequest();
+        auto token = getAuthAccessToken();
+        if (!token.empty())
+            req.header("Authorization", "Bearer " + token);
+        req.bodyJSON(body);
 
         m_requestTask.spawn(
-            request.put(
-                trimSlash(getIndexUrl()) +
+            req.send(
+                "PUT",
                 fmt::format(
-                    "/v1/mods/{}/versions/{}/submission",
+                    "{}/v1/mods/{}/versions/{}/submission",
+                    trimSlash(getIndexUrl()),
                     m_modID,
                     m_state.selectedVersion
                 )
             ),
             [this](web::WebResponse response) {
-                endLoading();
                 if (!response.ok()) {
-                    notify(errorText(response), NotificationIcon::Error);
+                    hideLoading();
+                    notifyStatus(errorText(response));
                     return;
                 }
                 loadSelectedVersion();
@@ -1699,135 +1592,138 @@ class CommentsLayer : public CCLayer {
 
     void pickAttachments() {
         if (!canUploadAttachments()) {
-            notify("Attachments require a verified developer, mod developer, or admin.", NotificationIcon::Warning);
+            notifyStatus("Attachments require a verified developer, mod developer, or admin.");
             return;
         }
 
-        file::FilePickOptions options;
-        options.filters.push_back({
-            "Images", {"png", "jpg", "jpeg", "gif", "webp"}
-        });
-        options.filters.push_back({"All Files", {}});
-
-        async::spawn(
-            file::pickMany(options),
-            [this](file::PickManyResult result) {
-                if (!result) return;
-
-                auto files = std::move(result).unwrap();
-                if (files.empty())
-                    return;
-
-                m_pendingFiles.insert(
-                    m_pendingFiles.end(),
-                    std::make_move_iterator(files.begin()),
-                    std::make_move_iterator(files.end())
-                );
-                rebuild();
+        geode::utils::file::pickFile(
+            geode::utils::file::PickMode::OpenFile,
+            geode::utils::file::FilePickOptions {
+                std::nullopt,
+                { geode::utils::file::FilePickOptions::Filter {
+                    "Images",
+                    {"png", "jpg", "jpeg", "webp"}
+                }}
+            },
+            [this](std::filesystem::path const& path) {
+                m_pendingFiles.push_back(path);
+                updateAttachmentCount();
             }
         );
     }
 
+    void updateAttachmentCount() {
+        if (!m_attachmentCountLabel) return;
+        auto count = m_pendingFiles.size();
+        if (m_editingCommentID != 0) {
+            auto it = std::find_if(
+                m_state.comments.begin(),
+                m_state.comments.end(),
+                [this](auto const& c) { return c.id == m_editingCommentID; }
+            );
+            if (it != m_state.comments.end())
+                count += it->attachments.size() - m_removedAttachments.size();
+        }
+
+        m_attachmentCountLabel->setString(count > 0 ? fmt::format("({})", count).c_str() : "");
+        m_attachmentCountLabel->setVisible(count > 0);
+        updateBottomLayout();
+    }
+
     void submitComment() {
         if (m_state.selectedVersion.empty()) {
-            notify("Select a version first.", NotificationIcon::Warning);
+            notifyStatus("Select a version first.");
             return;
         }
-
         if (!canComment()) {
-            notify("You cannot comment on this submission.", NotificationIcon::Error);
-            return;
-        }
-
-        auto text = std::string(m_input->getString().c_str());
-        if (text.empty() && m_pendingFiles.empty() && m_editingCommentID == 0) {
-            notify("Write something or attach an image.", NotificationIcon::Warning);
-            return;
-        }
-
-        if (!hasAuthTokens()) {
-            notify("Log in to comment.", NotificationIcon::Warning);
+            notifyStatus("You cannot comment on this submission.");
             return;
         }
 
         if (m_editingCommentID != 0) {
-            updateExistingComment(text);
+            updateExistingComment();
             return;
         }
 
-        auto json = matjson::makeObject({
-            {"comment", text}
-        });
+        auto text = std::string(m_input->getString());
+        if (text.empty() && m_pendingFiles.empty() && m_editingCommentID == 0) {
+            notifyStatus("Write something or attach an image.");
+            return;
+        }
 
-        auto request = web::WebRequest();
-        request.header(
-            "Authorization",
-            "Bearer " + getAuthAccessToken()
-        );
-        request.bodyJSON(json);
+        if (!hasAuthTokens()) {
+            notifyStatus("Log in to comment.");
+            return;
+        }
 
         m_sendButton->setEnabled(false);
-        beginLoading("Posting...");
+        showLoading("Posting...");
+
+        matjson::Value body = matjson::Object();
+        body["comment"] = text;
+
+        auto req = web::WebRequest();
+        auto token = getAuthAccessToken();
+        if (!token.empty())
+            req.header("Authorization", "Bearer " + token);
+        req.bodyJSON(body);
 
         m_requestTask.spawn(
-            request.post(
-                trimSlash(getIndexUrl()) +
+            req.send(
+                "POST",
                 fmt::format(
-                    "/v1/mods/{}/versions/{}/submission/comments",
+                    "{}/v1/mods/{}/versions/{}/submission/comments",
+                    trimSlash(getIndexUrl()),
                     m_modID,
                     m_state.selectedVersion
                 )
             ),
             [this](web::WebResponse response) {
                 if (!response.ok()) {
-                    endLoading();
+                    hideLoading();
                     m_sendButton->setEnabled(true);
-                    notify(errorText(response), NotificationIcon::Error);
+                    notifyStatus(errorText(response));
                     return;
                 }
 
+                int commentID = 0;
                 auto json = response.json().unwrapOr(matjson::Value());
-                auto payload = json["payload"].isObject()
-                    ? json["payload"]
-                    : json;
-                auto commentID = intValue(payload, "id");
+                auto payload = json["payload"].isObject() ? json["payload"] : json;
+                if (payload.isObject())
+                    commentID = intValue(payload, "id");
 
                 if (commentID == 0) {
-                    endLoading();
+                    hideLoading();
                     m_sendButton->setEnabled(true);
-                    notify("Comment was created but no ID was returned.", NotificationIcon::Info);
+                    notifyStatus("Comment was created but no ID was returned.");
                     loadSelectedVersion();
                     return;
                 }
 
-                // Posting is done; the next stage (attachments, if any)
-                // shows its own loading notification.
-                endLoading();
                 finishCommentAttachments(commentID, false);
             }
         );
     }
 
-    void updateExistingComment(std::string const& text) {
-        auto json = matjson::makeObject({
-            {"comment", text}
-        });
-
-        auto request = web::WebRequest();
-        request.header(
-            "Authorization",
-            "Bearer " + getAuthAccessToken()
-        );
-        request.bodyJSON(json);
-
+    void updateExistingComment() {
         m_sendButton->setEnabled(false);
-        beginLoading("Saving...");
+        showLoading("Saving...");
+
+        matjson::Value body = matjson::Object();
+        body["comment"] = std::string(m_input->getString());
+
+        auto req = web::WebRequest();
+        auto token = getAuthAccessToken();
+        if (!token.empty())
+            req.header("Authorization", "Bearer " + token);
+        req.bodyJSON(body);
 
         m_requestTask.spawn(
-            request.put(
-                trimSlash(getIndexUrl()) +
+            req.send(
+                "PUT",
                 fmt::format(
-                    "/v1/mods/{}/versions/{}/submission/comments/{}",
+                    "{}/v1/mods/{}/versions/{}/submission/comments/{}",
+                    trimSlash(getIndexUrl()),
                     m_modID,
                     m_state.selectedVersion,
                     m_editingCommentID
@@ -1835,13 +1731,11 @@ class CommentsLayer : public CCLayer {
             ),
             [this](web::WebResponse response) {
                 if (!response.ok()) {
-                    endLoading();
+                    hideLoading();
                     m_sendButton->setEnabled(true);
-                    notify(errorText(response), NotificationIcon::Error);
+                    notifyStatus(errorText(response));
                     return;
                 }
-
-                endLoading();
                 finishCommentAttachments(m_editingCommentID, true);
             }
         );
@@ -1849,20 +1743,17 @@ class CommentsLayer : public CCLayer {
 
     void finishCommentAttachments(int commentID, bool editing) {
         auto finish = [this, editing]() {
-            endLoading();
             m_pendingFiles.clear();
             m_removedAttachments.clear();
             m_editingCommentID = 0;
             m_input->setString("");
             m_sendButton->setEnabled(true);
-            notify(editing ? "Comment updated." : "Comment posted.", NotificationIcon::Success);
+            hideLoading();
+            notifyStatus(editing ? "Comment updated." : "Comment posted.");
             loadSelectedVersion();
         };
 
         if (!m_removedAttachments.empty()) {
-            // One notification for the whole removal pass, not one per
-            // attachment: removeNextAttachment() recurses without touching it.
-            beginLoading("Removing attachments...");
             removeNextAttachment(commentID, std::move(finish));
             return;
         }
@@ -1876,40 +1767,47 @@ class CommentsLayer : public CCLayer {
     }
 
     void uploadAttachments(int commentID, std::function<void()> finish) {
-        if (!canUploadAttachments()) {
-            endLoading();
-            m_pendingFiles.clear();
-            notify("Comment saved, but you cannot upload attachments.", NotificationIcon::Error);
+        if (m_pendingFiles.empty()) {
             finish();
             return;
         }
 
-        web::MultipartForm form;
-        for (auto const& path : m_pendingFiles) {
-            auto result = form.file("image", path);
-            if (!result) {
-                endLoading();
-                m_sendButton->setEnabled(true);
-                notify("Could not read an attachment.", NotificationIcon::Error);
-                return;
-            }
+        if (!canUploadAttachments()) {
+            m_pendingFiles.clear();
+            notifyStatus("Comment saved, but you cannot upload attachments.");
+            finish();
+            return;
         }
 
         auto request = web::WebRequest();
-        request.header(
-            "Authorization",
-            "Bearer " + getAuthAccessToken()
-        );
-        request.bodyMultipart(form);
+        auto token = getAuthAccessToken();
+        if (!token.empty())
+            request.header("Authorization", "Bearer " + token);
 
-        // Replaces the "Removing attachments..." spinner if there was one.
-        beginLoading("Uploading attachments...");
+        for (size_t i = 0; i < m_pendingFiles.size(); ++i) {
+            auto const& path = m_pendingFiles[i];
+            auto result = geode::utils::file::readBinary(path);
+            if (!result) {
+                hideLoading();
+                m_sendButton->setEnabled(true);
+                notifyStatus("Could not read an attachment.");
+                return;
+            }
+            request.bodyParts().push_back(web::WebMultipart {
+                fmt::format("files[{}]", i),
+                std::move(result.unwrap()),
+                geode::utils::string::pathToString(path.filename())
+            });
+        }
+
+        showLoading("Uploading attachments...");
 
         m_requestTask.spawn(
-            request.post(
-                trimSlash(getIndexUrl()) +
+            request.send(
+                "POST",
                 fmt::format(
-                    "/v1/mods/{}/versions/{}/submission/comments/{}/attachments",
+                    "{}/v1/mods/{}/versions/{}/submission/comments/{}/attachments",
+                    trimSlash(getIndexUrl()),
                     m_modID,
                     m_state.selectedVersion,
                     commentID
@@ -1917,12 +1815,9 @@ class CommentsLayer : public CCLayer {
             ),
             [this, finish = std::move(finish)](web::WebResponse response) mutable {
                 if (!response.ok()) {
-                    endLoading();
+                    hideLoading();
                     m_sendButton->setEnabled(true);
-                    notify(fmt::format(
-                            "Comment saved, attachment upload failed: {}",
-                            errorText(response)
-                        ), NotificationIcon::Error);
+                    notifyStatus(fmt::format("Comment saved, attachment upload failed: {}", errorText(response)));
                     return;
                 }
                 finish();
@@ -1932,8 +1827,6 @@ class CommentsLayer : public CCLayer {
 
     void removeNextAttachment(int commentID, std::function<void()> finish) {
         if (m_removedAttachments.empty()) {
-            // uploadAttachments() shows its own loading notification; finish()
-            // dismisses the "Removing attachments..." one via endLoading().
             if (!m_pendingFiles.empty())
                 uploadAttachments(commentID, std::move(finish));
             else
@@ -1945,30 +1838,29 @@ class CommentsLayer : public CCLayer {
         m_removedAttachments.pop_back();
 
         auto request = web::WebRequest();
-        request.header(
-            "Authorization",
-            "Bearer " + getAuthAccessToken()
-        );
+        auto token = getAuthAccessToken();
+        if (!token.empty())
+            request.header("Authorization", "Bearer " + token);
+
+        showLoading("Removing attachments...");
 
         m_requestTask.spawn(
             request.send(
                 "DELETE",
-                trimSlash(getIndexUrl()) +
                 fmt::format(
-                    "/v1/mods/{}/versions/{}/submission/comments/{}/attachments/{}",
+                    "{}/v1/mods/{}/versions/{}/submission/comments/{}/attachments/{}",
+                    trimSlash(getIndexUrl()),
                     m_modID,
                     m_state.selectedVersion,
                     commentID,
                     attachmentID
                 )
             ),
-            [this, commentID, finish = std::move(finish)](
-                web::WebResponse response
-            ) mutable {
+            [this, commentID, finish = std::move(finish)](web::WebResponse response) mutable {
                 if (!response.ok()) {
-                    endLoading();
+                    hideLoading();
                     m_sendButton->setEnabled(true);
-                    notify(errorText(response), NotificationIcon::Error);
+                    notifyStatus(errorText(response));
                     return;
                 }
                 removeNextAttachment(commentID, std::move(finish));
@@ -1977,87 +1869,102 @@ class CommentsLayer : public CCLayer {
     }
 
     void beginEdit(CommentData const& comment) {
-        if (!comment.canEdit) return;
-
         m_editingCommentID = comment.id;
-        m_removedAttachments.clear();
+        m_input->setString(comment.body);
+        m_exitButton->setVisible(true);
         m_pendingFiles.clear();
-        m_input->setString(comment.body.c_str());
-        notify("Editing comment. Press Send to save.", NotificationIcon::Info);
-        rebuild();
-        m_input->focus();
+        m_removedAttachments.clear();
+        updateBottomLayout();
+        updateAttachmentCount();
+        notifyStatus("Editing comment. Press Send to save.");
     }
 
-    // Leaves edit mode without saving anything.
     void exitEdit() {
         m_editingCommentID = 0;
-        m_removedAttachments.clear();
-        m_pendingFiles.clear();
         m_input->setString("");
-        rebuild();
+        m_exitButton->setVisible(false);
+        m_pendingFiles.clear();
+        m_removedAttachments.clear();
+        updateBottomLayout();
+        updateAttachmentCount();
+    }
+
+    void showAttachmentsPopup() {
+        std::vector<CommentAttachment> existing;
+        if (m_editingCommentID != 0) {
+            auto it = std::find_if(
+                m_state.comments.begin(),
+                m_state.comments.end(),
+                [this](auto const& c) { return c.id == m_editingCommentID; }
+            );
+            if (it != m_state.comments.end())
+                existing = it->attachments;
+        }
+
+        auto popup = AttachmentPopup::create(
+            std::move(existing),
+            m_pendingFiles,
+            m_removedAttachments,
+            [this](int id) { toggleAttachmentRemoval(id); },
+            [this](std::filesystem::path const& path) { removePendingFile(path); },
+            [this]() { pickAttachments(); }
+        );
+        popup->show();
     }
 
     void toggleAttachmentRemoval(int attachmentID) {
-        if (m_editingCommentID == 0) return;
-
-        auto it = std::find(
-            m_removedAttachments.begin(),
-            m_removedAttachments.end(),
-            attachmentID
-        );
-
+        auto it = std::find(m_removedAttachments.begin(), m_removedAttachments.end(), attachmentID);
         if (it == m_removedAttachments.end()) {
             m_removedAttachments.push_back(attachmentID);
-            notify("Attachment marked for removal.", NotificationIcon::Info);
+            notifyStatus("Attachment marked for removal.");
         }
         else {
             m_removedAttachments.erase(it);
-            notify("Attachment restored.", NotificationIcon::Success);
+            notifyStatus("Attachment restored.");
         }
-        rebuild();
+        updateAttachmentCount();
     }
 
     void removePendingFile(std::filesystem::path const& path) {
         auto it = std::find(m_pendingFiles.begin(), m_pendingFiles.end(), path);
-        if (it == m_pendingFiles.end()) return;
-
-        m_pendingFiles.erase(it);
-        notify("Attachment removed.", NotificationIcon::Success);
-        rebuild();
+        if (it != m_pendingFiles.end()) {
+            m_pendingFiles.erase(it);
+            notifyStatus("Attachment removed.");
+            updateAttachmentCount();
+        }
     }
 
     void deleteComment(int id) {
         createQuickPopup(
             "Delete Comment",
-            "Delete this comment?",
+            "Are you sure you want to delete this comment?",
             "Cancel",
             "Delete",
             [this, id](auto, bool confirmed) {
                 if (!confirmed) return;
 
                 auto request = web::WebRequest();
-                request.header(
-                    "Authorization",
-                    "Bearer " + getAuthAccessToken()
-                );
+                auto token = getAuthAccessToken();
+                if (!token.empty())
+                    request.header("Authorization", "Bearer " + token);
 
-                beginLoading("Deleting comment...");
+                showLoading("Deleting comment...");
 
                 m_requestTask.spawn(
                     request.send(
                         "DELETE",
-                        trimSlash(getIndexUrl()) +
                         fmt::format(
-                            "/v1/mods/{}/versions/{}/submission/comments/{}",
+                            "{}/v1/mods/{}/versions/{}/submission/comments/{}",
+                            trimSlash(getIndexUrl()),
                             m_modID,
                             m_state.selectedVersion,
                             id
                         )
                     ),
                     [this](web::WebResponse response) {
-                        endLoading();
+                        hideLoading();
                         if (!response.ok()) {
-                            notify(errorText(response), NotificationIcon::Error);
+                            notifyStatus(errorText(response));
                             return;
                         }
                         loadSelectedVersion();
@@ -2067,11 +1974,13 @@ class CommentsLayer : public CCLayer {
         );
     }
 
+    void showAttachmentImage(std::string const& url) {
+        if (auto popup = AttachmentImagePopup::create(url))
+            popup->show();
+    }
+
 public:
-    static CommentsLayer* create(
-        std::string modID,
-        CCNode* textArea
-    ) {
+    static CommentsLayer* create(std::string modID, CCNode* textArea) {
         auto ret = new CommentsLayer();
         if (ret && ret->init(std::move(modID), textArea)) {
             ret->autorelease();
@@ -2084,94 +1993,68 @@ public:
 
 } // namespace
 
-void ensureCommentsTab(CCNode* popup) {
-    if (!popup) return;
+void attachCommentsToTextArea(std::string const& modID, geode::MDTextArea* textArea) {
+    if (!textArea) return;
 
-    auto modID = getModID(popup);
-    if (modID.empty()) return;
+    auto layer = CommentsLayer::create(modID, textArea);
+    layer->setID("opengeode-comments-layer"_spr);
+    layer->setVisible(false);
 
-    auto tabs = popup->getChildByIDRecursive("tabs-menu");
-    auto textarea = popup->getChildByIDRecursive("textarea");
-    if (!tabs || !textarea || tabs->getChildByID("opengeode-comments-tab"))
-        return;
+    auto bg = textArea->getChildByType<CCScale9Sprite>(0);
+    if (bg) {
+        layer->setPosition(bg->getPosition());
+        layer->setZOrder(bg->getZOrder() + 1);
+        textArea->addChild(layer);
+    }
 
-    auto description = typeinfo_cast<CCMenuItemSpriteExtra*>(
-        tabs->getChildByID("description")
-    );
-    auto changelog = typeinfo_cast<CCMenuItemSpriteExtra*>(
-        tabs->getChildByID("changelog")
-    );
-    if (!description || !changelog) return;
+    auto scroll = textArea->getScrollLayer();
+    if (!scroll) return;
+    auto parent = scroll->getParent();
+    if (!parent) return;
 
-    auto descriptionListener = description->m_pListener;
-    auto descriptionSelector = description->m_pfnSelector;
-    auto changelogListener = changelog->m_pListener;
-    auto changelogSelector = changelog->m_pfnSelector;
+    auto container = CCNode::create();
+    container->setContentSize({parent->getContentWidth(), 35.f});
+    container->setAnchorPoint({.5f, 0.f});
+    container->setLayout(RowLayout::create()
+        ->setAxisAlignment(AxisAlignment::Center)
+        ->setCrossAxisAlignment(AxisAlignment::Start)
+        ->setGap(2.f));
 
-    auto commentsSprite = OpenGeodeTabSprite::create(
-        "GJ_chatIcon_001.png", "Comments", 140.f
-    );
-    if (!commentsSprite) return;
+    auto descriptionTab = OpenGeodeTabSprite::create("GJ_infoIcon_001.png", "Info", 140.f);
+    descriptionTab->select(true);
 
-    auto callback = [
-        modID,
-        textarea,
-        descriptionListener,
-        descriptionSelector,
-        changelogListener,
-        changelogSelector,
-        commentsSprite
-    ](CCMenuItemSpriteExtra* sender) {
-        auto parent = textarea->getParent();
-        if (!parent) return;
+    auto commentsTab = OpenGeodeTabSprite::create("GJ_chatBtn_001.png", "Comments", 140.f);
 
-        while (auto old = parent->getChildByType<CommentsLayer>(0))
-            old->removeFromParent();
-
-        auto tag = sender->getTag();
-        if (tag == 0) {
-            (descriptionListener->*descriptionSelector)(sender);
-            commentsSprite->select(0);
-            textarea->setVisible(true);
+    auto descriptionItem = CCMenuItemExt::createSpriteExtra(
+        descriptionTab,
+        [textArea, layer, descriptionTab, commentsTab](auto) {
+            descriptionTab->select(true);
+            commentsTab->select(false);
+            layer->setVisible(false);
+            if (auto s = textArea->getScrollLayer()) s->setVisible(true);
         }
-        else if (tag == 1) {
-            (changelogListener->*changelogSelector)(sender);
-            commentsSprite->select(0);
-            textarea->setVisible(true);
+    );
+
+    auto commentsItem = CCMenuItemExt::createSpriteExtra(
+        commentsTab,
+        [textArea, layer, descriptionTab, commentsTab](auto) {
+            descriptionTab->select(false);
+            commentsTab->select(true);
+            layer->setVisible(true);
+            if (auto s = textArea->getScrollLayer()) s->setVisible(false);
         }
-        else {
-            commentsSprite->select(1);
-            textarea->setVisible(false);
-
-            auto layer = CommentsLayer::create(modID, textarea);
-            if (layer) {
-                // textarea's position uses its own (usually bottom-left)
-                // anchor. The comments layer uses a centered anchor, so add
-                // it to the same parent at the parent's center instead of
-                // reusing textarea's bottom-left position.
-                layer->setAnchorPoint({.5f, .5f});
-                layer->setScale(textarea->getScale());
-                layer->setRotation(textarea->getRotation());
-                parent->addChildAtPosition(layer, Anchor::Center);
-            }
-        }
-    };
-
-    CCMenuItemExt::assignCallback<CCMenuItemSpriteExtra>(
-        description, callback
-    );
-    CCMenuItemExt::assignCallback<CCMenuItemSpriteExtra>(
-        changelog, callback
     );
 
-    auto item = CCMenuItemExt::createSpriteExtra(
-        commentsSprite, callback
-    );
-    item->setTag(2);
-    item->setID("opengeode-comments-tab");
-    item->m_pListener = description->m_pListener;
-    tabs->addChild(item);
-    tabs->updateLayout();
+    auto menu = CCMenu::create();
+    menu->setContentSize(container->getContentSize());
+    menu->setLayout(RowLayout::create()->setGap(0.f));
+    menu->addChild(descriptionItem);
+    menu->addChild(commentsItem);
+    menu->updateLayout();
+    container->addChild(menu);
+    container->updateLayout();
+
+    parent->addChildAtPosition(container, Anchor::Top, ccp(0, 16));
 }
 
 } // namespace opengeode
