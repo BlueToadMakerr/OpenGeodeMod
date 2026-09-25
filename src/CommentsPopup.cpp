@@ -85,7 +85,7 @@ namespace opengeode {
 namespace {
 
 // ---------------------------------------------------------------------------
-// Comments window layout constants (halved top and bottom heights).
+// Comments window layout constants.
 // ---------------------------------------------------------------------------
 constexpr float kTopHeight = 12.5f;
 constexpr float kTopInset = 3.f;
@@ -93,7 +93,7 @@ constexpr float kBottomHeight = 16.f;
 constexpr float kBottomInset = 3.f;
 constexpr float kSectionGap = 3.f;
 
-constexpr float kLockButtonScale = .17f;   
+constexpr float kLockButtonScale = .255f;   
 constexpr float kBarButtonScale = .275f;    
 
 constexpr float kThumbSize = 36.f;         
@@ -119,7 +119,7 @@ void notifyStatus(std::string const& message) {
 
 struct LoadingNotification : std::enable_shared_from_this<LoadingNotification> {
     Ref<Notification> notification;
-    bool hideRequested = false;
+    bool cancelRequested = false;
 
     static std::shared_ptr<LoadingNotification> create(std::string message) {
         auto ref = std::make_shared<LoadingNotification>();
@@ -136,8 +136,8 @@ struct LoadingNotification : std::enable_shared_from_this<LoadingNotification> {
 
             ref->notification->show();
 
-            if (ref->hideRequested) {
-                ref->notification->hide();
+            if (ref->cancelRequested) {
+                ref->notification->cancel();
                 ref->notification = nullptr;
             }
         });
@@ -149,10 +149,10 @@ struct LoadingNotification : std::enable_shared_from_this<LoadingNotification> {
         auto self = shared_from_this();
 
         geode::queueInMainThread([self] {
-            self->hideRequested = true;
+            self->cancelRequested = true;
 
             if (self->notification) {
-                self->notification->hide();
+                self->notification->cancel();
                 self->notification = nullptr;
             }
         });
@@ -892,7 +892,7 @@ class CommentsLayer : public CCLayer {
         bottomMenu->addChild(m_attachButton);
 
         m_attachmentCountLabel = CCLabelBMFont::create("", "chatFont.fnt");
-        m_attachmentCountLabel->setScale(.14f);
+        m_attachmentCountLabel->setScale(.19f);
         m_attachmentCountLabel->setAnchorPoint({.5f, .5f});
         m_attachmentCountLabel->setVisible(false);
         bottom->addChild(m_attachmentCountLabel);
@@ -1248,27 +1248,27 @@ class CommentsLayer : public CCLayer {
 
             if (comment.canEdit) {
                 auto button = ButtonSprite::create(
-                    "Edit", "goldFont.fnt", "GJ_button_01.png", .17f
+                    "Edit", "goldFont.fnt", "GJ_button_01.png", .34f
                 );
-                button->setScale(.17f);
+                button->setScale(.34f);
                 auto editItem = CCMenuItemExt::createSpriteExtra(
                     button, [this, comment](auto) { beginEdit(comment); }
                 );
-                editItem->setScale(.17f);
-                editItem->m_baseScale = .17f;
+                editItem->setScale(.34f);
+                editItem->m_baseScale = .34f;
                 editItem->setAnchorPoint({.5f, .5f});
                 actions->addChild(editItem);
             }
             if (comment.canDelete) {
                 auto button = ButtonSprite::create(
-                    "Delete", "goldFont.fnt", "GJ_button_06.png", .17f
+                    "Delete", "goldFont.fnt", "GJ_button_06.png", .34f
                 );
-                button->setScale(.17f);
+                button->setScale(.34f);
                 auto deleteItem = CCMenuItemExt::createSpriteExtra(
                     button, [this, comment](auto) { deleteComment(comment.id); }
                 );
-                deleteItem->setScale(.17f);
-                deleteItem->m_baseScale = .17f;
+                deleteItem->setScale(.34f);
+                deleteItem->m_baseScale = .34f;
                 deleteItem->setAnchorPoint({.5f, .5f});
                 actions->addChild(deleteItem);
             }
@@ -1415,15 +1415,6 @@ class CommentsLayer : public CCLayer {
             stack->updateLayout();
             m_commentsContainer->addChild(card);
             totalHeight += cardHeight + 7.f;
-        }
-
-        if (!any) {
-            auto empty = CCLabelBMFont::create(
-                "No comments yet.", "chatFont.fnt"
-            );
-            empty->setScale(.35f);
-            m_commentsContainer->addChild(empty);
-            totalHeight += 35.f;
         }
 
         m_commentsContainer->setAnchorPoint({0.f, 0.f});
