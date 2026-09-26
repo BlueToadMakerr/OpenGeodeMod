@@ -27,7 +27,6 @@ namespace opengeode {
 void CommentsLayer::showComment(std::string const& text) {
     auto popup = createCommentViewPopup(text);
     if (popup) {
-        popup->m_noElasticity = true;
         popup->show();
     }
 }
@@ -49,7 +48,6 @@ void CommentsLayer::showVersionPicker() {
         }
     );
     if (popup) {
-        popup->m_noElasticity = true;
         popup->show();
     }
 }
