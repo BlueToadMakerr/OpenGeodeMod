@@ -1449,9 +1449,9 @@ class CommentsLayer : public CCLayer {
         });
         m_commentsContainer->updateLayout();
 
-        // Auto-scroll to newest comments after updateLayout per PR #16[cite: 1]
+        // Scroll to top to handle the reversed layout list correctly
         geode::queueInMainThread([scroll] {
-            scroll->scrollToBottom();
+            scroll->scrollToTop();
         });
 
         if (m_versionButton) {
