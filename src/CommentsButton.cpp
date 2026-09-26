@@ -1,11 +1,20 @@
 #include "CommentsPopup.hpp"
+#include "CommentsLayer.hpp"
 
 #include <Geode/Geode.hpp>
 #include <Geode/ui/GeodeUI.hpp>
+#include <Geode/modify/ModPopup.hpp>
 
 using namespace geode::prelude;
 
 namespace opengeode {
+
+class $modify(OpenGeodeModPopup, ModPopup) {
+    void loadTab(ModPopup::Tab tab) {
+        clearCommentsTab(this);
+        ModPopup::loadTab(tab);
+    }
+};
 
 $execute {
     ModPopupUIEvent().listen(
