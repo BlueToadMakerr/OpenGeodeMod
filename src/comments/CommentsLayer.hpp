@@ -55,7 +55,7 @@ class CommentsLayer : public cocos2d::CCLayer {
 
     bool init(std::string modID, CCNode* textArea);
     void updateBottomLayout();
-    void setLoading(bool loading);
+    void setLoading(bool loading, std::string const& message = {});
     void setContentMessage(std::string const& message);
     void request(
         std::string method,
