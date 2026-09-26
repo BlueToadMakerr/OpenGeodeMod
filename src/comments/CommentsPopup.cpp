@@ -166,7 +166,6 @@ void ensureCommentsTab(CCNode* popup) {
     auto item = CCMenuItemExt::createSpriteExtra(commentsSprite, callback);
     item->setTag(2);
     item->setID("opengeode-comments-tab");
-    item->m_pListener = description->m_pListener;
     tabs->addChild(item);
     tabs->updateLayout();
 }
