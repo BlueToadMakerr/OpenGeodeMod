@@ -223,7 +223,7 @@ std::string m_modID;
         m_exitButton->setVisible(false);
         bottomMenu->addChild(m_exitButton);
 
-        CCSprite* attachSprite = nullptr;
+        CCNode* attachSprite = nullptr;
         if (isGeodeTheme()) {
             attachSprite = CCLabelBMFont::create("+", "bigFont.fnt");
             attachSprite->setScale(.8f);
