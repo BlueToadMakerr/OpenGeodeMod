@@ -5,5 +5,6 @@
 namespace opengeode {
 
 void ensureCommentsTab(cocos2d::CCNode* modPopup);
+void clearCommentsTab(cocos2d::CCNode* modPopup);
 
 } // namespace opengeode
