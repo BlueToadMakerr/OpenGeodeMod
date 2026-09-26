@@ -79,7 +79,6 @@ void CommentsLayer::removePendingFile(std::filesystem::path const& path) {
         if (it == m_pendingFiles.end()) return;
 
         m_pendingFiles.erase(it);
-        notifyStatus("Attachment removed.");
         rebuild();
     }
 } // namespace opengeode
