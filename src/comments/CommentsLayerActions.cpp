@@ -294,12 +294,14 @@ void CommentsLayer::finishCommentAttachments(int commentID, bool editing) {
 }
 
 void CommentsLayer::uploadAttachments(int commentID, std::function<void()> finish) {
+    auto loading = LoadingNotification::create("Uploading attachments...");
     auto failures = std::make_shared<std::vector<std::string>>();
     auto index = std::make_shared<size_t>(0);
     auto uploadNext = std::make_shared<std::function<void()>>();
 
-    *uploadNext = [this, commentID, finish = std::move(finish), failures, index, uploadNext]() mutable {
+    *uploadNext = [this, commentID, finish = std::move(finish), loading, failures, index, uploadNext]() mutable {
         if (*index >= m_pendingFiles.size()) {
+            loading->hide();
             if (!failures->empty()) {
                 std::string message = fmt::format(
                     "{} attachment{} failed to upload:",
