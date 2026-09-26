@@ -54,20 +54,19 @@ class VersionSelectPopup : public Popup {
         if (auto close = createGeodeCloseButton())
             setCloseButtonSpr(close, .8f);
 
+        const float width = 300.f;
         const float contentWidth = 270.f;
         const float contentHeight = 218.f;
-
-        auto scroll = ScrollLayer::create({contentWidth, contentHeight});
-        auto content = scroll->m_contentLayer;
-        content->setLayout(
-            ColumnLayout::create()
-                ->setAxisAlignment(AxisAlignment::Start)
-                ->setCrossAxisAlignment(AxisAlignment::Center)
-                ->setGap(4.f)
-                ->setPadding(Padding::uniform(4.f))
+        const size_t pageSize = 5;
+        const auto pageCount = std::max<size_t>(
+            1,
+            (m_versions.size() + pageSize - 1) / pageSize
         );
 
-        for (auto const& version : m_versions) {
+        auto page = std::make_shared<size_t>(0);
+
+        auto rows = std::make_shared<std::vector<CCNode*>>();
+        for (size_t i = 0; i < pageSize; ++i) {
             auto row = CCNode::create();
             row->setContentSize({270.f, 40.f});
             row->setAnchorPoint({.5f, .5f});
@@ -79,10 +78,7 @@ class VersionSelectPopup : public Popup {
             bg->setContentSize(row->getContentSize() / bg->getScale());
             row->addChildAtPosition(bg, Anchor::Center);
 
-            auto label = CCLabelBMFont::create(
-                (version.starts_with("v") ? version : "v" + version).c_str(),
-                "bigFont.fnt"
-            );
+            auto label = CCLabelBMFont::create("", "bigFont.fnt");
             label->setScale(.38f);
             label->setAnchorPoint({0.f, .5f});
             label->limitLabelWidth(190.f, .38f, .1f);
@@ -99,10 +95,15 @@ class VersionSelectPopup : public Popup {
 
             auto item = CCMenuItemExt::createSpriteExtra(
                 viewSprite,
-                [this, version](CCObject*) {
-                    auto callback = m_onSelect;
-                    removeFromParent();
+                [this, rows](CCObject* sender) {
+                    auto item = typeinfo_cast<CCMenuItemSpriteExtra*>(sender);
+                    if (!item) return;
+                    auto index = static_cast<size_t>(item->getTag());
+                    if (index >= m_versions.size()) return;
 
+                    auto callback = m_onSelect;
+                    auto version = m_versions[index];
+                    removeFromParent();
                     if (callback) {
                         geode::queueInMainThread(
                             [callback = std::move(callback), version] {
@@ -113,25 +114,103 @@ class VersionSelectPopup : public Popup {
                 }
             );
             item->setContentSize({45.f, 18.f});
+            row->addChild(CCNode::create());
+            row->getChildren()->removeObject(row->getChildren()->back());
 
             auto menu = CCMenu::create();
             menu->setPosition({229.f, 20.f});
             menu->addChild(item);
             row->addChild(menu);
 
-            content->addChild(row);
+            rows->push_back(row);
+            m_mainLayer->addChild(row);
         }
 
-        content->setContentSize({
-            contentWidth,
-            std::max(
-                contentHeight,
-                8.f + 44.f * static_cast<float>(m_versions.size())
-            )
-        });
-        content->updateLayout();
+        auto pageLabel = CCLabelBMFont::create("1/1", "bigFont.fnt");
+        pageLabel->setScale(.5f);
+        pageLabel->setAnchorPoint({.5f, .5f});
+        pageLabel->setPosition({width / 2.f, 22.f});
+        m_mainLayer->addChild(pageLabel);
 
-        m_mainLayer->addChildAtPosition(scroll, Anchor::Center);
+        auto updatePage = [this, rows, page, pageSize, pageCount, pageLabel]() {
+            auto start = *page * pageSize;
+            for (size_t i = 0; i < rows->size(); ++i) {
+                auto row = rows->at(i);
+                auto index = start + i;
+                row->setVisible(index < m_versions.size());
+                if (index >= m_versions.size())
+                    continue;
+
+                auto version = m_versions[index];
+                auto label = typeinfo_cast<CCLabelBMFont*>(row->getChildByType<CCLabelBMFont>(0));
+                if (label)
+                    label->setString(
+                        (version.starts_with("v") ? version : "v" + version).c_str()
+                    );
+
+                auto menu = typeinfo_cast<CCMenu*>(row->getChildByType<CCMenu>(0));
+                if (menu) {
+                    auto item = typeinfo_cast<CCMenuItemSpriteExtra*>(menu->getChildByType<CCMenuItemSpriteExtra>(0));
+                    if (item) {
+                        item->setTag(static_cast<int>(index));
+                    }
+                }
+
+                row->setPosition({
+                    contentWidth / 2.f,
+                    contentHeight - 21.f - static_cast<float>(i) * 44.f
+                });
+            }
+            pageLabel->setString(
+                fmt::format("{}/{}", *page + 1, pageCount).c_str()
+            );
+        };
+
+        for (size_t i = 0; i < pageSize; ++i) {
+            rows->at(i)->setPosition({
+                contentWidth / 2.f,
+                contentHeight - 21.f - static_cast<float>(i) * 44.f
+            });
+        }
+
+        auto prevMenu = CCMenu::create();
+        prevMenu->setPosition({-15.f, 146.f});
+        auto prevSprite = CCSprite::createWithSpriteFrameName("GJ_arrow_03_001.png");
+        if (prevSprite) {
+            prevSprite->setScale(.8f);
+            auto prevItem = CCMenuItemExt::createSpriteExtra(
+                prevSprite,
+                [page, pageCount, updatePage](auto) {
+                    if (*page > 0) {
+                        --(*page);
+                        updatePage();
+                    }
+                }
+            );
+            prevMenu->addChild(prevItem);
+        }
+        m_mainLayer->addChild(prevMenu);
+
+        auto nextMenu = CCMenu::create();
+        nextMenu->setPosition({width + 15.f, 146.f});
+        auto nextSprite = CCSprite::createWithSpriteFrameName("GJ_arrow_03_001.png");
+        if (nextSprite) {
+            nextSprite->setFlipX(true);
+            nextSprite->setScale(.8f);
+            auto nextItem = CCMenuItemExt::createSpriteExtra(
+                nextSprite,
+                [page, pageCount, updatePage](auto) {
+                    if (*page + 1 < pageCount) {
+                        ++(*page);
+                        updatePage();
+                    }
+                }
+            );
+            nextMenu->addChild(nextItem);
+        }
+        m_mainLayer->addChild(nextMenu);
+
+        updatePage();
         return true;
     }
 
