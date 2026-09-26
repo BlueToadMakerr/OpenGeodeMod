@@ -45,6 +45,7 @@ void CommentsLayer::request(
 }
 void CommentsLayer::load() {
 
+        setLoading(true);
         m_state.loggedIn = hasAuthTokens();
         auto loading = LoadingNotification::create("Loading comments...");
 
@@ -71,7 +72,7 @@ void CommentsLayer::loadMod() {
 
         request("GET", fmt::format("/v1/mods/{}", m_modID), [this](web::WebResponse response) {
             if (!response.ok()) {
-                notifyStatus(errorText(response));
+                setContentMessage(errorText(response));
                 return;
             }
 
@@ -110,7 +111,7 @@ void CommentsLayer::loadMod() {
                 m_state.selectedVersion = m_state.versions.front();
 
             if (m_state.selectedVersion.empty()) {
-                rebuild();
+                setContentMessage("No submission found for this mod.");
                 return;
             }
 
@@ -137,8 +138,7 @@ void CommentsLayer::loadSelectedVersion() {
                     m_state.comments.clear();
                     m_state.lock = "none";
                     m_state.lockedBy = 0;
-                    rebuild();
-                    notifyStatus("This version does not have a submission.");
+                    setContentMessage("This version does not have a submission.");
                     return;
                 }
 
@@ -163,8 +163,7 @@ void CommentsLayer::loadSelectedVersion() {
                         commentsLoading->hide();
                         if (!commentsResponse.ok()) {
                             m_state.comments.clear();
-                            rebuild();
-                            notifyStatus(errorText(commentsResponse));
+                            setContentMessage(errorText(commentsResponse));
                             return;
                         }
 
