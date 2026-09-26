@@ -114,8 +114,6 @@ class VersionSelectPopup : public Popup {
                 }
             );
             item->setContentSize({45.f, 18.f});
-            row->addChild(CCNode::create());
-            row->getChildren()->removeObject(row->getChildren()->back());
 
             auto menu = CCMenu::create();
             menu->setPosition({229.f, 20.f});
