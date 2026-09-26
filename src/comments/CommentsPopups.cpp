@@ -22,6 +22,8 @@ class CommentViewPopup : public Popup {
     bool init(std::string text) {
         if (!Popup::init(360.f, 280.f, getPopupBackground())) return false;
         setTitle("Comment");
+        if (auto close = createGeodeCloseButton())
+            setCloseButtonSpr(close, .8f);
         auto area = MDTextArea::create(text.empty() ? "..." : text, {330.f, 220.f}, true);
         area->getScrollLayer()->m_cutContent = false;
         area->getScrollLayer()->m_disableMovement = false;
@@ -242,6 +244,8 @@ class AttachmentImagePopup : public Popup {
     bool init(std::string url) {
         if (!Popup::init(350.f, 260.f, getPopupBackground())) return false;
         setTitle("Attachment");
+        if (auto close = createGeodeCloseButton())
+            setCloseButtonSpr(close, .8f);
         auto holder = CCNode::create();
         holder->setContentSize({320.f, 210.f});
         holder->setAnchorPoint({.5f, .5f});
