@@ -9,6 +9,8 @@
 #include <memory>
 #include <string>
 
+using namespace geode::prelude;
+
 namespace opengeode {
 
 void showNotification(std::string message, NotificationIcon icon, float time);
