@@ -82,8 +82,6 @@ protected:
         if (g_switchNotif) { g_switchNotif->cancel(); g_switchNotif = nullptr; }
         if (auto overlay = scene->getChildByID("switch-overlay"_spr)) overlay->removeFromParentAndCleanup(true);
 
-        // mod-list-frame is only the outer frame. The actual ModsLayer
-        // contents (including the OpenGeode action controls) live in ModList.
         auto modList = listFrame->getChildByID("ModList");
         if (!modList) return;
 
@@ -136,8 +134,23 @@ protected:
 
         auto req = web::WebRequest();
         req.header("Accept", "application/json");
+        auto token = getAuthAccessToken();
+        if (!token.empty())
+            req.header("Authorization", "Bearer " + token);
         m_capabilityTask.spawn(req.get(trimSlash(currentIndex) + "/OpenGeode"), [this, backMenu](web::WebResponse res) {
             m_capabilityPending = false;
+            auto hasSavedAccessToken = hasAuthAccessToken();
+            if (hasSavedAccessToken) {
+                auto sprite = createProfileButtonSprite();
+                if (!sprite) return;
+                m_accountButton = CCMenuItemSpriteExtra::create(sprite, this, menu_selector(ModsLayerWatcher::onAccount));
+                m_accountButton->setScale(.8f);
+                m_accountButton->m_baseScale = .8f;
+                m_accountButton->setID("opengeode-account-button"_spr);
+                backMenu->addChild(m_accountButton);
+                backMenu->updateLayout();
+                return;
+            }
             if (!res.ok()) return;
             auto json = res.json().unwrapOr(matjson::Value());
             if (!json["enabled"].asBool().unwrapOr(false) || !json["allowGdLogin"].asBool().unwrapOr(false)) return;
