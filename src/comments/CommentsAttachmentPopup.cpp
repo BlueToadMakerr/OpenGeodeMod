@@ -1,5 +1,6 @@
 #include "CommentsPopups.hpp"
 #include "CommentsUtils.hpp"
+#include "../PopupSectionUtils.hpp"
 
 #include <Geode/Geode.hpp>
 #include <Geode/utils/string.hpp>
@@ -54,7 +55,7 @@ class AttachmentPopup : public Popup {
             row->setAnchorPoint({.5f, .5f});
             row->setLayout(AnchorLayout::create());
 
-            auto bg = NineSlice::create("square02b_001.png");
+            auto bg = NineSlice::create(getSectionBackground());
             bg->setColor(ccBLACK);
             bg->setOpacity(70);
             bg->setScale(.3f);
@@ -89,7 +90,7 @@ class AttachmentPopup : public Popup {
             auto action = ButtonSprite::create(
                 removed ? "Restore" : "Remove",
                 "goldFont.fnt",
-                removed ? "GE_button_05.png"_spr : "GJ_button_06.png",
+                removed ? getButtonTexture("GJ_button_01.png") : "GJ_button_06.png",
                 1.f
             );
 
@@ -174,7 +175,7 @@ class AttachmentPopup : public Popup {
         std::function<void(std::filesystem::path const&)> onRemovePending,
         std::function<void()> onAdd
     ) {
-        if (!Popup::init(300.f, 235.f, "GE_square01.png"_spr)) return false;
+        if (!Popup::init(300.f, 235.f, getPopupBackground())) return false;
 
         m_attachments = std::move(attachments);
         m_pending = std::move(pending);
@@ -212,7 +213,7 @@ class AttachmentPopup : public Popup {
         );
         m_mainLayer->addChild(m_scroll);
 
-        auto add = ButtonSprite::create("+ Add Image", "bigFont.fnt", "GE_button_05.png"_spr, .8f);
+        auto add = ButtonSprite::create("+ Add Image", "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .8f);
         auto addItem = CCMenuItemExt::createSpriteExtra(add, [this](auto) {
             if (m_onAdd) {
                 m_onAdd();
