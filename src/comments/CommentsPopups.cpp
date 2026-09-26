@@ -264,7 +264,7 @@ public:
 // need access to the private popup class.
 
 Popup* createCommentViewPopup(std::string text) { return CommentViewPopup::create(std::move(text)); }
-Popup* createVersionSelectPopup(std::vector<std::string> versions, std::function<void(std::string)> callback) { return VersionSelectPopup::create(std::move(versions), "", std::move(callback)); }
+Popup* createVersionSelectPopup(std::vector<std::string> versions, std::string selectedVersion, std::function<void(std::string)> callback) { return VersionSelectPopup::create(std::move(versions), std::move(selectedVersion), std::move(callback)); }
 Popup* createAttachmentImagePopup(std::string url) { return AttachmentImagePopup::create(std::move(url)); }
 
 } // namespace opengeode
