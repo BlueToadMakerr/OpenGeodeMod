@@ -67,7 +67,6 @@ class CommentsLayer : public cocos2d::CCLayer {
     void loadSelectedVersion();
     void parseComments(matjson::Value const& json);
     bool canComment() const;
-    bool canUploadAttachments() const;
     void showComment(std::string const& text);
     void rebuild();
     void addAvatar(CCNode* avatar, CommentData const& comment);
