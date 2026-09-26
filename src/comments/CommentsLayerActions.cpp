@@ -303,11 +303,7 @@ void CommentsLayer::uploadAttachments(int commentID, std::function<void()> finis
         if (*index >= m_pendingFiles.size()) {
             loading->hide();
             if (!failures->empty()) {
-                std::string message = fmt::format(
-                    "{} attachment{} failed to upload:",
-                    failures->size(),
-                    failures->size() == 1 ? "" : "s"
-                );
+                std::string message;
                 for (auto const& failure : *failures)
                     message += "\n" + failure;
 
@@ -334,6 +330,16 @@ void CommentsLayer::uploadAttachments(int commentID, std::function<void()> finis
                 "{}: Could not read the file.",
                 path.filename().string()
             ));
+            createQuickPopup(
+                "Invalid Attachment",
+                fmt::format(
+                    "Could not read "{}".",
+                    path.filename().string()
+                ),
+                "OK",
+                nullptr,
+                nullptr
+            );
             (*uploadNext)();
             return;
         }
