@@ -82,6 +82,11 @@ class ManualLoginSettingNodeV3 : public SettingNodeV3 {
         showManualLoginPopup(std::move(entry));
     }
 
+    // This custom setting is an action-only button, so there is no value to
+    // commit or reset. These satisfy SettingNodeV3's required hooks.
+    void onCommit() override {}
+    void onResetToDefault() override {}
+
 public:
     static ManualLoginSettingNodeV3* create(
         std::shared_ptr<ManualLoginSettingV3> setting,
