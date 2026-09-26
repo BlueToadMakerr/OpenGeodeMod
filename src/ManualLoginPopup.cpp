@@ -1,4 +1,5 @@
 #include "ManualLoginPopup.hpp"
+#include "Settings.hpp"
 #include "PopupSectionUtils.hpp"
 
 #include <Geode/Geode.hpp>
@@ -38,7 +39,7 @@ class ManualLoginPopup : public Popup {
         m_mainLayer->addChild(accessLabel);
 
         m_access = TextInput::create(260.f, "Access token", "chatFont.fnt");
-        m_access->setString(getAuthAccessTokenForIndex(m_entry.id));
+        m_access->setString(getAuthAccessToken());
         m_access->setPosition({center, top - 47.f});
         m_mainLayer->addChild(m_access);
 
@@ -48,7 +49,7 @@ class ManualLoginPopup : public Popup {
         m_mainLayer->addChild(refreshLabel);
 
         m_refresh = TextInput::create(260.f, "Refresh token", "chatFont.fnt");
-        m_refresh->setString(getAuthRefreshTokenForIndex(m_entry.id));
+        m_refresh->setString(getAuthRefreshToken());
         m_refresh->setPosition({center, top - 97.f});
         m_mainLayer->addChild(m_refresh);
 
@@ -61,7 +62,7 @@ class ManualLoginPopup : public Popup {
                     FLAlertLayer::create("Invalid Credentials", "Both an access token and refresh token are required.", "OK")->show();
                     return;
                 }
-                setAuthTokensForIndex(m_entry.id, access, refresh);
+                setAuthTokens(access, refresh);
                 if (m_onSaved) m_onSaved();
                 onClose(nullptr);
             }
@@ -70,7 +71,7 @@ class ManualLoginPopup : public Popup {
         auto clear = CCMenuItemExt::createSpriteExtra(
             ButtonSprite::create("Clear", "goldFont.fnt", getButtonTexture("GJ_button_06.png"), .6f),
             [this](auto) {
-                clearAuthTokensForIndex(m_entry.id);
+                clearAuthTokens();
                 m_access->setString("");
                 m_refresh->setString("");
                 if (m_onSaved) m_onSaved();
