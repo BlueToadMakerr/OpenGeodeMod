@@ -172,7 +172,7 @@ std::string m_modID;
             .36f,
             .1f
         );
-        commentsArea->addChildAtPosition(m_statusLabel, Anchor::Center);
+        commentsArea->addChildAtPosition(m_statusLabel, Anchor::Center, ccp(0.f, -18.f));
         m_loadingIndicator->setVisible(false);
         m_statusLabel->setVisible(false);
 
@@ -244,7 +244,7 @@ std::string m_modID;
         m_input->setCommonFilter(CommonFilter::Any);
         m_input->setMaxCharCount(2000);
         m_input->setAnchorPoint({.5f, .5f});
-        m_input->setContentSize({100.f, 6.5f});
+        m_input->setContentSize({100.f, 4.5f});
         bottom->addChild(m_input);
 
         auto send = ButtonSprite::create(
@@ -307,11 +307,23 @@ void CommentsLayer::updateBottomLayout() {
         }
     
 }
-void CommentsLayer::setLoading(bool loading) {
+void CommentsLayer::setLoading(bool loading, std::string const& message) {
     if (m_loadingIndicator)
         m_loadingIndicator->setVisible(loading);
-    if (m_statusLabel)
-        m_statusLabel->setVisible(false);
+    if (m_statusLabel) {
+        m_statusLabel->setString(message.c_str());
+        m_statusLabel->limitLabelWidth(
+            getContentWidth() - 32.f,
+            .36f,
+            .1f
+        );
+        m_statusLabel->setVisible(loading && !message.empty());
+        if (loading)
+            m_statusLabel->setPosition({
+                getContentWidth() / 2.f,
+                getContentHeight() / 2.f - 18.f
+            });
+    }
     if (m_commentsContainer)
         m_commentsContainer->setVisible(!loading);
 }
