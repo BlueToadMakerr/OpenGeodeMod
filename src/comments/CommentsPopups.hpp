@@ -15,6 +15,7 @@ geode::Popup* createCommentViewPopup(std::string text);
 
 geode::Popup* createVersionSelectPopup(
     std::vector<std::string> versions,
+    std::string selectedVersion,
     std::function<void(std::string)> callback
 );
 
