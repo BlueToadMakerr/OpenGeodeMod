@@ -99,10 +99,24 @@ void ensureCommentsTab(CCNode* popup) {
     auto changelogListener = changelog->m_pListener;
     auto changelogSelector = changelog->m_pfnSelector;
 
+    auto descriptionSprite = typeinfo_cast<GeodeTabSprite*>(description->getNormalImage());
+    auto changelogSprite = typeinfo_cast<GeodeTabSprite*>(changelog->getNormalImage());
+    if (!descriptionSprite || !changelogSprite) return;
+
     auto commentsSprite = OpenGeodeTabSprite::create("GJ_chatIcon_001.png", "Comments", 140.f);
     if (!commentsSprite) return;
 
-    auto callback = [modID, textarea, descriptionListener, descriptionSelector, changelogListener, changelogSelector, commentsSprite](CCMenuItemSpriteExtra* sender) {
+    auto callback = [
+        modID,
+        textarea,
+        descriptionListener,
+        descriptionSelector,
+        changelogListener,
+        changelogSelector,
+        descriptionSprite,
+        changelogSprite,
+        commentsSprite
+    ](CCMenuItemSpriteExtra* sender) {
         auto parent = textarea->getParent();
         if (!parent) return;
 
@@ -112,15 +126,21 @@ void ensureCommentsTab(CCNode* popup) {
         auto tag = sender->getTag();
         if (tag == 0) {
             (descriptionListener->*descriptionSelector)(sender);
+            descriptionSprite->select(true);
+            changelogSprite->select(false);
             commentsSprite->select(false);
             textarea->setVisible(true);
         }
         else if (tag == 1) {
             (changelogListener->*changelogSelector)(sender);
+            descriptionSprite->select(false);
+            changelogSprite->select(true);
             commentsSprite->select(false);
             textarea->setVisible(true);
         }
         else {
+            descriptionSprite->select(false);
+            changelogSprite->select(false);
             commentsSprite->select(true);
             textarea->setVisible(false);
 
