@@ -188,7 +188,7 @@ std::string m_modID;
                 ->setOffset(ccp(0.f, kBottomInset))
         );
 
-        auto bottomBg = NineSlice::create("square02b_001.png");
+        auto bottomBg = NineSlice::create(getSectionBackground());
         bottomBg->setColor(ccBLACK);
         bottomBg->setOpacity(115);
         bottomBg->setScale(.3f);
@@ -459,7 +459,7 @@ void CommentsLayer::rebuild() {
                 ->setGap(4.f));
 
             auto viewButton = ButtonSprite::create(
-                "View", "bigFont.fnt", "GE_button_05.png"_spr, .8f
+                "View", "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .8f
             );
             viewButton->setScale(.34f);
             auto viewItem = CCMenuItemExt::createSpriteExtra(
@@ -472,7 +472,7 @@ void CommentsLayer::rebuild() {
 
             if (comment.canEdit) {
                 auto button = ButtonSprite::create(
-                    "Edit", "bigFont.fnt", "GE_button_05.png"_spr, .8f
+                    "Edit", "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .8f
                 );
                 button->setScale(.34f);
                 auto editItem = CCMenuItemExt::createSpriteExtra(
@@ -643,7 +643,7 @@ void CommentsLayer::rebuild() {
             card->setAnchorPoint({.5f, .5f});
             card->setLayout(AnchorLayout::create());
 
-            auto cardBG = NineSlice::create("square02b_001.png");
+            auto cardBG = NineSlice::create(getSectionBackground());
             cardBG->setColor(ccBLACK);
             cardBG->setOpacity(75);
             cardBG->setScale(.3f);
