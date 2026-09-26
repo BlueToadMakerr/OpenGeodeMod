@@ -48,11 +48,15 @@ class CommentsLayer : public cocos2d::CCLayer {
     TextInput* m_input = nullptr;
     CCMenuItemSpriteExtra* m_sendButton = nullptr;
     CCNode* m_commentsContainer = nullptr;
+    CCNode* m_loadingIndicator = nullptr;
+    CCLabelBMFont* m_statusLabel = nullptr;
     CCNode* m_bottom = nullptr;
     std::unordered_map<int, int> m_attachmentOffsets;
 
     bool init(std::string modID, CCNode* textArea);
     void updateBottomLayout();
+    void setLoading(bool loading);
+    void setContentMessage(std::string const& message);
     void request(
         std::string method,
         std::string path,
