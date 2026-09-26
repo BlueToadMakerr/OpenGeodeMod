@@ -43,6 +43,8 @@ class ModsLayerWatcher : public CCNode {
     std::string m_capabilityIndex;
     CCMenuItemSpriteExtra* m_accountButton = nullptr;
     bool m_capabilityPending = false;
+    bool m_capabilityAttempted = false;
+    bool m_inModsLayer = false;
 
 protected:
     bool init() {
@@ -56,11 +58,34 @@ protected:
         auto scene = CCDirector::sharedDirector()->getRunningScene();
         if (!scene || scene != this->getParent()) return;
         auto listFrame = scene->getChildByIDRecursive("mod-list-frame");
-        if (!listFrame) return;
-        auto modList = listFrame->getChildByID("ModList");
-        if (!modList) return;
+        if (!listFrame) {
+            if (m_inModsLayer) {
+                m_inModsLayer = false;
+                m_capabilityAttempted = false;
+                m_capabilityPending = false;
+                m_capabilityTask.cancel();
+                m_capabilityIndex.clear();
+                if (m_accountButton) {
+                    m_accountButton->removeFromParent();
+                    m_accountButton = nullptr;
+                }
+            }
+            return;
+        }
+
+        if (!m_inModsLayer) {
+            m_inModsLayer = true;
+            m_capabilityAttempted = false;
+            m_capabilityPending = false;
+        }
+
         if (g_switchNotif) { g_switchNotif->cancel(); g_switchNotif = nullptr; }
         if (auto overlay = scene->getChildByID("switch-overlay"_spr)) overlay->removeFromParentAndCleanup(true);
+
+        // mod-list-frame is only the outer frame. The actual ModsLayer
+        // contents (including the OpenGeode action controls) live in ModList.
+        auto modList = listFrame->getChildByID("ModList");
+        if (!modList) return;
 
         auto topContainer = modList->getChildByID("top-container");
         if (!topContainer) return;
@@ -100,18 +125,13 @@ protected:
 
     void ensureAccountButton(CCNode* scene) {
         auto backMenu = typeinfo_cast<CCMenu*>(scene->getChildByIDRecursive("back-menu"));
-        if (!backMenu) return;
+        if (!backMenu || m_capabilityAttempted || m_capabilityPending || m_accountButton) return;
+
         auto currentIndex = getIndexUrl();
-        if (currentIndex != m_capabilityIndex) {
-            m_capabilityIndex = currentIndex;
-            m_capabilityPending = false;
-            m_capabilityTask.cancel();
-            if (m_accountButton) {
-                m_accountButton->removeFromParent();
-                m_accountButton = nullptr;
-            }
-        }
-        if (m_accountButton || m_capabilityPending) return;
+        if (currentIndex.empty()) return;
+
+        m_capabilityIndex = currentIndex;
+        m_capabilityAttempted = true;
         m_capabilityPending = true;
 
         auto req = web::WebRequest();
