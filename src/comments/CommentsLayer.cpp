@@ -296,7 +296,7 @@ void CommentsLayer::updateBottomLayout() {
             inputWidth,
             m_input->getContentHeight()
         });
-        m_input->setPositionY(centerY + 1.5f);
+        m_input->setPositionY(centerY - 13.5f);
 
         if (auto bg = m_input->getBGSprite()) {
             bg->setContentHeight(30.f);
@@ -308,7 +308,10 @@ void CommentsLayer::updateBottomLayout() {
             auto w = node == m_input
                 ? inputWidth
                 : node->getScaledContentSize().width;
-            node->setPosition({x + w / 2.f, centerY});
+            node->setPosition({
+                x + w / 2.f,
+                node == m_input ? centerY - 13.5f : centerY
+            });
             x += w + gap;
         }
     
