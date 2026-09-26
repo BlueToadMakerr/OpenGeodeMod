@@ -89,6 +89,28 @@ void selectExistingTab(CCMenuItemSpriteExtra* item, bool selected) {
     if (selectedBG) selectedBG->setVisible(selected);
 }
 
+void clearCommentsTab(CCNode* popup) {
+    if (!popup) return;
+
+    if (auto layer = popup->getChildByIDRecursive("opengeode-comments-layer"))
+        layer->removeFromParent();
+
+    if (auto textarea = popup->getChildByIDRecursive("textarea"))
+        textarea->setVisible(true);
+
+    auto tabs = popup->getChildByIDRecursive("tabs-menu");
+    if (!tabs) return;
+
+    auto comments = typeinfo_cast<CCMenuItemSpriteExtra*>(
+        tabs->getChildByID("opengeode-comments-tab")
+    );
+    if (!comments) return;
+
+    auto sprite = typeinfo_cast<OpenGeodeTabSprite*>(comments->getNormalImage());
+    if (sprite)
+        sprite->select(false);
+}
+
 void ensureCommentsTab(CCNode* popup) {
     if (!popup) return;
 
@@ -109,7 +131,7 @@ void ensureCommentsTab(CCNode* popup) {
 
     auto item = CCMenuItemExt::createSpriteExtra(
         commentsSprite,
-        [popup, modID, textarea, description, changelog, commentsSprite](CCMenuItemSpriteExtra*) {
+        [popup, modID, description, changelog, commentsSprite](CCMenuItemSpriteExtra*) {
             auto descriptionContainer = popup->getChildByIDRecursive("description-container");
             auto changelogContainer = popup->getChildByIDRecursive("changelog-container");
 
@@ -118,19 +140,23 @@ void ensureCommentsTab(CCNode* popup) {
                 : changelogContainer;
             if (!activeContainer) return;
 
+            auto activeTextarea = activeContainer->getChildByIDRecursive("textarea");
+            if (!activeTextarea) return;
+
             while (auto old = activeContainer->getChildByType<CommentsLayer>(0))
                 old->removeFromParent();
 
             selectExistingTab(description, false);
             selectExistingTab(changelog, false);
             commentsSprite->select(true);
-            textarea->setVisible(false);
+            activeTextarea->setVisible(false);
 
-            auto layer = CommentsLayer::create(modID, textarea);
+            auto layer = CommentsLayer::create(modID, activeTextarea);
             if (layer) {
+                layer->setID("opengeode-comments-layer");
                 layer->setAnchorPoint({.5f, .5f});
-                layer->setScale(textarea->getScale());
-                layer->setRotation(textarea->getRotation());
+                layer->setScale(activeTextarea->getScale());
+                layer->setRotation(activeTextarea->getRotation());
                 activeContainer->addChildAtPosition(layer, Anchor::Center);
             }
         }
