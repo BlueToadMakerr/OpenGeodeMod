@@ -292,6 +292,11 @@ void CommentsLayer::updateBottomLayout() {
                 - gap * static_cast<float>(std::max(0, shown - 1))
         );
         m_input->setWidth(inputWidth);
+        m_input->setContentSize({
+            inputWidth,
+            m_input->getContentHeight()
+        });
+        m_input->setPositionY(centerY + 1.5f);
 
         if (auto bg = m_input->getBGSprite()) {
             bg->setContentHeight(30.f);
