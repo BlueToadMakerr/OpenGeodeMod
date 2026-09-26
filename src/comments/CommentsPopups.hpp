@@ -11,14 +11,14 @@
 
 namespace opengeode {
 
-cocos2d::CCNode* createCommentViewPopup(std::string text);
+Popup* createCommentViewPopup(std::string text);
 
-cocos2d::CCNode* createVersionSelectPopup(
+Popup* createVersionSelectPopup(
     std::vector<std::string> versions,
     std::function<void(std::string)> callback
 );
 
-cocos2d::CCNode* createAttachmentPopup(
+Popup* createAttachmentPopup(
     std::vector<CommentAttachment> attachments,
     std::vector<std::filesystem::path> pending,
     std::vector<int> removed,
