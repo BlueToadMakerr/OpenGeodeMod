@@ -132,7 +132,7 @@ class VersionSelectPopup : public Popup {
         pageLabel->setPosition({width / 2.f, 22.f});
         m_mainLayer->addChild(pageLabel);
 
-        auto updatePage = [this, rows, page, pageSize, pageCount, pageLabel, contentWidth, contentHeight]() {
+        auto updatePage = [this, rows, page, pageSize, pageCount, pageLabel, contentWidth, contentHeight, width]() {
             auto start = *page * pageSize;
             for (size_t i = 0; i < rows->size(); ++i) {
                 auto row = rows->at(i);
@@ -160,8 +160,7 @@ class VersionSelectPopup : public Popup {
                                 ? m_selectedVersion
                                 : "v" + m_selectedVersion;
                             button->setString(current == selected ? "Viewing" : "View");
-                            button->updateSprite();
-                        }
+                                }
                     }
                 }
 
@@ -265,7 +264,7 @@ public:
 // need access to the private popup class.
 
 Popup* createCommentViewPopup(std::string text) { return CommentViewPopup::create(std::move(text)); }
-Popup* createVersionSelectPopup(std::vector<std::string> versions, std::function<void(std::string)> callback) { return VersionSelectPopup::create(std::move(versions), std::move(callback)); }
+Popup* createVersionSelectPopup(std::vector<std::string> versions, std::function<void(std::string)> callback) { return VersionSelectPopup::create(std::move(versions), std::move(selectedVersion), std::move(callback)); }
 Popup* createAttachmentImagePopup(std::string url) { return AttachmentImagePopup::create(std::move(url)); }
 
 } // namespace opengeode
