@@ -65,11 +65,9 @@ void CommentsLayer::toggleAttachmentRemoval(int attachmentID) {
 
         if (it == m_removedAttachments.end()) {
             m_removedAttachments.push_back(attachmentID);
-            notifyStatus("Attachment marked for removal.");
         }
         else {
             m_removedAttachments.erase(it);
-            notifyStatus("Attachment restored.");
         }
         rebuild();
     }
