@@ -53,4 +53,33 @@ void CommentsLayer::showAttachmentsPopup() {
     }
 }
 
+
+void CommentsLayer::toggleAttachmentRemoval(int attachmentID) {
+        if (m_editingCommentID == 0) return;
+
+        auto it = std::find(
+            m_removedAttachments.begin(),
+            m_removedAttachments.end(),
+            attachmentID
+        );
+
+        if (it == m_removedAttachments.end()) {
+            m_removedAttachments.push_back(attachmentID);
+            notifyStatus("Attachment marked for removal.");
+        }
+        else {
+            m_removedAttachments.erase(it);
+            notifyStatus("Attachment restored.");
+        }
+        rebuild();
+    }
+
+void CommentsLayer::removePendingFile(std::filesystem::path const& path) {
+        auto it = std::find(m_pendingFiles.begin(), m_pendingFiles.end(), path);
+        if (it == m_pendingFiles.end()) return;
+
+        m_pendingFiles.erase(it);
+        notifyStatus("Attachment removed.");
+        rebuild();
+    }
 } // namespace opengeode
