@@ -291,10 +291,8 @@ void CommentsLayer::updateBottomLayout() {
             rowWidth - pad * 2.f - fixedWidth
                 - gap * static_cast<float>(std::max(0, shown - 1))
         );
-        m_input->setContentSize({
-            inputWidth,
-            3.25f
-        });
+        m_input->setWidth(inputWidth);
+        m_input->setScaleY(.5f);
 
         float x = pad;
         for (auto node : order) {
@@ -319,10 +317,10 @@ void CommentsLayer::setLoading(bool loading, std::string const& message) {
         );
         m_statusLabel->setVisible(loading && !message.empty());
         if (loading)
-            m_statusLabel->setPosition({
-                getContentWidth() / 2.f,
-                getContentHeight() / 2.f - 18.f
-            });
+            if (m_loadingIndicator) {
+                auto pos = m_loadingIndicator->getPosition();
+                m_statusLabel->setPosition(pos + ccp(0.f, -20.f));
+            }
     }
     if (m_commentsContainer)
         m_commentsContainer->setVisible(!loading);
@@ -341,6 +339,8 @@ void CommentsLayer::setContentMessage(std::string const& message) {
             .1f
         );
         m_statusLabel->setVisible(true);
+        if (m_loadingIndicator)
+            m_statusLabel->setPosition(m_loadingIndicator->getPosition());
     }
 }
 
