@@ -83,8 +83,8 @@ void selectExistingTab(CCMenuItemSpriteExtra* item, bool selected) {
     if (!item) return;
     auto image = item->getNormalImage();
     if (!image) return;
-    auto deselected = typeinfo_cast<CCScale9Sprite*>(image->getChildByType<CCScale9Sprite>(0));
-    auto selectedBG = typeinfo_cast<CCScale9Sprite*>(image->getChildByType<CCScale9Sprite>(1));
+    auto deselected = typeinfo_cast<NineSlice*>(image->getChildByType<NineSlice>(0));
+    auto selectedBG = typeinfo_cast<NineSlice*>(image->getChildByType<NineSlice>(1));
     if (deselected) deselected->setVisible(!selected);
     if (selectedBG) selectedBG->setVisible(selected);
 }
@@ -131,14 +131,14 @@ void ensureCommentsTab(CCNode* popup) {
 
         auto tag = sender->getTag();
         if (tag == 0) {
-            (descriptionListener->*descriptionSelector)(sender);
+            (descriptionListener->*descriptionSelector)(description);
             selectExistingTab(description, true);
             selectExistingTab(changelog, false);
             commentsSprite->select(false);
             textarea->setVisible(true);
         }
         else if (tag == 1) {
-            (changelogListener->*changelogSelector)(sender);
+            (changelogListener->*changelogSelector)(changelog);
             selectExistingTab(description, false);
             selectExistingTab(changelog, true);
             commentsSprite->select(false);
