@@ -292,7 +292,10 @@ void CommentsLayer::updateBottomLayout() {
                 - gap * static_cast<float>(std::max(0, shown - 1))
         );
         m_input->setWidth(inputWidth);
-        m_input->setScaleY(.5f);
+
+        if (auto bg = m_input->getBGSprite()) {
+            bg->setContentHeight(30.f);
+        }
 
         float x = pad;
         for (auto node : order) {
@@ -472,7 +475,6 @@ void CommentsLayer::rebuild() {
             header->addChild(actions);
             header->updateLayout();
 
-            // Estimated line count height calculation and non-scrollable body
             auto const& text = comment.body.empty()
                 ? std::string("...")
                 : comment.body;
@@ -659,7 +661,6 @@ void CommentsLayer::rebuild() {
         });
         m_commentsContainer->updateLayout();
 
-        // Safely trigger scroll->scrollToTop() on the main thread after layout updates
         geode::queueInMainThread([scroll] {
             if (scroll) {
                 scroll->scrollToTop();
@@ -758,4 +759,4 @@ CommentsLayer* CommentsLayer::create(
     return nullptr;
 }
 
-} // namespace opengeode
+} // namespace opengeodeMod
