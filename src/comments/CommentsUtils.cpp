@@ -33,7 +33,8 @@ std::shared_ptr<LoadingNotification> LoadingNotification::create(std::string mes
 
     return ref;
 }
-\nvoid LoadingNotification::hide() {
+
+void LoadingNotification::hide() {
     auto self = shared_from_this();
 
     geode::queueInMainThread([self] {
@@ -61,38 +62,6 @@ void showNotification(
 void notifyStatus(std::string const& message) {
     showNotification(message, NotificationIcon::Info, 1.5f);
 }
-
-struct CommentAttachment {
-    int id = 0;
-    std::string url;
-    std::string filename;
-};
-
-struct CommentData {
-    int id = 0;
-    std::string body;
-    int authorID = 0;
-    std::string username;
-    std::string pfp;
-    bool canEdit = false;
-    bool canDelete = false;
-    std::vector<CommentAttachment> attachments;
-};
-
-struct CommentState {
-    std::vector<CommentData> comments;
-    std::vector<std::string> versions;
-    std::vector<int> modDeveloperIDs;
-    std::string selectedVersion;
-    std::string lock = "none";
-    int lockedBy = 0;
-    std::string lockedByName;
-    int currentDeveloperID = 0;
-    bool currentDeveloperAdmin = false;
-    bool currentDeveloperVerified = false;
-    bool currentDeveloperModDeveloper = false;
-    bool loggedIn = false;
-};
 
 std::string trimSlash(std::string url) {
     while (!url.empty() && url.back() == '/') url.pop_back();
@@ -200,6 +169,5 @@ std::string getModID(CCNode* popup) {
     if (!value.empty() && value.back() == ')') value.pop_back();
     return value;
 }
-
 
 } // namespace opengeode
