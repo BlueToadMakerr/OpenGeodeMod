@@ -20,7 +20,7 @@ namespace opengeode {
 
 class CommentViewPopup : public Popup {
     bool init(std::string text) {
-        if (!Popup::init(360.f, 280.f, "GE_square01.png"_spr)) return false;
+        if (!Popup::init(360.f, 280.f, getPopupBackground())) return false;
         setTitle("Comment");
         auto area = MDTextArea::create(text.empty() ? "..." : text, {330.f, 220.f}, true);
         area->getScrollLayer()->m_cutContent = false;
@@ -152,7 +152,7 @@ public:
 
 class AttachmentImagePopup : public Popup {
     bool init(std::string url) {
-        if (!Popup::init(350.f, 260.f, "GE_square01.png"_spr)) return false;
+        if (!Popup::init(350.f, 260.f, getPopupBackground())) return false;
         setTitle("Attachment");
         auto holder = CCNode::create();
         holder->setContentSize({320.f, 210.f});
