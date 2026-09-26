@@ -223,11 +223,18 @@ std::string m_modID;
         m_exitButton->setVisible(false);
         bottomMenu->addChild(m_exitButton);
 
-        auto attachSprite = CircleButtonSprite::createWithSpriteFrameName(
-            isGeodeTheme() ? "geode.loader/plus.png" : "GJ_plusBtn_001.png",
-            .875f,
-            CircleBaseColor::DarkPurple
-        );
+        CCSprite* attachSprite = nullptr;
+        if (isGeodeTheme()) {
+            attachSprite = CCLabelBMFont::create("+", "bigFont.fnt");
+            attachSprite->setScale(.8f);
+        }
+        else {
+            attachSprite = CircleButtonSprite::createWithSpriteFrameName(
+                "GJ_plusBtn_001.png",
+                .875f,
+                CircleBaseColor::DarkPurple
+            );
+        }
 
         m_attachButton = CCMenuItemExt::createSpriteExtra(
             attachSprite,
@@ -298,7 +305,7 @@ void CommentsLayer::updateBottomLayout() {
             inputWidth,
             m_input->getContentHeight()
         });
-        m_input->setPositionY(centerY - 13.5f);
+        m_input->setPositionY(centerY - 12.5f);
 
         if (auto bg = m_input->getBGSprite()) {
             bg->setContentHeight(30.f);
