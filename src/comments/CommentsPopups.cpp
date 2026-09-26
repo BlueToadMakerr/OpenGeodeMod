@@ -130,7 +130,7 @@ class VersionSelectPopup : public Popup {
         pageLabel->setPosition({width / 2.f, 22.f});
         m_mainLayer->addChild(pageLabel);
 
-        auto updatePage = [this, rows, page, pageSize, pageCount, pageLabel]() {
+        auto updatePage = [this, rows, page, pageSize, pageCount, pageLabel, contentWidth, contentHeight]() {
             auto start = *page * pageSize;
             for (size_t i = 0; i < rows->size(); ++i) {
                 auto row = rows->at(i);
