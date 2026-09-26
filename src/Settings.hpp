@@ -149,8 +149,6 @@ inline std::string getActiveIndexId() {
     for (auto const& entry : getAllIndexes()) {
         if (entry.url == url) return entry.id;
     }
-    // The fallback keeps tokens isolated even if a legacy installation has
-    // an active URL which is not present in the saved index list.
     std::hash<std::string> hasher;
     return "url-" + fmt::format("{:016x}", static_cast<unsigned long long>(hasher(url)));
 }
@@ -161,6 +159,10 @@ inline std::string getAuthAccessToken() {
 
 inline std::string getAuthRefreshToken() {
     return readSetting("auth-refresh-" + getActiveIndexId(), "");
+}
+
+inline bool hasAuthAccessToken() {
+    return !getAuthAccessToken().empty();
 }
 
 inline void setAuthTokens(std::string const& accessToken, std::string const& refreshToken) {
@@ -176,7 +178,7 @@ inline void clearAuthTokens() {
 }
 
 inline bool hasAuthTokens() {
-    return !getAuthAccessToken().empty() && !getAuthRefreshToken().empty();
+    return hasAuthAccessToken() && !getAuthRefreshToken().empty();
 }
 
 inline bool addCustomIndex(std::string name, std::string url) {
