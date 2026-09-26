@@ -299,6 +299,45 @@ std::string getModID(CCNode* popup) {
     return value;
 }
 
+class CommentViewPopup : public Popup {
+    bool init(std::string text) {
+        if (!Popup::init(360.f, 280.f))
+            return false;
+
+        setTitle("Comment");
+
+        auto area = MDTextArea::create(
+            text.empty() ? "..." : text,
+            {330.f, 220.f},
+            true
+        );
+
+        area->getScrollLayer()->m_cutContent = false;
+        area->getScrollLayer()->m_disableMovement = false;
+        area->getScrollLayer()->setMouseEnabled(true);
+
+        if (auto bg = area->getChildByType<CCScale9Sprite>(0))
+            bg->setVisible(false);
+
+        m_mainLayer->addChildAtPosition(area, Anchor::Center);
+
+        m_noElasticity = true;
+        return true;
+    }
+
+public:
+    static CommentViewPopup* create(std::string text) {
+        auto ret = new CommentViewPopup();
+        if (ret && ret->init(std::move(text))) {
+            ret->autorelease();
+            return ret;
+        }
+
+        delete ret;
+        return nullptr;
+    }
+};
+
 class VersionSelectPopup : public Popup {
     std::vector<std::string> m_versions;
     std::function<void(std::string)> m_onSelect;
@@ -903,7 +942,7 @@ class CommentsLayer : public CCLayer {
         m_input->setCommonFilter(CommonFilter::Any);
         m_input->setMaxCharCount(2000);
         m_input->setAnchorPoint({.5f, .5f});
-        m_input->setContentSize({100.f, 13.f});
+        m_input->setContentSize({100.f, 6.5f});
         bottom->addChild(m_input);
 
         auto send = ButtonSprite::create(
@@ -949,7 +988,10 @@ class CommentsLayer : public CCLayer {
             rowWidth - pad * 2.f - fixedWidth
                 - gap * static_cast<float>(std::max(0, shown - 1))
         );
-        m_input->setContentSize({inputWidth, 13.f});
+        m_input->setContentSize({
+            inputWidth,
+            6.5f
+        });
 
         float x = pad;
         for (auto node : order) {
@@ -1175,6 +1217,11 @@ class CommentsLayer : public CCLayer {
              m_state.currentDeveloperModDeveloper);
     }
 
+    void showComment(std::string const& text) {
+        if (auto popup = CommentViewPopup::create(text))
+            popup->show();
+    }
+
     void rebuild() {
         if (!m_commentsContainer) return;
 
@@ -1184,7 +1231,7 @@ class CommentsLayer : public CCLayer {
         );
         if (!scroll) return;
 
-        auto width = scroll->getContentWidth() - 12.f;
+        auto width = scroll->getContentWidth() - 18.f;
         float totalHeight = 8.f;
         bool any = false;
 
@@ -1248,6 +1295,18 @@ class CommentsLayer : public CCLayer {
                 ->setCrossAxisAlignment(AxisAlignment::Center)
                 ->setGap(4.f));
 
+            auto viewButton = ButtonSprite::create(
+                "View", "goldFont.fnt", "GJ_button_01.png", 1.f
+            );
+            viewButton->setScale(.34f);
+            auto viewItem = CCMenuItemExt::createSpriteExtra(
+                viewButton, [this, comment](auto) {
+                    showComment(comment.body);
+                }
+            );
+            viewItem->setAnchorPoint({.5f, .5f});
+            actions->addChild(viewItem);
+
             if (comment.canEdit) {
                 auto button = ButtonSprite::create(
                     "Edit", "goldFont.fnt", "GJ_button_01.png", 1.f
@@ -1274,7 +1333,7 @@ class CommentsLayer : public CCLayer {
             header->addChild(actions);
             header->updateLayout();
 
-            // Estimated line count height calculation and scrollable body
+            // Estimated line count height calculation and non-scrollable body
             auto const& text = comment.body.empty()
                 ? std::string("...")
                 : comment.body;
@@ -1313,8 +1372,8 @@ class CommentsLayer : public CCLayer {
             body->setAnchorPoint({.5f, .5f});
             body->setScale(1.05f);
             body->getScrollLayer()->m_cutContent = false;
-            body->getScrollLayer()->m_disableMovement = false;
-            body->getScrollLayer()->setMouseEnabled(true);
+            body->getScrollLayer()->m_disableMovement = true;
+            body->getScrollLayer()->setMouseEnabled(false);
             if (auto bodyBG = body->getChildByType<CCScale9Sprite>(0))
                 bodyBG->setVisible(false);
 
@@ -1460,18 +1519,11 @@ class CommentsLayer : public CCLayer {
         });
         m_commentsContainer->updateLayout();
 
-        // Position content layer accurately based on layout limits
+        // Safely trigger scroll->scrollToTop() on the main thread after layout updates
         geode::queueInMainThread([scroll] {
-            auto content = scroll->m_contentLayer;
-            if (!content)
-                return;
-
-            auto maxY = std::max(
-                0.f,
-                content->getContentHeight() - scroll->getContentHeight()
-            );
-
-            content->setPositionY(maxY);
+            if (scroll) {
+                scroll->scrollToTop();
+            }
         });
 
         if (m_versionButton) {
