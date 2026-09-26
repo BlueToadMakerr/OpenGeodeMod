@@ -1,5 +1,4 @@
 #include "ModifyIndexPopup.hpp"
-#include "ManualLoginPopup.hpp"
 #include "PopupSectionUtils.hpp"
 #include "StatsFetcher.hpp"
 
@@ -56,20 +55,6 @@ protected:
         m_stats.label->setPosition({centerX, top - 100.f});
         m_mainLayer->addChild(m_stats.label);
 
-        auto loginBtn = CCMenuItemExt::createSpriteExtra(
-            ButtonSprite::create(
-                hasAuthTokensForIndex(entry.id) ? "Edit Login" : "Add Login",
-                "goldFont.fnt",
-                getButtonTexture("GJ_button_01.png"),
-                0.5f
-            ),
-            [this, entry](auto) {
-                showManualLoginPopup(entry, [this] {
-                    if (m_onSaved) m_onSaved();
-                });
-            }
-        );
-
         auto saveBtn = CCMenuItemExt::createSpriteExtra(
             ButtonSprite::create("Save", "goldFont.fnt", getButtonTexture("GJ_button_02.png"), 0.6f),
             [this](auto) {
@@ -89,9 +74,7 @@ protected:
         );
 
         auto menu = CCMenu::create();
-        menu->addChild(loginBtn);
         menu->addChild(saveBtn);
-        menu->setLayout(RowLayout::create()->setGap(8.f));
         menu->setPosition({centerX, 20.f});
         menu->updateLayout();
         m_mainLayer->addChild(menu);
