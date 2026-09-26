@@ -2,6 +2,7 @@
 #include "Settings.hpp"
 #include "CommentsUtils.hpp"
 #include "CommentsPopups.hpp"
+#include "PopupSectionUtils.hpp"
 
 #include <Geode/Geode.hpp>
 #include <Geode/ui/MDTextArea.hpp>
@@ -66,7 +67,7 @@ std::string m_modID;
         root->setLayout(AnchorLayout::create());
         addChildAtPosition(root, Anchor::Center);
 
-        auto bg = NineSlice::create("square02b_001.png");
+        auto bg = NineSlice::create(getSectionBackground());
         bg->setColor(ccBLACK);
         bg->setOpacity(105);
         bg->setScale(.3f);
@@ -202,7 +203,7 @@ std::string m_modID;
         bottom->addChild(bottomMenu);
 
         auto versionSprite = ButtonSprite::create(
-            "v-", "bigFont.fnt", "GJ_button_01.png", 1.f
+            "v-", "bigFont.fnt", getButtonTexture("GJ_button_01.png"), 1.f
         );
         m_versionButton = CCMenuItemExt::createSpriteExtra(
             versionSprite, [this](auto) { showVersionPicker(); }
@@ -212,7 +213,7 @@ std::string m_modID;
         bottomMenu->addChild(m_versionButton);
 
         auto exitSprite = ButtonSprite::create(
-            "Exit Edit", "bigFont.fnt", "GE_button_05.png"_spr, .8f
+            "Exit Edit", "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .8f
         );
         m_exitButton = CCMenuItemExt::createSpriteExtra(
             exitSprite, [this](auto) { exitEdit(); }
@@ -222,13 +223,25 @@ std::string m_modID;
         m_exitButton->setVisible(false);
         bottomMenu->addChild(m_exitButton);
 
-        auto attachSprite = CCSprite::createWithSpriteFrameName("GJ_plusBtn_001.png");
-        if (attachSprite)
-            limitNodeSize(attachSprite, {13.f, 13.f}, 1.f, .1f);
+        CCNode* attachSprite = nullptr;
+        if (isGeodeTheme()) {
+            attachSprite = ButtonSprite::create(
+                "+", "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .8f
+            );
+            attachSprite->setScale(.55f);
+        } else {
+            auto sprite = CCSprite::createWithSpriteFrameName("GJ_plusBtn_001.png");
+            if (sprite) {
+                limitNodeSize(sprite, {13.f, 13.f}, 1.f, .1f);
+                attachSprite = sprite;
+            }
+        }
+
+        if (!attachSprite)
+            attachSprite = CCLabelBMFont::create("+", "bigFont.fnt");
 
         m_attachButton = CCMenuItemExt::createSpriteExtra(
-            attachSprite ? static_cast<CCNode*>(attachSprite)
-                         : static_cast<CCNode*>(CCLabelBMFont::create("+", "bigFont.fnt")),
+            attachSprite,
             [this](auto) { showAttachmentsPopup(); }
         );
         bottomMenu->addChild(m_attachButton);
@@ -248,7 +261,7 @@ std::string m_modID;
         bottom->addChild(m_input);
 
         auto send = ButtonSprite::create(
-            "Send", "bigFont.fnt", "GE_button_05.png"_spr, .8f
+            "Send", "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .8f
         );
         m_sendButton = CCMenuItemExt::createSpriteExtra(
             send, [this](auto) { submitComment(); }
