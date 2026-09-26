@@ -190,7 +190,7 @@ class AttachmentPopup : public Popup {
         constexpr float scrollHeight = 153.f;
         constexpr float scrollBottom = 46.f;
 
-        auto listBG = NineSlice::create("square02b_001.png");
+        auto listBG = NineSlice::create(getSectionBackground());
         listBG->setColor(ccBLACK);
         listBG->setOpacity(90);
         listBG->setScale(.3f);
