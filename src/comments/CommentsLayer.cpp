@@ -223,22 +223,11 @@ std::string m_modID;
         m_exitButton->setVisible(false);
         bottomMenu->addChild(m_exitButton);
 
-        CCNode* attachSprite = nullptr;
-        if (isGeodeTheme()) {
-            attachSprite = ButtonSprite::create(
-                "+", "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .8f
-            );
-            attachSprite->setScale(.55f);
-        } else {
-            auto sprite = CCSprite::createWithSpriteFrameName("GJ_plusBtn_001.png");
-            if (sprite) {
-                limitNodeSize(sprite, {13.f, 13.f}, 1.f, .1f);
-                attachSprite = sprite;
-            }
-        }
-
-        if (!attachSprite)
-            attachSprite = CCLabelBMFont::create("+", "bigFont.fnt");
+        auto attachSprite = CircleButtonSprite::createWithSpriteFrameName(
+            isGeodeTheme() ? "geode.loader/plus.png" : "GJ_plusBtn_001.png",
+            .875f,
+            CircleBaseColor::DarkPurple
+        );
 
         m_attachButton = CCMenuItemExt::createSpriteExtra(
             attachSprite,
