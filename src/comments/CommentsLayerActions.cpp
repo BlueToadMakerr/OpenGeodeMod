@@ -145,10 +145,30 @@ void CommentsLayer::pickAttachments() {
             if (files.empty())
                 return;
 
+            std::vector<std::filesystem::path> validFiles;
+            for (auto const& path : files) {
+                web::MultipartForm form;
+                if (!form.file("image", path)) {
+                    createQuickPopup(
+                        "Invalid Attachment",
+                        "Could not read that file.",
+                        "OK",
+                        nullptr,
+                        nullptr
+                    );
+                    continue;
+                }
+
+                validFiles.push_back(path);
+            }
+
+            if (validFiles.empty())
+                return;
+
             m_pendingFiles.insert(
                 m_pendingFiles.end(),
-                std::make_move_iterator(files.begin()),
-                std::make_move_iterator(files.end())
+                std::make_move_iterator(validFiles.begin()),
+                std::make_move_iterator(validFiles.end())
             );
             rebuild();
         }
@@ -308,7 +328,10 @@ void CommentsLayer::uploadAttachments(int commentID, std::function<void()> finis
                     message += "\n" + failure;
 
                 createQuickPopup(
-                    "Attachment Upload Results",
+                    fmt::format(
+                        "{} Attachments Failed to Upload!",
+                        failures->size()
+                    ).c_str(),
                     message,
                     "OK",
                     nullptr,
@@ -326,20 +349,6 @@ void CommentsLayer::uploadAttachments(int commentID, std::function<void()> finis
         web::MultipartForm form;
         auto result = form.file("image", path);
         if (!result) {
-            failures->push_back(fmt::format(
-                "{}: Could not read the file.",
-                path.filename().string()
-            ));
-            createQuickPopup(
-                "Invalid Attachment",
-                fmt::format(
-                    "Could not read \"{}\".",
-                    path.filename().string()
-                ),
-                "OK",
-                nullptr,
-                nullptr
-            );
             (*uploadNext)();
             return;
         }
