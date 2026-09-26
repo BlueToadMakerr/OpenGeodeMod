@@ -172,7 +172,7 @@ std::string m_modID;
             .36f,
             .1f
         );
-        commentsArea->addChildAtPosition(m_statusLabel, Anchor::Center, ccp(0.f, -18.f));
+        commentsArea->addChildAtPosition(m_statusLabel, Anchor::Center, ccp(0.f, -30.f));
         m_loadingIndicator->setVisible(false);
         m_statusLabel->setVisible(false);
 
@@ -497,14 +497,15 @@ void CommentsLayer::rebuild() {
 
             auto body = MDTextArea::create(
                 text,
-                {width - 12.f, bodyHeight},
+                {width - 20.f, bodyHeight},
                 true
             );
 
             body->setContentSize({
-                width - 12.f,
+                width - 20.f,
                 bodyHeight
             });
+            body->setPositionX(body->getPositionX() + 2.f);
 
             body->setAnchorPoint({.5f, .5f});
             body->setScale(1.f);
@@ -518,7 +519,7 @@ void CommentsLayer::rebuild() {
             attachmentArea->setAnchorPoint({.5f, .5f});
             attachmentArea->ignoreAnchorPointForPosition(false);
             attachmentArea->setContentSize({
-                width - 12.f,
+                width - 20.f,
                 comment.attachments.empty() ? 0.f : kAttachmentAreaHeight
             });
 
