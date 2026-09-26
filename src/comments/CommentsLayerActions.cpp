@@ -36,6 +36,7 @@ void CommentsLayer::showVersionPicker() {
     if (m_state.versions.empty()) return;
     auto popup = createVersionSelectPopup(
         m_state.versions,
+        m_state.selectedVersion,
         [this](std::string version) {
             if (version == m_state.selectedVersion)
                 return;
