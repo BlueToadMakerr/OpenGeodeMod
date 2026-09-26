@@ -131,11 +131,6 @@ void CommentsLayer::setLock(std::string value) {
 
 
 void CommentsLayer::pickAttachments() {
-        if (!canUploadAttachments()) {
-            notifyStatus("Attachments require a verified developer, mod developer, or admin.");
-            return;
-        }
-
         file::FilePickOptions options;
         options.filters.push_back({
             "Images", {"png", "jpg", "jpeg", "gif", "webp"}
@@ -300,55 +295,80 @@ void CommentsLayer::finishCommentAttachments(int commentID, bool editing) {
     }
 
 void CommentsLayer::uploadAttachments(int commentID, std::function<void()> finish) {
-        if (!canUploadAttachments()) {
-            m_pendingFiles.clear();
-            notifyStatus("Comment saved, but you cannot upload attachments.");
-            finish();
-            return;
-        }
+        auto failures = std::make_shared<std::vector<std::string>>();
+        auto index = std::make_shared<size_t>(0);
+        auto uploadNext = std::make_shared<std::function<void()>>();
 
-        web::MultipartForm form;
-        for (auto const& path : m_pendingFiles) {
-            auto result = form.file("image", path);
-            if (!result) {
-                m_sendButton->setEnabled(true);
-                notifyStatus("Could not read an attachment.");
+        *uploadNext = [this, commentID, finish = std::move(finish), failures, index, uploadNext]() mutable {
+            if (*index >= m_pendingFiles.size()) {
+                if (!failures->empty()) {
+                    std::string message = fmt::format(
+                        "{} attachment{} failed to upload:",
+                        failures->size(),
+                        failures->size() == 1 ? "" : "s"
+                    );
+                    for (auto const& failure : *failures)
+                        message += "\n" + failure;
+
+                    if (auto popup = createQuickPopup(
+                            "Attachment Upload Results",
+                            message,
+                            "OK"
+                        ))
+                        popup->show();
+                }
+
+                finish();
                 return;
             }
-        }
 
-        auto request = web::WebRequest();
-        request.header(
-            "Authorization",
-            "Bearer " + getAuthAccessToken()
-        );
-        request.bodyMultipart(form);
+            auto path = m_pendingFiles[*index];
+            ++(*index);
 
-        auto loading = LoadingNotification::create("Uploading attachments...");
-
-        m_requestTask.spawn(
-            request.post(
-                trimSlash(getIndexUrl()) +
-                fmt::format(
-                    "/v1/mods/{}/versions/{}/submission/comments/{}/attachments",
-                    m_modID,
-                    m_state.selectedVersion,
-                    commentID
-                )
-            ),
-            [this, finish = std::move(finish), loading](web::WebResponse response) mutable {
-                loading->hide();
-                if (!response.ok()) {
-                    m_sendButton->setEnabled(true);
-                    notifyStatus(fmt::format(
-                        "Comment saved, attachment upload failed: {}",
-                        errorText(response)
-                    ));
-                    return;
-                }
-                finish();
+            web::MultipartForm form;
+            auto result = form.file("image", path);
+            if (!result) {
+                failures->push_back(fmt::format(
+                    "{}: Could not read the file.",
+                    path.filename().string()
+                ));
+                (*uploadNext)();
+                return;
             }
-        );
+
+            auto request = web::WebRequest();
+            request.header(
+                "Authorization",
+                "Bearer " + getAuthAccessToken()
+            );
+            request.bodyMultipart(form);
+
+            m_requestTask.spawn(
+                request.post(
+                    trimSlash(getIndexUrl()) +
+                    fmt::format(
+                        "/v1/mods/{}/versions/{}/submission/comments/{}/attachments",
+                        m_modID,
+                        m_state.selectedVersion,
+                        commentID
+                    )
+                ),
+                [this, path, failures, uploadNext](
+                    web::WebResponse response
+                ) mutable {
+                    if (!response.ok()) {
+                        failures->push_back(fmt::format(
+                            "{}: {}",
+                            path.filename().string(),
+                            errorText(response)
+                        ));
+                    }
+                    (*uploadNext)();
+                }
+            );
+        };
+
+        (*uploadNext)();
     }
 
 void CommentsLayer::removeNextAttachment(int commentID, std::function<void()> finish) {
