@@ -892,7 +892,7 @@ class CommentsLayer : public CCLayer {
         bottomMenu->addChild(m_attachButton);
 
         m_attachmentCountLabel = CCLabelBMFont::create("", "chatFont.fnt");
-        m_attachmentCountLabel->setScale(.19f);
+        m_attachmentCountLabel->setScale(.285f); // Updated per PR #16[cite: 1]
         m_attachmentCountLabel->setAnchorPoint({.5f, .5f});
         m_attachmentCountLabel->setVisible(false);
         bottom->addChild(m_attachmentCountLabel);
@@ -943,7 +943,7 @@ class CommentsLayer : public CCLayer {
         }
 
         auto inputWidth = std::max(
-            60.f,
+            1.f, // Updated minimum width per PR #16[cite: 1]
             rowWidth - pad * 2.f - fixedWidth
                 - gap * static_cast<float>(std::max(0, shown - 1))
         );
@@ -1254,8 +1254,7 @@ class CommentsLayer : public CCLayer {
                 auto editItem = CCMenuItemExt::createSpriteExtra(
                     button, [this, comment](auto) { beginEdit(comment); }
                 );
-                editItem->setScale(.34f);
-                editItem->m_baseScale = .34f;
+                // Removed menu item double-scaling per PR #16[cite: 1]
                 editItem->setAnchorPoint({.5f, .5f});
                 actions->addChild(editItem);
             }
@@ -1267,8 +1266,7 @@ class CommentsLayer : public CCLayer {
                 auto deleteItem = CCMenuItemExt::createSpriteExtra(
                     button, [this, comment](auto) { deleteComment(comment.id); }
                 );
-                deleteItem->setScale(.34f);
-                deleteItem->m_baseScale = .34f;
+                // Removed menu item double-scaling per PR #16[cite: 1]
                 deleteItem->setAnchorPoint({.5f, .5f});
                 actions->addChild(deleteItem);
             }
@@ -1276,11 +1274,30 @@ class CommentsLayer : public CCLayer {
             header->addChild(actions);
             header->updateLayout();
 
+            // Dynamically sized comment bodies per PR #16[cite: 1]
+            constexpr float kCommentMinHeight = 24.f;
+            constexpr float kCommentMaxHeight = 220.f;
+
             auto body = MDTextArea::create(
                 comment.body.empty() ? "..." : comment.body,
-                {width - 18.f, 66.f},
+                {width - 18.f, kCommentMinHeight},
                 true
             );
+
+            auto bodyContentHeight =
+                body->getScrollLayer()->m_contentLayer->getContentHeight();
+
+            auto bodyHeight = std::clamp(
+                bodyContentHeight,
+                kCommentMinHeight,
+                kCommentMaxHeight
+            );
+
+            body->setContentSize({
+                width - 18.f,
+                bodyHeight
+            });
+
             body->setAnchorPoint({.5f, .5f});
             body->setScale(1.05f);
             body->getScrollLayer()->m_cutContent = false;
@@ -1377,8 +1394,16 @@ class CommentsLayer : public CCLayer {
                 (*populate)();
             }
 
-            auto cardHeight = 36.f + 4.f + 66.f +
-                (comment.attachments.empty() ? 0.f : kAttachmentAreaHeight + 4.f);
+            // Dynamic card size including attachment area per PR #16[cite: 1]
+            auto attachmentHeight = comment.attachments.empty()
+                ? 0.f
+                : kAttachmentAreaHeight + 4.f;
+
+            auto cardHeight =
+                36.f +
+                4.f +
+                bodyHeight +
+                attachmentHeight;
 
             auto card = CCNode::create();
             card->setContentSize({width, cardHeight});
@@ -1423,7 +1448,11 @@ class CommentsLayer : public CCLayer {
             std::max(scroll->getContentHeight(), totalHeight + 8.f)
         });
         m_commentsContainer->updateLayout();
-        scroll->scrollToTop();
+
+        // Auto-scroll to newest comments after updateLayout per PR #16[cite: 1]
+        geode::queueInMainThread([scroll] {
+            scroll->scrollToBottom();
+        });
 
         if (m_versionButton) {
             auto sprite = typeinfo_cast<ButtonSprite*>(m_versionButton->getNormalImage());
