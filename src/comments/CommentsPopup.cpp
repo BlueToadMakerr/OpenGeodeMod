@@ -89,8 +89,6 @@ void selectExistingTab(CCMenuItemSpriteExtra* item, bool selected) {
     if (selectedBG) selectedBG->setVisible(selected);
 }
 
-} // namespace
-
 void ensureCommentsTab(CCNode* popup) {
     if (!popup) return;
 
@@ -147,8 +145,8 @@ void ensureCommentsTab(CCNode* popup) {
             textarea->setVisible(true);
         }
         else {
-            description->setSelected(false);
-            changelog->setSelected(false);
+            selectExistingTab(description, false);
+            selectExistingTab(changelog, false);
             commentsSprite->select(true);
             textarea->setVisible(false);
 
