@@ -226,19 +226,18 @@ std::string m_modID;
         CCNode* attachSprite = nullptr;
         if (isGeodeTheme()) {
             auto plus = CCLabelBMFont::create("+", "bigFont.fnt");
-            plus->setScale(.45f);
+            plus->setScale(.4f);
             attachSprite = CircleButtonSprite::create(
                 plus,
                 CircleBaseColor::DarkPurple,
                 CircleBaseSize::Small
             );
+            attachSprite->setScale(.8f);
         }
         else {
-            attachSprite = CircleButtonSprite::createWithSpriteFrameName(
-                "GJ_plusBtn_001.png",
-                .5f,
-                CircleBaseColor::DarkPurple
-            );
+            attachSprite = CCSprite::createWithSpriteFrameName("GJ_plusBtn_001.png");
+            if (attachSprite)
+                attachSprite->setScale(.5f);
         }
 
         m_attachButton = CCMenuItemExt::createSpriteExtra(
