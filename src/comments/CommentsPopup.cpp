@@ -97,8 +97,6 @@ void ensureCommentsTab(CCNode* popup) {
 
     auto tabs = popup->getChildByIDRecursive("tabs-menu");
     auto textarea = popup->getChildByIDRecursive("textarea");
-    auto descriptionContainer = popup->getChildByIDRecursive("description-container");
-    auto changelogContainer = popup->getChildByIDRecursive("changelog-container");
     if (!tabs || !textarea || tabs->getChildByID("opengeode-comments-tab"))
         return;
 
@@ -117,8 +115,6 @@ void ensureCommentsTab(CCNode* popup) {
     auto callback = [
         modID,
         textarea,
-        descriptionContainer,
-        changelogContainer,
         descriptionListener,
         descriptionSelector,
         changelogListener,
@@ -127,22 +123,24 @@ void ensureCommentsTab(CCNode* popup) {
         changelog,
         commentsSprite
     ](CCMenuItemSpriteExtra* sender) {
-        auto parent = descriptionContainer->getParent();
-        if (!parent || changelogContainer->getParent() != parent) return;
+        auto parent = textarea->getParent();
+        if (!parent) return;
 
         while (auto old = parent->getChildByType<CommentsLayer>(0))
             old->removeFromParent();
 
         auto tag = sender->getTag();
         if (tag == 0) {
-            (descriptionListener->*descriptionSelector)(description);
+            if (descriptionListener && descriptionSelector)
+                (descriptionListener->*descriptionSelector)(description);
             selectExistingTab(description, true);
             selectExistingTab(changelog, false);
             commentsSprite->select(false);
             textarea->setVisible(true);
         }
         else if (tag == 1) {
-            (changelogListener->*changelogSelector)(changelog);
+            if (changelogListener && changelogSelector)
+                (changelogListener->*changelogSelector)(changelog);
             selectExistingTab(description, false);
             selectExistingTab(changelog, true);
             commentsSprite->select(false);
@@ -152,8 +150,7 @@ void ensureCommentsTab(CCNode* popup) {
             selectExistingTab(description, false);
             selectExistingTab(changelog, false);
             commentsSprite->select(true);
-            descriptionContainer->setVisible(false);
-            changelogContainer->setVisible(false);
+            textarea->setVisible(false);
 
             auto layer = CommentsLayer::create(modID, textarea);
             if (layer) {
@@ -174,5 +171,4 @@ void ensureCommentsTab(CCNode* popup) {
     tabs->addChild(item);
     tabs->updateLayout();
 }
-
 } // namespace opengeode
