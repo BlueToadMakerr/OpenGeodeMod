@@ -17,6 +17,19 @@ using namespace geode::prelude;
 
 namespace opengeode {
 
+// Shared layout constants used by the CommentsLayer implementation.
+constexpr float kTopHeight = 12.5f;
+constexpr float kTopInset = 3.f;
+constexpr float kBottomHeight = 16.f;
+constexpr float kBottomInset = 3.f;
+constexpr float kSectionGap = 3.f;
+constexpr float kLockButtonScale = .255f;
+constexpr float kBarButtonScale = .275f;
+constexpr float kThumbSize = 36.f;
+constexpr float kAttachmentAreaHeight = 42.f;
+constexpr int kAttachmentPageSize = 4;
+constexpr int kAttachmentImageTag = 7701;
+
 class CommentsLayer : public cocos2d::CCLayer {
     std::string m_modID;
     CCNode* m_textArea = nullptr;
