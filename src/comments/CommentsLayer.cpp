@@ -161,6 +161,21 @@ std::string m_modID;
         if (m_commentsContainer)
             m_commentsContainer->setAnchorPoint({0.f, 0.f});
 
+        m_loadingIndicator = LoadingSpinner::create(24.f);
+        commentsArea->addChildAtPosition(m_loadingIndicator, Anchor::Center);
+
+        m_statusLabel = CCLabelBMFont::create("", "chatFont.fnt");
+        m_statusLabel->setScale(.36f);
+        m_statusLabel->setAnchorPoint({.5f, .5f});
+        m_statusLabel->limitLabelWidth(
+            commentsArea->getContentWidth() - 24.f,
+            .36f,
+            .1f
+        );
+        commentsArea->addChildAtPosition(m_statusLabel, Anchor::Center);
+        m_loadingIndicator->setVisible(false);
+        m_statusLabel->setVisible(false);
+
         auto bottom = CCNode::create();
         bottom->setContentSize({width - 8.f, kBottomHeight});
         bottom->setAnchorPoint({.5f, 0.f});
@@ -278,7 +293,7 @@ void CommentsLayer::updateBottomLayout() {
         );
         m_input->setContentSize({
             inputWidth,
-            6.5f
+            3.25f
         });
 
         float x = pad;
@@ -292,6 +307,31 @@ void CommentsLayer::updateBottomLayout() {
         }
     
 }
+void CommentsLayer::setLoading(bool loading) {
+    if (m_loadingIndicator)
+        m_loadingIndicator->setVisible(loading);
+    if (m_statusLabel)
+        m_statusLabel->setVisible(false);
+    if (m_commentsContainer)
+        m_commentsContainer->setVisible(!loading);
+}
+
+void CommentsLayer::setContentMessage(std::string const& message) {
+    if (m_loadingIndicator)
+        m_loadingIndicator->setVisible(false);
+    if (m_commentsContainer)
+        m_commentsContainer->setVisible(false);
+    if (m_statusLabel) {
+        m_statusLabel->setString(message.c_str());
+        m_statusLabel->limitLabelWidth(
+            getContentWidth() - 32.f,
+            .36f,
+            .1f
+        );
+        m_statusLabel->setVisible(true);
+    }
+}
+
 void CommentsLayer::rebuild() {
 
         if (!m_commentsContainer) return;
@@ -302,7 +342,21 @@ void CommentsLayer::rebuild() {
         );
         if (!scroll) return;
 
-        auto width = scroll->getContentWidth() - 18.f;
+        auto width = scroll->getContentWidth() - 24.f;
+        if (m_loadingIndicator)
+            m_loadingIndicator->setVisible(false);
+        if (m_statusLabel)
+            m_statusLabel->setVisible(m_state.comments.empty());
+        if (m_commentsContainer)
+            m_commentsContainer->setVisible(true);
+        if (m_statusLabel && m_state.comments.empty()) {
+            m_statusLabel->setString("No comments yet.");
+            m_statusLabel->limitLabelWidth(
+                scroll->getContentWidth() - 32.f,
+                .36f,
+                .1f
+            );
+        }
         float totalHeight = 8.f;
         bool any = false;
 
@@ -431,17 +485,17 @@ void CommentsLayer::rebuild() {
 
             auto body = MDTextArea::create(
                 text,
-                {width - 18.f, bodyHeight},
+                {width - 12.f, bodyHeight},
                 true
             );
 
             body->setContentSize({
-                width - 18.f,
+                width - 12.f,
                 bodyHeight
             });
 
             body->setAnchorPoint({.5f, .5f});
-            body->setScale(1.05f);
+            body->setScale(1.f);
             body->getScrollLayer()->m_cutContent = false;
             body->getScrollLayer()->m_disableMovement = true;
             body->getScrollLayer()->setMouseEnabled(false);
@@ -452,7 +506,7 @@ void CommentsLayer::rebuild() {
             attachmentArea->setAnchorPoint({.5f, .5f});
             attachmentArea->ignoreAnchorPointForPosition(false);
             attachmentArea->setContentSize({
-                width - 18.f,
+                width - 12.f,
                 comment.attachments.empty() ? 0.f : kAttachmentAreaHeight
             });
 
