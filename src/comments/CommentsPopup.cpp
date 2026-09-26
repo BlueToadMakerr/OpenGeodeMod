@@ -77,6 +77,18 @@ public:
     }
 };
 
+}
+
+void selectExistingTab(CCMenuItemSpriteExtra* item, bool selected) {
+    if (!item) return;
+    auto image = item->getNormalImage();
+    if (!image) return;
+    auto deselected = typeinfo_cast<CCScale9Sprite*>(image->getChildByType<CCScale9Sprite>(0));
+    auto selectedBG = typeinfo_cast<CCScale9Sprite*>(image->getChildByType<CCScale9Sprite>(1));
+    if (deselected) deselected->setVisible(!selected);
+    if (selectedBG) selectedBG->setVisible(selected);
+}
+
 } // namespace
 
 void ensureCommentsTab(CCNode* popup) {
@@ -109,6 +121,8 @@ void ensureCommentsTab(CCNode* popup) {
         descriptionSelector,
         changelogListener,
         changelogSelector,
+        description,
+        changelog,
         commentsSprite
     ](CCMenuItemSpriteExtra* sender) {
         auto parent = textarea->getParent();
@@ -120,15 +134,15 @@ void ensureCommentsTab(CCNode* popup) {
         auto tag = sender->getTag();
         if (tag == 0) {
             (descriptionListener->*descriptionSelector)(sender);
-            description->setSelected(true);
-            changelog->setSelected(false);
+            selectExistingTab(description, true);
+            selectExistingTab(changelog, false);
             commentsSprite->select(false);
             textarea->setVisible(true);
         }
         else if (tag == 1) {
             (changelogListener->*changelogSelector)(sender);
-            description->setSelected(false);
-            changelog->setSelected(true);
+            selectExistingTab(description, false);
+            selectExistingTab(changelog, true);
             commentsSprite->select(false);
             textarea->setVisible(true);
         }
