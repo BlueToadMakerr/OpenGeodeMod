@@ -182,7 +182,7 @@ class VersionSelectPopup : public Popup {
         }
 
         auto prevMenu = CCMenu::create();
-        prevMenu->setPosition({15.f, 146.f});
+        prevMenu->setPosition({-15.f, 146.f});
         auto prevSprite = CCSprite::createWithSpriteFrameName("GJ_arrow_03_001.png");
         if (prevSprite) {
             prevSprite->setScale(.8f);
@@ -200,7 +200,7 @@ class VersionSelectPopup : public Popup {
         m_mainLayer->addChild(prevMenu);
 
         auto nextMenu = CCMenu::create();
-        nextMenu->setPosition({width - 15.f, 146.f});
+        nextMenu->setPosition({width + 15.f, 146.f});
         auto nextSprite = CCSprite::createWithSpriteFrameName("GJ_arrow_03_001.png");
         if (nextSprite) {
             nextSprite->setFlipX(true);
