@@ -89,7 +89,7 @@ class AttachmentPopup : public Popup {
             auto action = ButtonSprite::create(
                 removed ? "Restore" : "Remove",
                 "goldFont.fnt",
-                removed ? "GJ_button_01.png" : "GJ_button_06.png",
+                removed ? "GE_button_05.png"_spr : "GJ_button_06.png",
                 1.f
             );
 
@@ -174,7 +174,7 @@ class AttachmentPopup : public Popup {
         std::function<void(std::filesystem::path const&)> onRemovePending,
         std::function<void()> onAdd
     ) {
-        if (!Popup::init(300.f, 235.f)) return false;
+        if (!Popup::init(300.f, 235.f, "GE_square01.png"_spr)) return false;
 
         m_attachments = std::move(attachments);
         m_pending = std::move(pending);
@@ -212,7 +212,7 @@ class AttachmentPopup : public Popup {
         );
         m_mainLayer->addChild(m_scroll);
 
-        auto add = ButtonSprite::create("+ Add Image", "goldFont.fnt", "GJ_button_01.png", 1.f);
+        auto add = ButtonSprite::create("+ Add Image", "bigFont.fnt", "GE_button_05.png"_spr, .8f);
         auto addItem = CCMenuItemExt::createSpriteExtra(add, [this](auto) {
             if (m_onAdd) {
                 m_onAdd();
