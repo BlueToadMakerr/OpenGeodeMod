@@ -102,7 +102,40 @@ void CommentsLayer::loadMod() {
                 }
             }
 
-            std::reverse(m_state.versions.begin(), m_state.versions.end());
+            std::sort(m_state.versions.begin(), m_state.versions.end(), [](std::string const& a, std::string const& b) {
+                auto normalize = [](std::string value) {
+                    if (value.starts_with("v"))
+                        value.erase(0, 1);
+                    return value;
+                };
+                auto split = [](std::string const& value) {
+                    std::vector<int> parts;
+                    size_t start = 0;
+                    while (start < value.size()) {
+                        auto end = value.find('.', start);
+                        auto part = value.substr(start, end == std::string::npos ? std::string::npos : end - start);
+                        size_t digits = 0;
+                        while (digits < part.size() && std::isdigit(static_cast<unsigned char>(part[digits])))
+                            ++digits;
+                        parts.push_back(digits ? std::stoi(part.substr(0, digits)) : 0);
+                        if (end == std::string::npos)
+                            break;
+                        start = end + 1;
+                    }
+                    return parts;
+                };
+
+                auto av = split(normalize(a));
+                auto bv = split(normalize(b));
+                auto count = std::max(av.size(), bv.size());
+                for (size_t i = 0; i < count; ++i) {
+                    auto ai = i < av.size() ? av[i] : 0;
+                    auto bi = i < bv.size() ? bv[i] : 0;
+                    if (ai != bi)
+                        return ai > bi;
+                }
+                return a > b;
+            });
             if (m_state.selectedVersion.empty() && !m_state.versions.empty())
                 m_state.selectedVersion = m_state.versions.front();
 
@@ -221,6 +254,10 @@ void CommentsLayer::parseComments(matjson::Value const& json) {
 
             m_state.comments.push_back(std::move(comment));
         }
+
+        std::sort(m_state.comments.begin(), m_state.comments.end(), [](CommentData const& a, CommentData const& b) {
+            return a.id > b.id;
+        });
     
 }
 bool CommentsLayer::canComment() const {
