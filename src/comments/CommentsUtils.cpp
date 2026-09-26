@@ -103,7 +103,7 @@ LazySprite* createContainedImage(
         return nullptr;
     }
 
-    auto sprite = LazySprite::create(size, false);
+    auto sprite = LazySprite::create(size, true);
     if (!sprite) return nullptr;
 
     holder->addChildAtPosition(sprite, Anchor::Center);
