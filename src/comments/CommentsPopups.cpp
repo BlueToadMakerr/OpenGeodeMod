@@ -43,11 +43,13 @@ public:
 class VersionSelectPopup : public Popup {
     std::vector<std::string> m_versions;
     std::function<void(std::string)> m_onSelect;
+    std::string m_selectedVersion;
 
-    bool init(std::vector<std::string> versions, std::function<void(std::string)> cb) {
+    bool init(std::vector<std::string> versions, std::string selectedVersion, std::function<void(std::string)> cb) {
         if (!Popup::init(300.f, 292.f, getPopupBackground())) return false;
 
         m_versions = std::move(versions);
+        m_selectedVersion = std::move(selectedVersion);
         m_onSelect = std::move(cb);
         setTitle("Select Version");
 
@@ -155,8 +157,8 @@ class VersionSelectPopup : public Popup {
                 }
 
                 row->setPosition({
-                    contentWidth / 2.f,
-                    contentHeight - 21.f - static_cast<float>(i) * 44.f
+                    width / 2.f,
+                    234.f - static_cast<float>(i) * 44.f
                 });
             }
             pageLabel->setString(
@@ -166,13 +168,13 @@ class VersionSelectPopup : public Popup {
 
         for (size_t i = 0; i < pageSize; ++i) {
             rows->at(i)->setPosition({
-                contentWidth / 2.f,
-                contentHeight - 21.f - static_cast<float>(i) * 44.f
+                width / 2.f,
+                234.f - static_cast<float>(i) * 44.f
             });
         }
 
         auto prevMenu = CCMenu::create();
-        prevMenu->setPosition({-15.f, 146.f});
+        prevMenu->setPosition({15.f, 146.f});
         auto prevSprite = CCSprite::createWithSpriteFrameName("GJ_arrow_03_001.png");
         if (prevSprite) {
             prevSprite->setScale(.8f);
@@ -190,7 +192,7 @@ class VersionSelectPopup : public Popup {
         m_mainLayer->addChild(prevMenu);
 
         auto nextMenu = CCMenu::create();
-        nextMenu->setPosition({width + 15.f, 146.f});
+        nextMenu->setPosition({width - 15.f, 146.f});
         auto nextSprite = CCSprite::createWithSpriteFrameName("GJ_arrow_03_001.png");
         if (nextSprite) {
             nextSprite->setFlipX(true);
@@ -215,10 +217,11 @@ class VersionSelectPopup : public Popup {
 public:
     static VersionSelectPopup* create(
         std::vector<std::string> versions,
+        std::string selectedVersion,
         std::function<void(std::string)> cb
     ) {
         auto ret = new VersionSelectPopup();
-        if (ret && ret->init(std::move(versions), std::move(cb))) {
+        if (ret && ret->init(std::move(versions), std::move(selectedVersion), std::move(cb))) {
             ret->autorelease();
             return ret;
         }
