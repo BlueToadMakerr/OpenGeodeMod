@@ -213,7 +213,7 @@ std::string m_modID;
         bottomMenu->addChild(m_versionButton);
 
         auto exitSprite = ButtonSprite::create(
-            "Exit Edit", "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .8f
+            "Exit Edit", "bigFont.fnt", "GJ_button_06.png", .8f
         );
         m_exitButton = CCMenuItemExt::createSpriteExtra(
             exitSprite, [this](auto) { exitEdit(); }
