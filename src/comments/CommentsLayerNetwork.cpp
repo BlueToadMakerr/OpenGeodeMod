@@ -45,16 +45,14 @@ void CommentsLayer::request(
 }
 void CommentsLayer::load() {
 
-        setLoading(true);
+        setLoading(true, "Loading comments...");
         m_state.loggedIn = hasAuthTokens();
-        auto loading = LoadingNotification::create("Loading comments...");
-
         if (!m_state.loggedIn) {
             loadMod();
             return;
         }
 
-        request("GET", "/v1/me", [this, loading](web::WebResponse response) {
+        request("GET", "/v1/me", [this](web::WebResponse response) {
             if (response.ok()) {
                 auto json = response.json().unwrapOr(matjson::Value());
                 auto payload = json["payload"].isObject() ? json["payload"] : json;
@@ -121,7 +119,7 @@ void CommentsLayer::loadSelectedVersion() {
 
         if (m_state.selectedVersion.empty()) return;
 
-        auto loading = LoadingNotification::create("Loading submission...");
+        setLoading(true, "Loading submission...");
 
         request(
             "GET",
@@ -130,8 +128,7 @@ void CommentsLayer::loadSelectedVersion() {
                 m_modID,
                 m_state.selectedVersion
             ),
-            [this, loading](web::WebResponse response) {
-                loading->hide();
+            [this](web::WebResponse response) {
                 if (!response.ok()) {
                     m_state.comments.clear();
                     m_state.lock = "none";
@@ -148,7 +145,7 @@ void CommentsLayer::loadSelectedVersion() {
                 m_state.lockedBy = lockedBy.isObject() ? intValue(lockedBy, "id") : 0;
                 m_state.lockedByName = lockedBy.isObject() ? stringValue(lockedBy, "username", "Unknown") : "";
 
-                auto commentsLoading = LoadingNotification::create("Loading comments...");
+                setLoading(true, "Loading comments...");
 
                 request(
                     "GET",
@@ -157,8 +154,7 @@ void CommentsLayer::loadSelectedVersion() {
                         m_modID,
                         m_state.selectedVersion
                     ),
-                    [this, commentsLoading](web::WebResponse commentsResponse) {
-                        commentsLoading->hide();
+                    [this](web::WebResponse commentsResponse) {
                         if (!commentsResponse.ok()) {
                             m_state.comments.clear();
                             setContentMessage(errorText(commentsResponse));
