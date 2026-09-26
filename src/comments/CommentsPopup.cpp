@@ -2,6 +2,7 @@
 #include "CommentsUtils.hpp"
 
 #include <Geode/Geode.hpp>
+#include <Geode/ui/GeodeUI.hpp>
 #include <Geode/utils/ColorProvider.hpp>
 
 #include <algorithm>
@@ -13,32 +14,31 @@ namespace opengeode {
 namespace {
 
 class OpenGeodeTabSprite : public CCNode {
-    NineSlice* m_deselectedBG = nullptr;
-    NineSlice* m_selectedBG = nullptr;
+    CCScale9Sprite* m_deselectedBG = nullptr;
+    CCScale9Sprite* m_selectedBG = nullptr;
     CCSprite* m_icon = nullptr;
     CCLabelBMFont* m_label = nullptr;
 
     bool init(char const* iconFrame, char const* text, float width) {
-        if (!CCNode::init())
-            return false;
+        if (!CCNode::init()) return false;
 
-        CCSize itemSize { width, 35.f };
-        CCSize iconSize { 18.f, 18.f };
+        const CCSize itemSize{width, 35.f};
+        const CCSize iconSize{18.f, 18.f};
         setContentSize(itemSize);
-        setAnchorPoint({ .5f, .5f });
+        setAnchorPoint({.5f, .5f});
 
-        m_deselectedBG = NineSlice::createWithSpriteFrameName("tab-bg.png"_spr);
+        m_deselectedBG = CCScale9Sprite::createWithSpriteFrameName("geode.loader/tab-bg.png");
         if (!m_deselectedBG) return false;
         m_deselectedBG->setScale(.8f);
         m_deselectedBG->setContentSize(itemSize / .8f);
-        m_deselectedBG->setColor("mod-list-tab-deselected-bg"_cc3b);
+        m_deselectedBG->setColor(ColorProvider::get()->color3b("geode.loader/mod-list-tab-deselected-bg"));
         addChildAtPosition(m_deselectedBG, Anchor::Center);
 
-        m_selectedBG = NineSlice::createWithSpriteFrameName("tab-bg.png"_spr);
+        m_selectedBG = CCScale9Sprite::createWithSpriteFrameName("geode.loader/tab-bg.png");
         if (!m_selectedBG) return false;
         m_selectedBG->setScale(.8f);
         m_selectedBG->setContentSize(itemSize / .8f);
-        m_selectedBG->setColor(to3B(ColorProvider::get()->color("mod-list-tab-selected-bg"_spr)));
+        m_selectedBG->setColor(to3B(ColorProvider::get()->color("geode.loader/mod-list-tab-selected-bg")));
         addChildAtPosition(m_selectedBG, Anchor::Center);
 
         m_icon = CCSprite::createWithSpriteFrameName(iconFrame);
@@ -48,8 +48,14 @@ class OpenGeodeTabSprite : public CCNode {
 
         m_label = CCLabelBMFont::create(text, "bigFont.fnt");
         m_label->limitLabelWidth(getContentWidth() - 45.f, std::clamp(width * .0045f, .35f, .55f), .1f);
-        m_label->setAnchorPoint({ .5f, .5f });
-        addChildAtPosition(m_label, Anchor::Left, ccp((itemSize.width - iconSize.width) / 2 + iconSize.width, 0), false);
+        m_label->setAnchorPoint({.5f, .5f});
+        addChildAtPosition(
+            m_label,
+            Anchor::Left,
+            ccp((itemSize.width - iconSize.width) / 2.f + iconSize.width, 0),
+            false
+        );
+
         select(false);
         return true;
     }
@@ -84,12 +90,8 @@ void ensureCommentsTab(CCNode* popup) {
     if (!tabs || !textarea || tabs->getChildByID("opengeode-comments-tab"))
         return;
 
-    auto description = typeinfo_cast<CCMenuItemSpriteExtra*>(
-        tabs->getChildByID("description")
-    );
-    auto changelog = typeinfo_cast<CCMenuItemSpriteExtra*>(
-        tabs->getChildByID("changelog")
-    );
+    auto description = typeinfo_cast<CCMenuItemSpriteExtra*>(tabs->getChildByID("description"));
+    auto changelog = typeinfo_cast<CCMenuItemSpriteExtra*>(tabs->getChildByID("changelog"));
     if (!description || !changelog) return;
 
     auto descriptionListener = description->m_pListener;
@@ -97,20 +99,10 @@ void ensureCommentsTab(CCNode* popup) {
     auto changelogListener = changelog->m_pListener;
     auto changelogSelector = changelog->m_pfnSelector;
 
-    auto commentsSprite = OpenGeodeTabSprite::create(
-        "GJ_chatIcon_001.png", "Comments", 140.f
-    );
+    auto commentsSprite = OpenGeodeTabSprite::create("GJ_chatIcon_001.png", "Comments", 140.f);
     if (!commentsSprite) return;
 
-    auto callback = [
-        modID,
-        textarea,
-        descriptionListener,
-        descriptionSelector,
-        changelogListener,
-        changelogSelector,
-        commentsSprite
-    ](CCMenuItemSpriteExtra* sender) {
+    auto callback = [modID, textarea, descriptionListener, descriptionSelector, changelogListener, changelogSelector, commentsSprite](CCMenuItemSpriteExtra* sender) {
         auto parent = textarea->getParent();
         if (!parent) return;
 
@@ -120,16 +112,16 @@ void ensureCommentsTab(CCNode* popup) {
         auto tag = sender->getTag();
         if (tag == 0) {
             (descriptionListener->*descriptionSelector)(sender);
-            commentsSprite->select(0);
+            commentsSprite->select(false);
             textarea->setVisible(true);
         }
         else if (tag == 1) {
             (changelogListener->*changelogSelector)(sender);
-            commentsSprite->select(0);
+            commentsSprite->select(false);
             textarea->setVisible(true);
         }
         else {
-            commentsSprite->select(1);
+            commentsSprite->select(true);
             textarea->setVisible(false);
 
             auto layer = CommentsLayer::create(modID, textarea);
@@ -142,16 +134,10 @@ void ensureCommentsTab(CCNode* popup) {
         }
     };
 
-    CCMenuItemExt::assignCallback<CCMenuItemSpriteExtra>(
-        description, callback
-    );
-    CCMenuItemExt::assignCallback<CCMenuItemSpriteExtra>(
-        changelog, callback
-    );
+    CCMenuItemExt::assignCallback<CCMenuItemSpriteExtra>(description, callback);
+    CCMenuItemExt::assignCallback<CCMenuItemSpriteExtra>(changelog, callback);
 
-    auto item = CCMenuItemExt::createSpriteExtra(
-        commentsSprite, callback
-    );
+    auto item = CCMenuItemExt::createSpriteExtra(commentsSprite, callback);
     item->setTag(2);
     item->setID("opengeode-comments-tab");
     item->m_pListener = description->m_pListener;
