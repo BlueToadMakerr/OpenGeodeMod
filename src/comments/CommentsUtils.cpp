@@ -80,11 +80,11 @@ std::string errorText(web::WebResponse const& response) {
     return "Request failed.";
 }
 
-std::string stringValue(matjson::Value const& value, char const* key, std::string fallback = "") {
+std::string stringValue(matjson::Value const& value, char const* key, std::string fallback) {
     return value[key].asString().unwrapOr(fallback);
 }
 
-int intValue(matjson::Value const& value, char const* key, int fallback = 0) {
+int intValue(matjson::Value const& value, char const* key, int fallback) {
     return value[key].asInt().unwrapOr(fallback);
 }
 
@@ -92,7 +92,7 @@ LazySprite* createContainedImage(
     CCNode* holder,
     CCSize size,
     std::string const& url,
-    std::filesystem::path const* localPath = nullptr
+    std::filesystem::path const* localPath
 ) {
     if (localPath) {
         std::error_code ec;
