@@ -759,4 +759,4 @@ CommentsLayer* CommentsLayer::create(
     return nullptr;
 }
 
-} // namespace opengeodeMod
+} // namespace opengeode
