@@ -139,7 +139,7 @@ LazySprite* createContainedImage(
 CCNode* createAttachmentBox(
     float size,
     std::string const& url,
-    std::filesystem::path const* localPath = nullptr
+    std::filesystem::path const* localPath
 ) {
     auto box = CCNode::create();
     box->setContentSize({size, size});
