@@ -115,10 +115,10 @@ class VersionSelectPopup : public Popup {
                     }
                 }
             );
-            item->setContentSize({45.f, 18.f});
+            item->setContentSize({55.f, 18.f});
 
             auto menu = CCMenu::create();
-            menu->setPosition({229.f, 20.f});
+            menu->setPosition({235.f, 20.f});
             menu->addChild(item);
             row->addChild(menu);
 
@@ -153,6 +153,15 @@ class VersionSelectPopup : public Popup {
                     auto item = typeinfo_cast<CCMenuItemSpriteExtra*>(menu->getChildByType<CCMenuItemSpriteExtra>(0));
                     if (item) {
                         item->setTag(static_cast<int>(index));
+                        auto button = typeinfo_cast<ButtonSprite*>(item->getNormalImage());
+                        if (button) {
+                            auto current = version.starts_with("v") ? version : "v" + version;
+                            auto selected = m_selectedVersion.starts_with("v")
+                                ? m_selectedVersion
+                                : "v" + m_selectedVersion;
+                            button->setString(current == selected ? "Viewing" : "View");
+                            button->updateSprite();
+                        }
                     }
                 }
 
