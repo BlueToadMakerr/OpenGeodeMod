@@ -224,17 +224,21 @@ std::string m_modID;
         bottomMenu->addChild(m_exitButton);
 
         CCNode* attachSprite = nullptr;
-        auto plus = CCLabelBMFont::create("+", "bigFont.fnt");
-        plus->setScale(.8f);
         if (isGeodeTheme()) {
+            auto plus = CCLabelBMFont::create("+", "bigFont.fnt");
+            plus->setScale(.45f);
             attachSprite = CircleButtonSprite::create(
                 plus,
                 CircleBaseColor::DarkPurple,
-                CircleBaseSize::Medium
+                CircleBaseSize::Small
             );
         }
         else {
-            attachSprite = plus;
+            attachSprite = CircleButtonSprite::createWithSpriteFrameName(
+                "GJ_plusBtn_001.png",
+                .5f,
+                CircleBaseColor::DarkPurple
+            );
         }
 
         m_attachButton = CCMenuItemExt::createSpriteExtra(
