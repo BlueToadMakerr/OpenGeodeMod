@@ -50,13 +50,11 @@ void CommentsLayer::load() {
         auto loading = LoadingNotification::create("Loading comments...");
 
         if (!m_state.loggedIn) {
-            loading->hide();
             loadMod();
             return;
         }
 
         request("GET", "/v1/me", [this, loading](web::WebResponse response) {
-            loading->hide();
             if (response.ok()) {
                 auto json = response.json().unwrapOr(matjson::Value());
                 auto payload = json["payload"].isObject() ? json["payload"] : json;
