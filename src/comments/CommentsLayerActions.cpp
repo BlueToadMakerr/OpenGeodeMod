@@ -333,7 +333,7 @@ void CommentsLayer::uploadAttachments(int commentID, std::function<void()> finis
             createQuickPopup(
                 "Invalid Attachment",
                 fmt::format(
-                    "Could not read "{}".",
+                    "Could not read \"{}\".",
                     path.filename().string()
                 ),
                 "OK",
