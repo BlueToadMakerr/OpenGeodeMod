@@ -31,14 +31,14 @@ class OpenGeodeTabSprite : public CCNode {
         if (!m_deselectedBG) return false;
         m_deselectedBG->setScale(.8f);
         m_deselectedBG->setContentSize(itemSize / .8f);
-        m_deselectedBG->setColor(ColorProvider::get()->color3b("geode.loader/mod-list-tab-deselected-bg"));
+        m_deselectedBG->setColor(ColorProvider::get()->color3b("geode.loader.mod-list-tab-deselected-bg"));
         addChildAtPosition(m_deselectedBG, Anchor::Center);
 
         m_selectedBG = CCScale9Sprite::createWithSpriteFrameName("geode.loader/tab-bg.png");
         if (!m_selectedBG) return false;
         m_selectedBG->setScale(.8f);
         m_selectedBG->setContentSize(itemSize / .8f);
-        m_selectedBG->setColor(to3B(ColorProvider::get()->color("geode.loader/mod-list-tab-selected-bg")));
+        m_selectedBG->setColor(to3B(ColorProvider::get()->color("geode.loader.mod-list-tab-selected-bg")));
         addChildAtPosition(m_selectedBG, Anchor::Center);
 
         m_icon = CCSprite::create(iconFrame);
@@ -118,16 +118,8 @@ void ensureCommentsTab(CCNode* popup) {
                 : changelogContainer;
             if (!activeContainer) return;
 
-            auto parent = activeContainer->getParent();
-            if (!parent) return;
-
-            while (auto old = parent->getChildByType<CommentsLayer>(0))
+            while (auto old = activeContainer->getChildByType<CommentsLayer>(0))
                 old->removeFromParent();
-
-            if (descriptionContainer)
-                descriptionContainer->setVisible(false);
-            if (changelogContainer)
-                changelogContainer->setVisible(false);
 
             selectExistingTab(description, false);
             selectExistingTab(changelog, false);
@@ -139,7 +131,7 @@ void ensureCommentsTab(CCNode* popup) {
                 layer->setAnchorPoint({.5f, .5f});
                 layer->setScale(textarea->getScale());
                 layer->setRotation(textarea->getRotation());
-                parent->addChildAtPosition(layer, Anchor::Center);
+                activeContainer->addChildAtPosition(layer, Anchor::Center);
             }
         }
     );
