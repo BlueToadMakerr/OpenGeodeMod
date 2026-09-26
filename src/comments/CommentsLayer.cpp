@@ -676,4 +676,17 @@ void CommentsLayer::addAvatar(CCNode* avatar, CommentData const& comment) {
     
 }
 
+CommentsLayer* CommentsLayer::create(
+    std::string modID,
+    CCNode* textArea
+) {
+    auto ret = new CommentsLayer();
+    if (ret && ret->init(std::move(modID), textArea)) {
+        ret->autorelease();
+        return ret;
+    }
+    delete ret;
+    return nullptr;
+}
+
 } // namespace opengeode
