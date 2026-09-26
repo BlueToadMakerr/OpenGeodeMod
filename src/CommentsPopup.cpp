@@ -175,7 +175,6 @@ struct CommentData {
     bool canEdit = false;
     bool canDelete = false;
     std::vector<CommentAttachment> attachments;
-    std::string createdAt;
 };
 
 struct CommentState {
@@ -762,8 +761,6 @@ class CommentsLayer : public CCLayer {
     CCNode* m_bottom = nullptr;
     std::unordered_map<int, int> m_attachmentOffsets;
 
-    std::shared_ptr<LoadingNotification> m_activeLoadingNotification;
-
     bool init(std::string modID, CCNode* textArea) {
         if (!CCLayer::init()) return false;
 
@@ -945,7 +942,7 @@ class CommentsLayer : public CCLayer {
         m_input->setCommonFilter(CommonFilter::Any);
         m_input->setMaxCharCount(2000);
         m_input->setAnchorPoint({.5f, .5f});
-        m_input->setContentSize({100.f, 3.25f});
+        m_input->setContentSize({100.f, 6.5f});
         bottom->addChild(m_input);
 
         auto send = ButtonSprite::create(
@@ -962,13 +959,6 @@ class CommentsLayer : public CCLayer {
         updateBottomLayout();
         load();
         return true;
-    }
-
-    ~CommentsLayer() {
-        if (m_activeLoadingNotification) {
-            m_activeLoadingNotification->hide();
-            m_activeLoadingNotification = nullptr;
-        }
     }
 
     void updateBottomLayout() {
@@ -1000,7 +990,7 @@ class CommentsLayer : public CCLayer {
         );
         m_input->setContentSize({
             inputWidth,
-            3.25f
+            6.5f
         });
 
         float x = pad;
@@ -1034,25 +1024,16 @@ class CommentsLayer : public CCLayer {
 
     void load() {
         m_state.loggedIn = hasAuthTokens();
-        if (m_activeLoadingNotification) {
-            m_activeLoadingNotification->hide();
-        }
-        m_activeLoadingNotification = LoadingNotification::create("Loading comments...");
+        auto loading = LoadingNotification::create("Loading comments...");
 
         if (!m_state.loggedIn) {
-            if (m_activeLoadingNotification) {
-                m_activeLoadingNotification->hide();
-                m_activeLoadingNotification = nullptr;
-            }
+            loading->hide();
             loadMod();
             return;
         }
 
-        request("GET", "/v1/me", [this](web::WebResponse response) {
-            if (m_activeLoadingNotification) {
-                m_activeLoadingNotification->hide();
-                m_activeLoadingNotification = nullptr;
-            }
+        request("GET", "/v1/me", [this, loading](web::WebResponse response) {
+            loading->hide();
             if (response.ok()) {
                 auto json = response.json().unwrapOr(matjson::Value());
                 auto payload = json["payload"].isObject() ? json["payload"] : json;
@@ -1117,10 +1098,7 @@ class CommentsLayer : public CCLayer {
     void loadSelectedVersion() {
         if (m_state.selectedVersion.empty()) return;
 
-        if (m_activeLoadingNotification) {
-            m_activeLoadingNotification->hide();
-        }
-        m_activeLoadingNotification = LoadingNotification::create("Loading submission...");
+        auto loading = LoadingNotification::create("Loading submission...");
 
         request(
             "GET",
@@ -1129,11 +1107,8 @@ class CommentsLayer : public CCLayer {
                 m_modID,
                 m_state.selectedVersion
             ),
-            [this](web::WebResponse response) {
-                if (m_activeLoadingNotification) {
-                    m_activeLoadingNotification->hide();
-                    m_activeLoadingNotification = nullptr;
-                }
+            [this, loading](web::WebResponse response) {
+                loading->hide();
                 if (!response.ok()) {
                     m_state.comments.clear();
                     m_state.lock = "none";
@@ -1151,10 +1126,7 @@ class CommentsLayer : public CCLayer {
                 m_state.lockedBy = lockedBy.isObject() ? intValue(lockedBy, "id") : 0;
                 m_state.lockedByName = lockedBy.isObject() ? stringValue(lockedBy, "username", "Unknown") : "";
 
-                if (m_activeLoadingNotification) {
-                    m_activeLoadingNotification->hide();
-                }
-                m_activeLoadingNotification = LoadingNotification::create("Loading comments...");
+                auto commentsLoading = LoadingNotification::create("Loading comments...");
 
                 request(
                     "GET",
@@ -1163,11 +1135,8 @@ class CommentsLayer : public CCLayer {
                         m_modID,
                         m_state.selectedVersion
                     ),
-                    [this](web::WebResponse commentsResponse) {
-                        if (m_activeLoadingNotification) {
-                            m_activeLoadingNotification->hide();
-                            m_activeLoadingNotification = nullptr;
-                        }
+                    [this, commentsLoading](web::WebResponse commentsResponse) {
+                        commentsLoading->hide();
                         if (!commentsResponse.ok()) {
                             m_state.comments.clear();
                             rebuild();
@@ -1195,10 +1164,6 @@ class CommentsLayer : public CCLayer {
             CommentData comment;
             comment.id = intValue(raw, "id");
             comment.body = stringValue(raw, "comment");
-            comment.createdAt = stringValue(raw, "created_at");
-            if (comment.createdAt.empty()) {
-                comment.createdAt = stringValue(raw, "updated_at");
-            }
 
             auto author = raw["author"];
             if (author.isObject()) {
@@ -1283,14 +1248,20 @@ class CommentsLayer : public CCLayer {
         for (auto const& comment : m_state.comments) {
             any = true;
 
-            // 1. Header (Identity: Avatar + Username)
             auto header = CCNode::create();
             header->setContentSize({width - 4.f, 36.f});
             header->setAnchorPoint({.5f, .5f});
             header->setLayout(RowLayout::create()
+                ->setAxisAlignment(AxisAlignment::Between)
+                ->setCrossAxisAlignment(AxisAlignment::Center)
+                ->setPadding(Padding::horizontal(3.f)));
+
+            auto identity = CCNode::create();
+            identity->setContentSize({width - 105.f, 36.f});
+            identity->setAnchorPoint({.5f, .5f});
+            identity->setLayout(RowLayout::create()
                 ->setAxisAlignment(AxisAlignment::Start)
                 ->setCrossAxisAlignment(AxisAlignment::Center)
-                ->setPadding(Padding::horizontal(3.f))
                 ->setGap(7.f));
 
             auto avatar = CCNode::create();
@@ -1305,17 +1276,64 @@ class CommentsLayer : public CCLayer {
             avatar->addChildAtPosition(avatarBG, Anchor::Center);
 
             addAvatar(avatar, comment);
-            header->addChild(avatar);
+            identity->addChild(avatar);
 
             auto name = CCLabelBMFont::create(
                 comment.username.c_str(), "goldFont.fnt"
             );
             name->setScale(.32f);
-            name->limitLabelWidth(width - 60.f, .32f, .1f);
-            header->addChild(name);
+            name->limitLabelWidth(width - 150.f, .32f, .1f);
+            identity->addChild(name);
+            identity->updateLayout();
+            header->addChild(identity);
+
+            auto actions = CCMenu::create();
+            actions->setContentSize({150.f, 42.f});
+            actions->setAnchorPoint({.5f, .5f});
+            actions->setLayout(RowLayout::create()
+                ->setAxisAlignment(AxisAlignment::End)
+                ->setCrossAxisAlignment(AxisAlignment::Center)
+                ->setGap(4.f));
+
+            auto viewButton = ButtonSprite::create(
+                "View", "goldFont.fnt", "GJ_button_01.png", 1.f
+            );
+            viewButton->setScale(.34f);
+            auto viewItem = CCMenuItemExt::createSpriteExtra(
+                viewButton, [this, comment](auto) {
+                    showComment(comment.body);
+                }
+            );
+            viewItem->setAnchorPoint({.5f, .5f});
+            actions->addChild(viewItem);
+
+            if (comment.canEdit) {
+                auto button = ButtonSprite::create(
+                    "Edit", "goldFont.fnt", "GJ_button_01.png", 1.f
+                );
+                button->setScale(.34f);
+                auto editItem = CCMenuItemExt::createSpriteExtra(
+                    button, [this, comment](auto) { beginEdit(comment); }
+                );
+                editItem->setAnchorPoint({.5f, .5f});
+                actions->addChild(editItem);
+            }
+            if (comment.canDelete) {
+                auto button = ButtonSprite::create(
+                    "Delete", "goldFont.fnt", "GJ_button_06.png", 1.f
+                );
+                button->setScale(.34f);
+                auto deleteItem = CCMenuItemExt::createSpriteExtra(
+                    button, [this, comment](auto) { deleteComment(comment.id); }
+                );
+                deleteItem->setAnchorPoint({.5f, .5f});
+                actions->addChild(deleteItem);
+            }
+            actions->updateLayout();
+            header->addChild(actions);
             header->updateLayout();
 
-            // 2. Body Text Area wrapped for left inset
+            // Estimated line count height calculation and non-scrollable body
             auto const& text = comment.body.empty()
                 ? std::string("...")
                 : comment.body;
@@ -1340,17 +1358,16 @@ class CommentsLayer : public CCLayer {
                 maxHeight
             );
 
-            auto bodyWrapper = CCNode::create();
-            bodyWrapper->setContentSize({width, bodyHeight});
-            bodyWrapper->setAnchorPoint({.5f, .5f});
-            bodyWrapper->setLayout(AnchorLayout::create());
-
             auto body = MDTextArea::create(
                 text,
-                {width - 24.f, bodyHeight},
+                {width - 18.f, bodyHeight},
                 true
             );
-            bodyWrapper->addChildAtPosition(body, Anchor::Left, ccp(12.f, 0.f));
+
+            body->setContentSize({
+                width - 18.f,
+                bodyHeight
+            });
 
             body->setAnchorPoint({.5f, .5f});
             body->setScale(1.05f);
@@ -1360,7 +1377,6 @@ class CommentsLayer : public CCLayer {
             if (auto bodyBG = body->getChildByType<CCScale9Sprite>(0))
                 bodyBG->setVisible(false);
 
-            // 3. Attachment Area
             auto attachmentArea = CCMenu::create();
             attachmentArea->setAnchorPoint({.5f, .5f});
             attachmentArea->ignoreAnchorPointForPosition(false);
@@ -1449,77 +1465,15 @@ class CommentsLayer : public CCLayer {
                 (*populate)();
             }
 
-            // 4. Date / Timestamp Node
-            auto dateNode = CCNode::create();
-            dateNode->setContentSize({width - 16.f, 14.f});
-            dateNode->setAnchorPoint({.5f, .5f});
-            dateNode->setLayout(AnchorLayout::create());
-
-            if (!comment.createdAt.empty()) {
-                auto dateLabel = CCLabelBMFont::create(comment.createdAt.c_str(), "chatFont.fnt");
-                dateLabel->setScale(.28f);
-                dateLabel->setColor({180, 180, 180});
-                dateNode->addChildAtPosition(dateLabel, Anchor::Left, ccp(6.f, 0.f));
-            }
-
-            // 5. Action Buttons Menu Row
-            auto actions = CCMenu::create();
-            actions->setContentSize({width - 16.f, 26.f});
-            actions->setAnchorPoint({.5f, .5f});
-            actions->setLayout(RowLayout::create()
-                ->setAxisAlignment(AxisAlignment::End)
-                ->setCrossAxisAlignment(AxisAlignment::Center)
-                ->setGap(4.f));
-
-            auto viewButton = ButtonSprite::create(
-                "View", "goldFont.fnt", "GJ_button_01.png", 1.f
-            );
-            viewButton->setScale(.34f);
-            auto viewItem = CCMenuItemExt::createSpriteExtra(
-                viewButton, [this, comment](auto) {
-                    showComment(comment.body);
-                }
-            );
-            viewItem->setAnchorPoint({.5f, .5f});
-            actions->addChild(viewItem);
-
-            if (comment.canEdit) {
-                auto button = ButtonSprite::create(
-                    "Edit", "goldFont.fnt", "GJ_button_01.png", 1.f
-                );
-                button->setScale(.34f);
-                auto editItem = CCMenuItemExt::createSpriteExtra(
-                    button, [this, comment](auto) { beginEdit(comment); }
-                );
-                editItem->setAnchorPoint({.5f, .5f});
-                actions->addChild(editItem);
-            }
-            if (comment.canDelete) {
-                auto button = ButtonSprite::create(
-                    "Delete", "goldFont.fnt", "GJ_button_06.png", 1.f
-                );
-                button->setScale(.34f);
-                auto deleteItem = CCMenuItemExt::createSpriteExtra(
-                    button, [this, comment](auto) { deleteComment(comment.id); }
-                );
-                deleteItem->setAnchorPoint({.5f, .5f});
-                actions->addChild(deleteItem);
-            }
-            actions->updateLayout();
-
             auto attachmentHeight = comment.attachments.empty()
                 ? 0.f
                 : kAttachmentAreaHeight + 4.f;
-
-            auto dateHeight = comment.createdAt.empty() ? 0.f : 16.f;
 
             auto cardHeight =
                 36.f +
                 4.f +
                 bodyHeight +
-                attachmentHeight +
-                dateHeight +
-                28.f;
+                attachmentHeight;
 
             auto card = CCNode::create();
             card->setContentSize({width, cardHeight});
@@ -1548,19 +1502,10 @@ class CommentsLayer : public CCLayer {
                 AnchorLayoutOptions::create()->setAnchor(Anchor::Center)
             );
 
-            // Add in reverse order for ColumnLayout axis reverse (Top -> Bottom):
-            // 1. actions (bottom)
-            // 2. dateNode
-            // 3. attachmentArea (if any)
-            // 4. bodyWrapper
-            // 5. header (top)
-            stack->addChild(actions);
-            if (!comment.createdAt.empty())
-                stack->addChild(dateNode);
+            stack->addChild(header);
+            stack->addChild(body);
             if (!comment.attachments.empty())
                 stack->addChild(attachmentArea);
-            stack->addChild(bodyWrapper);
-            stack->addChild(header);
 
             stack->updateLayout();
             m_commentsContainer->addChild(card);
@@ -1574,7 +1519,7 @@ class CommentsLayer : public CCLayer {
         });
         m_commentsContainer->updateLayout();
 
-        // Scroll to the bottom of the content so newest comments are visible
+        // Safely trigger scroll->scrollToTop() on the main thread after layout updates
         geode::queueInMainThread([scroll] {
             if (scroll) {
                 scroll->scrollToTop();
@@ -1751,10 +1696,7 @@ class CommentsLayer : public CCLayer {
         );
         request.bodyJSON(json);
 
-        if (m_activeLoadingNotification) {
-            m_activeLoadingNotification->hide();
-        }
-        m_activeLoadingNotification = LoadingNotification::create("Updating lock...");
+        auto loading = LoadingNotification::create("Updating lock...");
 
         m_requestTask.spawn(
             request.put(
@@ -1765,11 +1707,8 @@ class CommentsLayer : public CCLayer {
                     m_state.selectedVersion
                 )
             ),
-            [this](web::WebResponse response) {
-                if (m_activeLoadingNotification) {
-                    m_activeLoadingNotification->hide();
-                    m_activeLoadingNotification = nullptr;
-                }
+            [this, loading](web::WebResponse response) {
+                loading->hide();
                 if (!response.ok()) {
                     notifyStatus(errorText(response));
                     return;
@@ -1849,10 +1788,7 @@ class CommentsLayer : public CCLayer {
         request.bodyJSON(json);
 
         m_sendButton->setEnabled(false);
-        if (m_activeLoadingNotification) {
-            m_activeLoadingNotification->hide();
-        }
-        m_activeLoadingNotification = LoadingNotification::create("Posting...");
+        auto loading = LoadingNotification::create("Posting...");
 
         m_requestTask.spawn(
             request.post(
@@ -1863,11 +1799,8 @@ class CommentsLayer : public CCLayer {
                     m_state.selectedVersion
                 )
             ),
-            [this](web::WebResponse response) {
-                if (m_activeLoadingNotification) {
-                    m_activeLoadingNotification->hide();
-                    m_activeLoadingNotification = nullptr;
-                }
+            [this, loading](web::WebResponse response) {
+                loading->hide();
                 if (!response.ok()) {
                     m_sendButton->setEnabled(true);
                     notifyStatus(errorText(response));
@@ -1905,10 +1838,7 @@ class CommentsLayer : public CCLayer {
         request.bodyJSON(json);
 
         m_sendButton->setEnabled(false);
-        if (m_activeLoadingNotification) {
-            m_activeLoadingNotification->hide();
-        }
-        m_activeLoadingNotification = LoadingNotification::create("Saving...");
+        auto loading = LoadingNotification::create("Saving...");
 
         m_requestTask.spawn(
             request.put(
@@ -1920,11 +1850,8 @@ class CommentsLayer : public CCLayer {
                     m_editingCommentID
                 )
             ),
-            [this](web::WebResponse response) {
-                if (m_activeLoadingNotification) {
-                    m_activeLoadingNotification->hide();
-                    m_activeLoadingNotification = nullptr;
-                }
+            [this, loading](web::WebResponse response) {
+                loading->hide();
                 if (!response.ok()) {
                     m_sendButton->setEnabled(true);
                     notifyStatus(errorText(response));
@@ -1985,10 +1912,7 @@ class CommentsLayer : public CCLayer {
         );
         request.bodyMultipart(form);
 
-        if (m_activeLoadingNotification) {
-            m_activeLoadingNotification->hide();
-        }
-        m_activeLoadingNotification = LoadingNotification::create("Uploading attachments...");
+        auto loading = LoadingNotification::create("Uploading attachments...");
 
         m_requestTask.spawn(
             request.post(
@@ -2000,11 +1924,8 @@ class CommentsLayer : public CCLayer {
                     commentID
                 )
             ),
-            [this, finish = std::move(finish)](web::WebResponse response) mutable {
-                if (m_activeLoadingNotification) {
-                    m_activeLoadingNotification->hide();
-                    m_activeLoadingNotification = nullptr;
-                }
+            [this, finish = std::move(finish), loading](web::WebResponse response) mutable {
+                loading->hide();
                 if (!response.ok()) {
                     m_sendButton->setEnabled(true);
                     notifyStatus(fmt::format(
@@ -2125,10 +2046,7 @@ class CommentsLayer : public CCLayer {
                     "Bearer " + getAuthAccessToken()
                 );
 
-                if (m_activeLoadingNotification) {
-                    m_activeLoadingNotification->hide();
-                }
-                m_activeLoadingNotification = LoadingNotification::create("Deleting comment...");
+                auto loading = LoadingNotification::create("Deleting comment...");
 
                 m_requestTask.spawn(
                     request.send(
@@ -2141,11 +2059,8 @@ class CommentsLayer : public CCLayer {
                             id
                         )
                     ),
-                    [this](web::WebResponse response) {
-                        if (m_activeLoadingNotification) {
-                            m_activeLoadingNotification->hide();
-                            m_activeLoadingNotification = nullptr;
-                        }
+                    [this, loading](web::WebResponse response) {
+                        loading->hide();
                         if (!response.ok()) {
                             notifyStatus(errorText(response));
                             return;
