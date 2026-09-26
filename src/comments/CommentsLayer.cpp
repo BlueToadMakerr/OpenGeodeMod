@@ -2,7 +2,7 @@
 #include "Settings.hpp"
 #include "CommentsUtils.hpp"
 #include "CommentsPopups.hpp"
-#include "PopupSectionUtils.hpp"
+#include "../PopupSectionUtils.hpp"
 
 #include <Geode/Geode.hpp>
 #include <Geode/ui/MDTextArea.hpp>
