@@ -13,37 +13,38 @@
 #include <unordered_map>
 #include <vector>
 
+using namespace geode::prelude;
+
 namespace opengeode {
 
 class CommentsLayer : public cocos2d::CCLayer {
     std::string m_modID;
-        CCNode* m_textArea = nullptr;
-        CommentState m_state;
-    
-        async::TaskHolder<web::WebResponse> m_requestTask;
-        std::vector<std::filesystem::path> m_pendingFiles;
-        std::vector<int> m_removedAttachments;
-    
-        int m_editingCommentID = 0;
-    
-        CCMenuItemSpriteExtra* m_versionButton = nullptr;
-        CCLabelBMFont* m_attachmentCountLabel = nullptr;
-        CCLabelBMFont* m_lockLabel = nullptr;
-        float m_lockLabelMaxWidth = 200.f;
-        CCMenu* m_lockControls = nullptr;
-        CCMenuItemSpriteExtra* m_exitButton = nullptr;
-        CCMenuItemSpriteExtra* m_attachButton = nullptr;
-        TextInput* m_input = nullptr;
-        CCMenuItemSpriteExtra* m_sendButton = nullptr;
-        CCNode* m_commentsContainer = nullptr;
-        CCNode* m_bottom = nullptr;
-        std::unordered_map<int, int> m_attachmentOffsets;
-    
-        bool init(std::string modID, CCNode* textArea)
+    CCNode* m_textArea = nullptr;
+    CommentState m_state;
+    async::TaskHolder<web::WebResponse> m_requestTask;
+    std::vector<std::filesystem::path> m_pendingFiles;
+    std::vector<int> m_removedAttachments;
+    int m_editingCommentID = 0;
+    CCMenuItemSpriteExtra* m_versionButton = nullptr;
+    CCLabelBMFont* m_attachmentCountLabel = nullptr;
+    CCLabelBMFont* m_lockLabel = nullptr;
+    float m_lockLabelMaxWidth = 200.f;
+    CCMenu* m_lockControls = nullptr;
+    CCMenuItemSpriteExtra* m_exitButton = nullptr;
+    CCMenuItemSpriteExtra* m_attachButton = nullptr;
+    TextInput* m_input = nullptr;
+    CCMenuItemSpriteExtra* m_sendButton = nullptr;
+    CCNode* m_commentsContainer = nullptr;
+    CCNode* m_bottom = nullptr;
+    std::unordered_map<int, int> m_attachmentOffsets;
 
-    std::string m_modID; CCNode* m_textArea = nullptr; CommentState m_state; async::TaskHolder<web::WebResponse> m_requestTask; std::vector<std::filesystem::path> m_pendingFiles; std::vector<int> m_removedAttachments; int m_editingCommentID = 0; CCMenuItemSpriteExtra* m_versionButton = nullptr; CCLabelBMFont* m_attachmentCountLabel = nullptr; CCLabelBMFont* m_lockLabel = nullptr; float m_lockLabelMaxWidth = 200.f; CCMenu* m_lockControls = nullptr; CCMenuItemSpriteExtra* m_exitButton = nullptr; CCMenuItemSpriteExtra* m_attachButton = nullptr; TextInput* m_input = nullptr; CCMenuItemSpriteExtra* m_sendButton = nullptr; CCNode* m_commentsContainer = nullptr; CCNode* m_bottom = nullptr; std::unordered_map<int, int> m_attachmentOffsets; bool init(std::string modID, CCNode* textArea);
+    bool init(std::string modID, CCNode* textArea);
     void updateBottomLayout();
-    void request( std::string method, std::string path, std::function<void(web::WebResponse)> callback );
+    void request(
+        std::string method,
+        std::string path,
+        std::function<void(web::WebResponse)> callback
+    );
     void load();
     void loadMod();
     void loadSelectedVersion();
@@ -71,7 +72,10 @@ class CommentsLayer : public cocos2d::CCLayer {
     void deleteComment(int id);
 
 public:
-    public: static CommentsLayer* create( std::string modID, CCNode* textArea );
+    static CommentsLayer* create(
+        std::string modID,
+        CCNode* textArea
+    );
 };
 
 } // namespace opengeode
