@@ -1458,7 +1458,7 @@ class CommentsLayer : public CCLayer {
             if (!comment.createdAt.empty()) {
                 auto dateLabel = CCLabelBMFont::create(comment.createdAt.c_str(), "chatFont.fnt");
                 dateLabel->setScale(.28f);
-                dateLabel->setColor({180, 180, 180, 255});
+                dateLabel->setColor({180, 180, 180});
                 dateNode->addChildAtPosition(dateLabel, Anchor::Left, ccp(6.f, 0.f));
             }
 
