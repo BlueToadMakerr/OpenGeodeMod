@@ -97,7 +97,9 @@ void ensureCommentsTab(CCNode* popup) {
 
     auto tabs = popup->getChildByIDRecursive("tabs-menu");
     auto textarea = popup->getChildByIDRecursive("textarea");
-    if (!tabs || !textarea || tabs->getChildByID("opengeode-comments-tab"))
+    auto descriptionContainer = popup->getChildByIDRecursive("description-container");
+    auto changelogContainer = popup->getChildByIDRecursive("changelog-container");
+    if (!tabs || !textarea || !descriptionContainer || !changelogContainer || tabs->getChildByID("opengeode-comments-tab"))
         return;
 
     auto description = typeinfo_cast<CCMenuItemSpriteExtra*>(tabs->getChildByID("description"));
@@ -109,12 +111,14 @@ void ensureCommentsTab(CCNode* popup) {
     auto changelogListener = changelog->m_pListener;
     auto changelogSelector = changelog->m_pfnSelector;
 
-    auto commentsSprite = OpenGeodeTabSprite::create("GJ_chatIcon_001.png", "Comments", 140.f);
+    auto commentsSprite = OpenGeodeTabSprite::create("chat.png", "Comments", 140.f);
     if (!commentsSprite) return;
 
     auto callback = [
         modID,
         textarea,
+        descriptionContainer,
+        changelogContainer,
         descriptionListener,
         descriptionSelector,
         changelogListener,
@@ -123,8 +127,8 @@ void ensureCommentsTab(CCNode* popup) {
         changelog,
         commentsSprite
     ](CCMenuItemSpriteExtra* sender) {
-        auto parent = textarea->getParent();
-        if (!parent) return;
+        auto parent = descriptionContainer->getParent();
+        if (!parent || changelogContainer->getParent() != parent) return;
 
         while (auto old = parent->getChildByType<CommentsLayer>(0))
             old->removeFromParent();
@@ -148,7 +152,8 @@ void ensureCommentsTab(CCNode* popup) {
             selectExistingTab(description, false);
             selectExistingTab(changelog, false);
             commentsSprite->select(true);
-            textarea->setVisible(false);
+            descriptionContainer->setVisible(false);
+            changelogContainer->setVisible(false);
 
             auto layer = CommentsLayer::create(modID, textarea);
             if (layer) {
