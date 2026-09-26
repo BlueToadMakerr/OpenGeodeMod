@@ -319,7 +319,7 @@ void CommentsLayer::updateBottomLayout() {
                 : node->getScaledContentSize().width;
             node->setPosition({
                 x + w / 2.f,
-                node == m_input ? centerY - 13.5f : centerY
+                node == m_input ? centerY - 12.5f : centerY
             });
             x += w + gap;
         }
