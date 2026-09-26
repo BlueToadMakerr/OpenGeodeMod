@@ -229,13 +229,4 @@ bool CommentsLayer::canComment() const {
             (m_state.lock == "none" || m_state.currentDeveloperAdmin);
     
 }
-bool CommentsLayer::canUploadAttachments() const {
-
-        return m_state.loggedIn &&
-            (m_state.currentDeveloperVerified ||
-             m_state.currentDeveloperAdmin ||
-             m_state.currentDeveloperModDeveloper);
-    
-}
-
 } // namespace opengeode
