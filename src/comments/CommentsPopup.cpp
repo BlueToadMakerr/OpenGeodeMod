@@ -99,7 +99,7 @@ void ensureCommentsTab(CCNode* popup) {
     auto textarea = popup->getChildByIDRecursive("textarea");
     auto descriptionContainer = popup->getChildByIDRecursive("description-container");
     auto changelogContainer = popup->getChildByIDRecursive("changelog-container");
-    if (!tabs || !textarea || !descriptionContainer || !changelogContainer || tabs->getChildByID("opengeode-comments-tab"))
+    if (!tabs || !textarea || tabs->getChildByID("opengeode-comments-tab"))
         return;
 
     auto description = typeinfo_cast<CCMenuItemSpriteExtra*>(tabs->getChildByID("description"));
