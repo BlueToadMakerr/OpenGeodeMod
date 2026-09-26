@@ -1,32 +1,37 @@
 {
-	"geode": "5.10.1",
-	"gd": {
-		"win": "*",
-		"android": "*",
-		"mac": "*",
-		"ios": "*"
-	},
-	"id": "bluetoadmaker.opengeode",
-	"name": "OpenGeode",
-	"version": "v1.0.0",
-	"developer": "BlueToadMaker",
-	"description": "Open your index to indexes made by the community :3",
-	"dependencies": {
-		"geode.node-ids": ">=v1.23.0",
-		"alphalaneous.alphas_geode_utils": ">=v1.2.1"
-	},
-	"settings": {
-		"max-management-buttons": {
-			"type": "int",
-			"name": "Max Management Buttons",
-			"description": "Maximum number of management buttons shown before overflowing.",
-			"default": 3,
-   "min": 2
-		}
-	},
-	"resources": {
-		"sprites": [
-   "resources/*"
-  ]
-	}
+  "geode": "5.10.1",
+  "gd": {
+    "win": "*",
+    "android": "*",
+    "mac": "*",
+    "ios": "*"
+  },
+  "id": "bluetoadmaker.opengeode",
+  "name": "OpenGeode",
+  "version": "v1.0.0",
+  "developer": "BlueToadMaker",
+  "description": "Open your index to indexes made by the community :3",
+  "dependencies": {
+    "geode.node-ids": ">=v1.23.0",
+    "alphalaneous.alphas_geode_utils": ">=v1.2.1"
+  },
+  "settings": {
+    "max-management-buttons": {
+      "type": "int",
+      "name": "Max Management Buttons",
+      "description": "Maximum number of management buttons shown before overflowing.",
+      "default": 3,
+      "min": 2
+    },
+    "manual-login": {
+      "type": "custom:manual-login",
+      "name": "Manual Login",
+      "description": "Set the access and refresh tokens used for the currently selected index."
+    }
+  },
+  "resources": {
+    "sprites": [
+      "resources/*"
+    ]
+  }
 }
