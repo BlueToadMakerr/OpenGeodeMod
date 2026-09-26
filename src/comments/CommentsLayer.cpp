@@ -212,7 +212,7 @@ std::string m_modID;
         bottomMenu->addChild(m_versionButton);
 
         auto exitSprite = ButtonSprite::create(
-            "Exit Edit", "goldFont.fnt", "GJ_button_06.png", 1.f
+            "Exit Edit", "bigFont.fnt", "GE_button_05.png"_spr, .8f
         );
         m_exitButton = CCMenuItemExt::createSpriteExtra(
             exitSprite, [this](auto) { exitEdit(); }
@@ -248,7 +248,7 @@ std::string m_modID;
         bottom->addChild(m_input);
 
         auto send = ButtonSprite::create(
-            "Send", "goldFont.fnt", "GJ_button_01.png", 1.f
+            "Send", "bigFont.fnt", "GE_button_05.png"_spr, .8f
         );
         m_sendButton = CCMenuItemExt::createSpriteExtra(
             send, [this](auto) { submitComment(); }
@@ -446,7 +446,7 @@ void CommentsLayer::rebuild() {
                 ->setGap(4.f));
 
             auto viewButton = ButtonSprite::create(
-                "View", "goldFont.fnt", "GJ_button_01.png", 1.f
+                "View", "bigFont.fnt", "GE_button_05.png"_spr, .8f
             );
             viewButton->setScale(.34f);
             auto viewItem = CCMenuItemExt::createSpriteExtra(
@@ -459,7 +459,7 @@ void CommentsLayer::rebuild() {
 
             if (comment.canEdit) {
                 auto button = ButtonSprite::create(
-                    "Edit", "goldFont.fnt", "GJ_button_01.png", 1.f
+                    "Edit", "bigFont.fnt", "GE_button_05.png"_spr, .8f
                 );
                 button->setScale(.34f);
                 auto editItem = CCMenuItemExt::createSpriteExtra(
