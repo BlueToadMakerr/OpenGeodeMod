@@ -184,6 +184,8 @@ class AttachmentPopup : public Popup {
         m_onRemovePending = std::move(onRemovePending);
         m_onAdd = std::move(onAdd);
         setTitle("Attachments");
+        if (auto close = createGeodeCloseButton())
+            setCloseButtonSpr(close, .8f);
 
         auto size = m_mainLayer->getContentSize();
         constexpr float scrollWidth = 270.f;
