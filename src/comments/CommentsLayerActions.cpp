@@ -129,4 +129,329 @@ void CommentsLayer::setLock(std::string value) {
     );
 }
 
+
+void CommentsLayer::pickAttachments() {
+        if (!canUploadAttachments()) {
+            notifyStatus("Attachments require a verified developer, mod developer, or admin.");
+            return;
+        }
+
+        file::FilePickOptions options;
+        options.filters.push_back({
+            "Images", {"png", "jpg", "jpeg", "gif", "webp"}
+        });
+        options.filters.push_back({"All Files", {}});
+
+        async::spawn(
+            file::pickMany(options),
+            [this](file::PickManyResult result) {
+                if (!result) return;
+
+                auto files = std::move(result).unwrap();
+                if (files.empty())
+                    return;
+
+                m_pendingFiles.insert(
+                    m_pendingFiles.end(),
+                    std::make_move_iterator(files.begin()),
+                    std::make_move_iterator(files.end())
+                );
+                rebuild();
+            }
+        );
+    }
+
+void CommentsLayer::submitComment() {
+        if (m_state.selectedVersion.empty()) {
+            notifyStatus("Select a version first.");
+            return;
+        }
+
+        if (!canComment()) {
+            notifyStatus("You cannot comment on this submission.");
+            return;
+        }
+
+        auto text = std::string(m_input->getString().c_str());
+        if (text.empty() && m_pendingFiles.empty() && m_editingCommentID == 0) {
+            notifyStatus("Write something or attach an image.");
+            return;
+        }
+
+        if (!hasAuthTokens()) {
+            notifyStatus("Log in to comment.");
+            return;
+        }
+
+        if (m_editingCommentID != 0) {
+            updateExistingComment(text);
+            return;
+        }
+
+        auto json = matjson::makeObject({
+            {"comment", text}
+        });
+
+        auto request = web::WebRequest();
+        request.header(
+            "Authorization",
+            "Bearer " + getAuthAccessToken()
+        );
+        request.bodyJSON(json);
+
+        m_sendButton->setEnabled(false);
+        auto loading = LoadingNotification::create("Posting...");
+
+        m_requestTask.spawn(
+            request.post(
+                trimSlash(getIndexUrl()) +
+                fmt::format(
+                    "/v1/mods/{}/versions/{}/submission/comments",
+                    m_modID,
+                    m_state.selectedVersion
+                )
+            ),
+            [this, loading](web::WebResponse response) {
+                loading->hide();
+                if (!response.ok()) {
+                    m_sendButton->setEnabled(true);
+                    notifyStatus(errorText(response));
+                    return;
+                }
+
+                auto json = response.json().unwrapOr(matjson::Value());
+                auto payload = json["payload"].isObject()
+                    ? json["payload"]
+                    : json;
+                auto commentID = intValue(payload, "id");
+
+                if (commentID == 0) {
+                    m_sendButton->setEnabled(true);
+                    notifyStatus("Comment was created but no ID was returned.");
+                    loadSelectedVersion();
+                    return;
+                }
+
+                finishCommentAttachments(commentID, false);
+            }
+        );
+    }
+
+void CommentsLayer::updateExistingComment(std::string const& text) {
+        auto json = matjson::makeObject({
+            {"comment", text}
+        });
+
+        auto request = web::WebRequest();
+        request.header(
+            "Authorization",
+            "Bearer " + getAuthAccessToken()
+        );
+        request.bodyJSON(json);
+
+        m_sendButton->setEnabled(false);
+        auto loading = LoadingNotification::create("Saving...");
+
+        m_requestTask.spawn(
+            request.put(
+                trimSlash(getIndexUrl()) +
+                fmt::format(
+                    "/v1/mods/{}/versions/{}/submission/comments/{}",
+                    m_modID,
+                    m_state.selectedVersion,
+                    m_editingCommentID
+                )
+            ),
+            [this, loading](web::WebResponse response) {
+                loading->hide();
+                if (!response.ok()) {
+                    m_sendButton->setEnabled(true);
+                    notifyStatus(errorText(response));
+                    return;
+                }
+
+                finishCommentAttachments(m_editingCommentID, true);
+            }
+        );
+    }
+
+void CommentsLayer::finishCommentAttachments(int commentID, bool editing) {
+        auto finish = [this, editing]() {
+            m_pendingFiles.clear();
+            m_removedAttachments.clear();
+            m_editingCommentID = 0;
+            m_input->setString("");
+            m_sendButton->setEnabled(true);
+            notifyStatus(editing ? "Comment updated." : "Comment posted.");
+            loadSelectedVersion();
+        };
+
+        if (!m_removedAttachments.empty()) {
+            removeNextAttachment(commentID, std::move(finish));
+            return;
+        }
+
+        if (!m_pendingFiles.empty()) {
+            uploadAttachments(commentID, std::move(finish));
+            return;
+        }
+
+        finish();
+    }
+
+void CommentsLayer::uploadAttachments(int commentID, std::function<void()> finish) {
+        if (!canUploadAttachments()) {
+            m_pendingFiles.clear();
+            notifyStatus("Comment saved, but you cannot upload attachments.");
+            finish();
+            return;
+        }
+
+        web::MultipartForm form;
+        for (auto const& path : m_pendingFiles) {
+            auto result = form.file("image", path);
+            if (!result) {
+                m_sendButton->setEnabled(true);
+                notifyStatus("Could not read an attachment.");
+                return;
+            }
+        }
+
+        auto request = web::WebRequest();
+        request.header(
+            "Authorization",
+            "Bearer " + getAuthAccessToken()
+        );
+        request.bodyMultipart(form);
+
+        auto loading = LoadingNotification::create("Uploading attachments...");
+
+        m_requestTask.spawn(
+            request.post(
+                trimSlash(getIndexUrl()) +
+                fmt::format(
+                    "/v1/mods/{}/versions/{}/submission/comments/{}/attachments",
+                    m_modID,
+                    m_state.selectedVersion,
+                    commentID
+                )
+            ),
+            [this, finish = std::move(finish), loading](web::WebResponse response) mutable {
+                loading->hide();
+                if (!response.ok()) {
+                    m_sendButton->setEnabled(true);
+                    notifyStatus(fmt::format(
+                        "Comment saved, attachment upload failed: {}",
+                        errorText(response)
+                    ));
+                    return;
+                }
+                finish();
+            }
+        );
+    }
+
+void CommentsLayer::removeNextAttachment(int commentID, std::function<void()> finish) {
+        if (m_removedAttachments.empty()) {
+            if (!m_pendingFiles.empty())
+                uploadAttachments(commentID, std::move(finish));
+            else
+                finish();
+            return;
+        }
+
+        auto attachmentID = m_removedAttachments.back();
+        m_removedAttachments.pop_back();
+
+        auto request = web::WebRequest();
+        request.header(
+            "Authorization",
+            "Bearer " + getAuthAccessToken()
+        );
+
+        m_requestTask.spawn(
+            request.send(
+                "DELETE",
+                trimSlash(getIndexUrl()) +
+                fmt::format(
+                    "/v1/mods/{}/versions/{}/submission/comments/{}/attachments/{}",
+                    m_modID,
+                    m_state.selectedVersion,
+                    commentID,
+                    attachmentID
+                )
+            ),
+            [this, commentID, finish = std::move(finish)](
+                web::WebResponse response
+            ) mutable {
+                if (!response.ok()) {
+                    m_sendButton->setEnabled(true);
+                    notifyStatus(errorText(response));
+                    return;
+                }
+                removeNextAttachment(commentID, std::move(finish));
+            }
+        );
+    }
+
+void CommentsLayer::beginEdit(CommentData const& comment) {
+        if (!comment.canEdit) return;
+
+        m_editingCommentID = comment.id;
+        m_removedAttachments.clear();
+        m_pendingFiles.clear();
+        m_input->setString(comment.body.c_str());
+        notifyStatus("Editing comment. Press Send to save.");
+        rebuild();
+        m_input->focus();
+    }
+
+void CommentsLayer::exitEdit() {
+        m_editingCommentID = 0;
+        m_removedAttachments.clear();
+        m_pendingFiles.clear();
+        m_input->setString("");
+        rebuild();
+    }
+
+void CommentsLayer::deleteComment(int id) {
+        createQuickPopup(
+            "Delete Comment",
+            "Delete this comment?",
+            "Cancel",
+            "Delete",
+            [this, id](auto, bool confirmed) {
+                if (!confirmed) return;
+
+                auto request = web::WebRequest();
+                request.header(
+                    "Authorization",
+                    "Bearer " + getAuthAccessToken()
+                );
+
+                auto loading = LoadingNotification::create("Deleting comment...");
+
+                m_requestTask.spawn(
+                    request.send(
+                        "DELETE",
+                        trimSlash(getIndexUrl()) +
+                        fmt::format(
+                            "/v1/mods/{}/versions/{}/submission/comments/{}",
+                            m_modID,
+                            m_state.selectedVersion,
+                            id
+                        )
+                    ),
+                    [this, loading](web::WebResponse response) {
+                        loading->hide();
+                        if (!response.ok()) {
+                            notifyStatus(errorText(response));
+                            return;
+                        }
+                        loadSelectedVersion();
+                    }
+                );
+            }
+        );
+    }
 } // namespace opengeode
