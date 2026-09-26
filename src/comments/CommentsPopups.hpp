@@ -27,4 +27,6 @@ Popup* createAttachmentPopup(
     std::function<void()> onAdd
 );
 
+Popup* createAttachmentImagePopup(std::string url);
+
 } // namespace opengeode
