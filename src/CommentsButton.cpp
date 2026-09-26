@@ -1,5 +1,5 @@
 #include "CommentsPopup.hpp"
-#include "CommentsLayer.hpp"
+#include "comments/CommentsLayer.hpp"
 
 #include <Geode/Geode.hpp>
 #include <Geode/ui/GeodeUI.hpp>
