@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <cmath>
 
 using namespace geode::prelude;
 
@@ -892,7 +893,7 @@ class CommentsLayer : public CCLayer {
         bottomMenu->addChild(m_attachButton);
 
         m_attachmentCountLabel = CCLabelBMFont::create("", "chatFont.fnt");
-        m_attachmentCountLabel->setScale(.285f); // Updated per PR #16[cite: 1]
+        m_attachmentCountLabel->setScale(.38f);
         m_attachmentCountLabel->setAnchorPoint({.5f, .5f});
         m_attachmentCountLabel->setVisible(false);
         bottom->addChild(m_attachmentCountLabel);
@@ -902,6 +903,7 @@ class CommentsLayer : public CCLayer {
         m_input->setCommonFilter(CommonFilter::Any);
         m_input->setMaxCharCount(2000);
         m_input->setAnchorPoint({.5f, .5f});
+        m_input->setContentSize({100.f, 13.f});
         bottom->addChild(m_input);
 
         auto send = ButtonSprite::create(
@@ -943,11 +945,11 @@ class CommentsLayer : public CCLayer {
         }
 
         auto inputWidth = std::max(
-            1.f, // Updated minimum width per PR #16[cite: 1]
+            1.f,
             rowWidth - pad * 2.f - fixedWidth
                 - gap * static_cast<float>(std::max(0, shown - 1))
         );
-        m_input->setContentSize({inputWidth, 15.f});
+        m_input->setContentSize({inputWidth, 13.f});
 
         float x = pad;
         for (auto node : order) {
@@ -1248,25 +1250,23 @@ class CommentsLayer : public CCLayer {
 
             if (comment.canEdit) {
                 auto button = ButtonSprite::create(
-                    "Edit", "goldFont.fnt", "GJ_button_01.png", .34f
+                    "Edit", "goldFont.fnt", "GJ_button_01.png", 1.f
                 );
                 button->setScale(.34f);
                 auto editItem = CCMenuItemExt::createSpriteExtra(
                     button, [this, comment](auto) { beginEdit(comment); }
                 );
-                // Removed menu item double-scaling per PR #16[cite: 1]
                 editItem->setAnchorPoint({.5f, .5f});
                 actions->addChild(editItem);
             }
             if (comment.canDelete) {
                 auto button = ButtonSprite::create(
-                    "Delete", "goldFont.fnt", "GJ_button_06.png", .34f
+                    "Delete", "goldFont.fnt", "GJ_button_06.png", 1.f
                 );
                 button->setScale(.34f);
                 auto deleteItem = CCMenuItemExt::createSpriteExtra(
                     button, [this, comment](auto) { deleteComment(comment.id); }
                 );
-                // Removed menu item double-scaling per PR #16[cite: 1]
                 deleteItem->setAnchorPoint({.5f, .5f});
                 actions->addChild(deleteItem);
             }
@@ -1274,23 +1274,35 @@ class CommentsLayer : public CCLayer {
             header->addChild(actions);
             header->updateLayout();
 
-            // Dynamically sized comment bodies per PR #16[cite: 1]
-            constexpr float kCommentMinHeight = 24.f;
-            constexpr float kCommentMaxHeight = 220.f;
+            // Estimated line count height calculation and scrollable body
+            auto const& text = comment.body.empty()
+                ? std::string("...")
+                : comment.body;
 
-            auto body = MDTextArea::create(
-                comment.body.empty() ? "..." : comment.body,
-                {width - 18.f, kCommentMinHeight},
-                true
-            );
+            constexpr float lineHeight = 12.f;
+            constexpr float charsPerLine = 55.f;
+            constexpr float minHeight = 24.f;
+            constexpr float maxHeight = 80.f;
 
-            auto bodyContentHeight =
-                body->getScrollLayer()->m_contentLayer->getContentHeight();
+            float estimatedLines = 0.f;
+
+            for (auto const& line : utils::string::split(text, "\n")) {
+                estimatedLines += std::max(
+                    1.f,
+                    std::ceil(static_cast<float>(line.size()) / charsPerLine)
+                );
+            }
 
             auto bodyHeight = std::clamp(
-                bodyContentHeight,
-                kCommentMinHeight,
-                kCommentMaxHeight
+                estimatedLines * lineHeight,
+                minHeight,
+                maxHeight
+            );
+
+            auto body = MDTextArea::create(
+                text,
+                {width - 18.f, bodyHeight},
+                true
             );
 
             body->setContentSize({
@@ -1301,8 +1313,8 @@ class CommentsLayer : public CCLayer {
             body->setAnchorPoint({.5f, .5f});
             body->setScale(1.05f);
             body->getScrollLayer()->m_cutContent = false;
-            body->getScrollLayer()->m_disableMovement = true;
-            body->getScrollLayer()->setMouseEnabled(false);
+            body->getScrollLayer()->m_disableMovement = false;
+            body->getScrollLayer()->setMouseEnabled(true);
             if (auto bodyBG = body->getChildByType<CCScale9Sprite>(0))
                 bodyBG->setVisible(false);
 
@@ -1394,7 +1406,6 @@ class CommentsLayer : public CCLayer {
                 (*populate)();
             }
 
-            // Dynamic card size including attachment area per PR #16[cite: 1]
             auto attachmentHeight = comment.attachments.empty()
                 ? 0.f
                 : kAttachmentAreaHeight + 4.f;
@@ -1449,9 +1460,18 @@ class CommentsLayer : public CCLayer {
         });
         m_commentsContainer->updateLayout();
 
-        // Scroll to top to handle the reversed layout list correctly
+        // Position content layer accurately based on layout limits
         geode::queueInMainThread([scroll] {
-            scroll->scrollToTop();
+            auto content = scroll->m_contentLayer;
+            if (!content)
+                return;
+
+            auto maxY = std::max(
+                0.f,
+                content->getContentHeight() - scroll->getContentHeight()
+            );
+
+            content->setPositionY(maxY);
         });
 
         if (m_versionButton) {
