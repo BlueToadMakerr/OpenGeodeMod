@@ -30,7 +30,6 @@ class CommentViewPopup : public Popup {
         area->getScrollLayer()->setMouseEnabled(true);
         if (auto bg = area->getChildByType<CCScale9Sprite>(0)) bg->setVisible(false);
         m_mainLayer->addChildAtPosition(area, Anchor::Center);
-        m_noElasticity = true;
         return true;
     }
 public:
@@ -252,7 +251,6 @@ class AttachmentImagePopup : public Popup {
         holder->setLayout(AnchorLayout::create());
         m_mainLayer->addChildAtPosition(holder, Anchor::Center);
         createContainedImage(holder, {320.f, 210.f}, url);
-        m_noElasticity = true;
         return true;
     }
 public:
