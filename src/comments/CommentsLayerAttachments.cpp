@@ -47,36 +47,34 @@ void CommentsLayer::showAttachmentsPopup() {
         [this](std::filesystem::path const& path) { removePendingFile(path); },
         [this]() { pickAttachments(); }
     );
-    if (popup) {
-        popup->m_noElasticity = true;
+    if (popup)
         popup->show();
-    }
 }
 
-
 void CommentsLayer::toggleAttachmentRemoval(int attachmentID) {
-        if (m_editingCommentID == 0) return;
+    if (m_editingCommentID == 0) return;
 
-        auto it = std::find(
-            m_removedAttachments.begin(),
-            m_removedAttachments.end(),
-            attachmentID
-        );
+    auto it = std::find(
+        m_removedAttachments.begin(),
+        m_removedAttachments.end(),
+        attachmentID
+    );
 
-        if (it == m_removedAttachments.end()) {
-            m_removedAttachments.push_back(attachmentID);
-        }
-        else {
-            m_removedAttachments.erase(it);
-        }
-        rebuild();
+    if (it == m_removedAttachments.end()) {
+        m_removedAttachments.push_back(attachmentID);
     }
+    else {
+        m_removedAttachments.erase(it);
+    }
+    rebuild();
+}
 
 void CommentsLayer::removePendingFile(std::filesystem::path const& path) {
-        auto it = std::find(m_pendingFiles.begin(), m_pendingFiles.end(), path);
-        if (it == m_pendingFiles.end()) return;
+    auto it = std::find(m_pendingFiles.begin(), m_pendingFiles.end(), path);
+    if (it == m_pendingFiles.end()) return;
 
-        m_pendingFiles.erase(it);
-        rebuild();
-    }
+    m_pendingFiles.erase(it);
+    rebuild();
+}
+
 } // namespace opengeode
