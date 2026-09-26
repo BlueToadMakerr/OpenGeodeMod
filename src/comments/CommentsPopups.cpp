@@ -1,6 +1,6 @@
 #include "CommentsPopups.hpp"
 #include "CommentsUtils.hpp"
-#include "PopupSectionUtils.hpp"
+#include "../PopupSectionUtils.hpp"
 
 #include <Geode/Geode.hpp>
 #include <Geode/ui/MDTextArea.hpp>
