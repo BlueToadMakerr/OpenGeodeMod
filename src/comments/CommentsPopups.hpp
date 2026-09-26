@@ -11,14 +11,14 @@
 
 namespace opengeode {
 
-Popup* createCommentViewPopup(std::string text);
+geode::Popup* createCommentViewPopup(std::string text);
 
-Popup* createVersionSelectPopup(
+geode::Popup* createVersionSelectPopup(
     std::vector<std::string> versions,
     std::function<void(std::string)> callback
 );
 
-Popup* createAttachmentPopup(
+geode::Popup* createAttachmentPopup(
     std::vector<CommentAttachment> attachments,
     std::vector<std::filesystem::path> pending,
     std::vector<int> removed,
@@ -27,6 +27,6 @@ Popup* createAttachmentPopup(
     std::function<void()> onAdd
 );
 
-Popup* createAttachmentImagePopup(std::string url);
+geode::Popup* createAttachmentImagePopup(std::string url);
 
 } // namespace opengeode
