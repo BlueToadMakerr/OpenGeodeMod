@@ -455,18 +455,18 @@ public:
     }
 };
 
-cocos2d::CCNode* createCommentViewPopup(std::string text) {
+Popup* createCommentViewPopup(std::string text) {
     return CommentViewPopup::create(std::move(text));
 }
 
-cocos2d::CCNode* createVersionSelectPopup(
+Popup* createVersionSelectPopup(
     std::vector<std::string> versions,
     std::function<void(std::string)> callback
 ) {
     return VersionSelectPopup::create(std::move(versions), std::move(callback));
 }
 
-cocos2d::CCNode* createAttachmentPopup(
+Popup* createAttachmentPopup(
     std::vector<CommentAttachment> attachments,
     std::vector<std::filesystem::path> pending,
     std::vector<int> removed,
