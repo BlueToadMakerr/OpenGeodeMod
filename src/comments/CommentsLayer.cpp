@@ -232,12 +232,12 @@ std::string m_modID;
                 CircleBaseColor::DarkPurple,
                 CircleBaseSize::Small
             );
-            attachSprite->setScale(.7f);
+            attachSprite->setScale(.35f);
         }
         else {
             attachSprite = CCSprite::createWithSpriteFrameName("GJ_plusBtn_001.png");
             if (attachSprite)
-                attachSprite->setScale(.4f);
+                attachSprite->setScale(.35f);
         }
 
         m_attachButton = CCMenuItemExt::createSpriteExtra(
