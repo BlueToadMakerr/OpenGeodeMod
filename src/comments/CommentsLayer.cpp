@@ -316,11 +316,10 @@ void CommentsLayer::setLoading(bool loading, std::string const& message) {
             .1f
         );
         m_statusLabel->setVisible(loading && !message.empty());
-        if (loading)
-            if (m_loadingIndicator) {
-                auto pos = m_loadingIndicator->getPosition();
-                m_statusLabel->setPosition(pos + ccp(0.f, -20.f));
-            }
+        if (loading && m_loadingIndicator) {
+            auto pos = m_loadingIndicator->getPosition();
+            m_statusLabel->setPosition(pos + ccp(0.f, -20.f));
+        }
     }
     if (m_commentsContainer)
         m_commentsContainer->setVisible(!loading);
@@ -357,8 +356,11 @@ void CommentsLayer::rebuild() {
         auto width = scroll->getContentWidth() - 24.f;
         if (m_loadingIndicator)
             m_loadingIndicator->setVisible(false);
-        if (m_statusLabel)
+        if (m_statusLabel) {
             m_statusLabel->setVisible(m_state.comments.empty());
+            if (m_state.comments.empty() && m_loadingIndicator)
+                m_statusLabel->setPosition(m_loadingIndicator->getPosition());
+        }
         if (m_commentsContainer)
             m_commentsContainer->setVisible(true);
         if (m_statusLabel && m_state.comments.empty()) {
