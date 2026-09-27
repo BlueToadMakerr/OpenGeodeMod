@@ -84,6 +84,17 @@ inline bool wasModUpdatedFromIndex(std::string const& modID) {
     return readSetting(installedModSettingPrefix(modID) + "-updated", "0") == "1";
 }
 
+inline bool hasPendingModUpdate(std::string const& modID) {
+    return wasModUpdatedFromIndex(modID);
+}
+
+inline void clearPendingModUpdates() {
+    for (auto* mod : Loader::get()->getAllMods()) {
+        if (!mod) continue;
+        deleteSetting(installedModSettingPrefix(mod->getID()) + "-updated");
+    }
+}
+
 inline std::optional<InstalledModSource> getInstalledModSource(std::string const& modID) {
     if (modID.empty() || !Loader::get()->isModInstalled(modID)) return std::nullopt;
 
