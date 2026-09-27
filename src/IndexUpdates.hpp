@@ -139,7 +139,7 @@ inline void fetchIndexUpdates(std::function<void()> callback = {}, bool force = 
         std::unordered_map<std::string, Mod*> installed;
     };
     auto state = std::make_shared<State>();
-    state->callback = std::move(callback);
+    state->callback = [] {};
     state->installed = std::move(installed);
 
     struct Task { async::TaskHolder<web::WebResponse> holder; };
@@ -211,7 +211,7 @@ inline void fetchIndexUpdates(std::function<void()> callback = {}, bool force = 
                     if (--state->pending == 0) {
                         indexUpdatesFetchedAt() = std::chrono::steady_clock::now();
                         indexUpdatesLoading() = false;
-                        if (state->callback) state->callback();
+                        finishIndexSourceInference();
                     }
                 }
             );
@@ -221,7 +221,31 @@ inline void fetchIndexUpdates(std::function<void()> callback = {}, bool force = 
 
 
 
+inline bool& indexSourceInferenceLoading() {
+    static bool loading = false;
+    return loading;
+}
+
+inline std::vector<std::function<void()>>& indexSourceInferenceCallbacks() {
+    static std::vector<std::function<void()>> callbacks;
+    return callbacks;
+}
+
+inline void finishIndexSourceInference() {
+    indexSourceInferenceLoading() = false;
+    auto callbacks = std::move(indexSourceInferenceCallbacks());
+    indexSourceInferenceCallbacks().clear();
+    for (auto& callback : callbacks) {
+        if (callback) callback();
+    }
+}
+
 inline void inferOriginalIndexSources(std::function<void()> callback = {}) {
+    if (indexSourceInferenceLoading()) {
+        if (callback) indexSourceInferenceCallbacks().push_back(std::move(callback));
+        return;
+    }
+
     auto updates = indexUpdates();
     std::unordered_set<std::string> modIDs;
     for (auto const& update : updates) {
@@ -236,6 +260,9 @@ inline void inferOriginalIndexSources(std::function<void()> callback = {}) {
         if (callback) callback();
         return;
     }
+
+    indexSourceInferenceLoading() = true;
+    if (callback) indexSourceInferenceCallbacks().push_back(std::move(callback));
 
     struct State {
         size_t pending = 0;
@@ -300,8 +327,7 @@ inline void inferOriginalIndexSources(std::function<void()> callback = {}) {
                         for (auto const& id : state->checked)
                             writeSetting("mod-source-checked-version-" + id, state->versions[id]);
 
-                        if (state->callback)
-                            state->callback();
+                        finishIndexSourceInference();
                     }
                 }
             );
