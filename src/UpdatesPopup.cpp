@@ -347,7 +347,7 @@ protected:
                     ),
                     "Cancel",
                     "Update All",
-                    [groups, items](auto, bool confirmed) {
+                    [groups, items, updateAll](auto, bool confirmed) {
                         if (confirmed) startUpdateAll(groups, items, updateAll);
                     },
                     true
