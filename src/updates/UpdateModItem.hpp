@@ -14,6 +14,7 @@ class UpdateModItem : public CCNode {
     Mod* m_mod = nullptr;
     CCNode* m_description = nullptr;
     CCMenuItemSpriteExtra* m_updateButton = nullptr;
+    CCMenuItemToggler* m_enableToggle = nullptr;
     Slider* m_progress = nullptr;
     CCNode* m_tags = nullptr;
     bool m_updated = false;
@@ -21,10 +22,12 @@ class UpdateModItem : public CCNode {
     bool init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> sources);
     void onView(CCObject*);
     void onUpdate(CCObject*);
+    void onEnable(CCObject*);
     void showSourcePicker();
     void startUpdate(IndexUpdateInfo update);
     void finishUpdate(IndexUpdateInfo const& update, bool success);
     void setProgress(float progress);
+    void addRestartRequiredTag();
 
 public:
     static UpdateModItem* create(IndexUpdateInfo update, std::vector<IndexUpdateInfo> sources);
