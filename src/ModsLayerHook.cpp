@@ -11,7 +11,7 @@
 #include <Geode/ui/SceneEvent.hpp>
 #include <Geode/utils/web.hpp>
 #include <Geode/loader/ModEvent.hpp>
-#include <Geode/loader/ModDownload.hpp>
+#include <Geode/loader/DownloadManager.hpp>
 
 #include <algorithm>
 #include <string>
@@ -23,6 +23,96 @@ namespace opengeode {
 Notification* g_switchNotif = nullptr;
 
 namespace {
+
+std::unordered_set<std::string>& promptedSourceMismatches() {
+    static std::unordered_set<std::string> ids;
+    return ids;
+}
+
+std::unordered_set<std::string>& updatingDownloads() {
+    static std::unordered_set<std::string> ids;
+    return ids;
+}
+
+void trackModDownloads() {
+    server::ModDownloadEvent().listen([](std::string id) {
+        auto download = server::ModDownloadManager::get()->getDownload(id);
+        if (!download) return;
+
+        auto installedSource = getInstalledModSource(id);
+        auto activeIndex = getActiveIndexId();
+
+        if (auto done = std::get_if<server::DownloadStatusDone>(&download->getStatus())) {
+            if (updatingDownloads().erase(id) > 0) {
+                auto version = download->getVersion();
+                if (version) {
+                    setInstalledModSource(id, version->toVString(), activeIndex, true);
+                    invalidateIndexUpdateCache();
+                }
+            }
+            promptedSourceMismatches().erase(id);
+            return;
+        }
+
+        if (!installedSource || installedSource->indexId.empty() || activeIndex.empty() ||
+            installedSource->indexId == activeIndex || download->getDependencyFor())
+            return;
+
+        auto version = download->getVersion();
+        if (!version) return;
+
+        if (auto confirm = std::get_if<server::DownloadStatusConfirm>(&download->getStatus())) {
+            if (!promptedSourceMismatches().insert(id).second) return;
+
+            updatingDownloads().insert(id);
+
+            auto oldSource = installedSource->indexName.empty()
+                ? installedSource->indexId
+                : installedSource->indexName;
+            auto newSource = activeIndex;
+
+            for (auto const& entry : getAllIndexes()) {
+                if (entry.id == activeIndex) {
+                    if (!entry.name.empty()) newSource = entry.name;
+                    break;
+                }
+            }
+
+            createQuickPopup(
+                "Update Source Changed",
+                fmt::format(
+                    "{} is installed from {}, but this update is from {}.\n\n"
+                    "Do you want to download the update from the new source?",
+                    id,
+                    oldSource,
+                    newSource
+                ),
+                "Cancel",
+                "Download",
+                [id](auto, bool confirmed) {
+                    auto current = server::ModDownloadManager::get()->getDownload(id);
+                    if (!current) return;
+
+                    if (confirmed) {
+                        current->confirm();
+                    } else {
+                        current->cancel();
+                        web::openLinkInBrowser(
+                            "data:text/html,"
+                            "<html><body><h2>Download Cancelled</h2>"
+                            "<p>The update was cancelled because the selected "
+                            "index is different from the source the installed "
+                            "mod came from.</p></body></html>"
+                        );
+                        updatingDownloads().erase(id);
+                    }
+                    promptedSourceMismatches().erase(id);
+                },
+                true
+            );
+        }
+    }).leak();
+}
 
 CCNode* createProfileButtonSprite() {
     auto profile = CCSprite::createWithSpriteFrameName("GJ_profileButton_001.png");
@@ -232,6 +322,7 @@ public:
 
 $on_mod(Loaded) {
     ensurePresetsExist();
+    trackModDownloads();
     SceneEvent().listen([](CCScene* scene) {
         if (!scene) return ListenerResult::Propagate;
         if (scene->getChildByID("OpenGeode.mods-layer-watcher"_spr)) return ListenerResult::Propagate;
