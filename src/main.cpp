@@ -8,8 +8,6 @@ using namespace geode::prelude;
 
 namespace opengeode {
 
-} // namespace
-
 $on_mod(Loaded) {
     ensurePresetsExist();
     clearPendingModUpdates();
