@@ -375,8 +375,9 @@ inline void showIndexDownloadFailure(
     class DownloadFailurePopup : public Popup {
         std::string m_text;
         bool init(std::string text, std::string title) {
-            if (!Popup::init(380.f, 285.f)) return false;
+            if (!Popup::init(380.f, 285.f, getPopupBackground())) return false;
             setTitle(title.c_str());
+            if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .875f);
             auto area = MDTextArea::create(text, {350.f, 220.f}, true);
             if (!area) return false;
             area->getScrollLayer()->m_cutContent = false;
