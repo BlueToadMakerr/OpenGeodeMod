@@ -230,7 +230,6 @@ public:
 
 $on_mod(Loaded) {
     ensurePresetsExist();
-    trackModDownloads();
     SceneEvent().listen([](CCScene* scene) {
         if (!scene) return ListenerResult::Propagate;
         if (scene->getChildByID("OpenGeode.mods-layer-watcher"_spr)) return ListenerResult::Propagate;
