@@ -113,9 +113,13 @@ $on_mod(Loaded) {
                                     auto modName = mod ? std::string(mod->getName()) : modID;
                                     showSourceMismatchPopup(modID, version, modName, installedName, activeName);
 
-                                    // Block this request. After choosing Download in
-                                    // the popup, the user must retry the download.
-                                    return ListenerResult::Stop;
+                                    // Keep the request in the normal web pipeline, but
+                                    // replace it with a deliberately invalid URL so the
+                                    // original download cannot happen. This mirrors the
+                                    // previous data: URL approach without relying on the
+                                    // data: scheme being accepted by the web layer.
+                                    req.url("https://opengeode.invalid/source-mismatch");
+                                    return ListenerResult::Propagate;
                                 }
                             }
 
