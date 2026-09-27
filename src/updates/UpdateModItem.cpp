@@ -33,7 +33,7 @@ CCNode* makeTag(std::string text, ccColor3B labelColor, ccColor3B bgColor) {
 }
 
 CCSprite* createActionButtonSprite(char const* text) {
-    auto sprite = ButtonSprite::create(text, "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .36f);
+    auto sprite = ButtonSprite::create(text, "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .42f);
     return sprite;
 }
 
@@ -249,9 +249,9 @@ void UpdateModItem::startUpdate(IndexUpdateInfo update) {
     m_progress = Slider::create(nullptr, nullptr);
     m_progress->setID("update-progress");
     m_progress->m_touchLogic->m_thumb->setVisible(false);
-    m_progress->setScale(1.0f);
+    m_progress->setScale(.75f);
     m_progress->setValue(0.f);
-    m_progress->setContentSize({90.f, 4.5f});
+    m_progress->setContentSize({120.f, 6.f});
     if (m_tags) m_tags->setVisible(false);
     if (m_description) m_description->setVisible(false);
     auto info = getChildByID("info-container");
@@ -278,7 +278,7 @@ void UpdateModItem::finishUpdate(IndexUpdateInfo const& update, bool success) {
     if (m_updateButton) { m_updateButton->setVisible(true); m_updateButton->setEnabled(true); }
 }
 
-UpdateModItem* UpdateModItem::create(IndexUpdateInfo update, std::vector<IndexUpdateInfo> sources) {
+UpdateModItem* UpdateModItem::createProgressTest() {\n    IndexUpdateInfo test;\n    test.modID = "devtools.progress-test";\n    test.modName = "DevTools Progress Test";\n    test.currentVersion = "1.0.0";\n    test.newVersion = "1.0.1";\n\n    auto ret = new UpdateModItem();\n    if (ret && ret->init(test, {test})) {\n        ret->m_updateButton->setVisible(false);\n        ret->m_updateButton->setEnabled(false);\n        if (ret->m_tags) ret->m_tags->setVisible(false);\n        if (ret->m_description) ret->m_description->setVisible(false);\n        ret->m_progress = Slider::create(nullptr, nullptr);\n        ret->m_progress->setID("update-progress-test");\n        ret->m_progress->m_touchLogic->m_thumb->setVisible(false);\n        ret->m_progress->setScale(.75f);\n        ret->m_progress->setValue(.5f);\n        ret->m_progress->setContentSize({120.f, 6.f});\n        if (auto info = ret->getChildByID("info-container")) {\n            info->addChild(ret->m_progress, 5);\n            ret->m_progress->setPosition({82.f, 10.f});\n        }\n        ret->autorelease();\n        return ret;\n    }\n    delete ret;\n    return nullptr;\n}\n\nUpdateModItem* UpdateModItem::create(IndexUpdateInfo update, std::vector<IndexUpdateInfo> sources) {
     auto ret = new UpdateModItem();
     if (ret && ret->init(std::move(update), std::move(sources))) { ret->autorelease(); return ret; }
     delete ret;
