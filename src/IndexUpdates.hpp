@@ -20,6 +20,7 @@ struct IndexUpdateInfo {
     std::string indexID;
     std::string indexName;
     std::string modID;
+    std::string modName;
     std::string currentVersion;
     std::string newVersion;
     bool disabled = false;
@@ -51,8 +52,14 @@ inline int getIndexUpdateCount(std::string const& id) {
 }
 
 inline bool hasFreshIndexUpdateCache() {
-    return indexUpdatesFetchedAt() != std::chrono::steady_clock::time_point{} &&
-        std::chrono::steady_clock::now() - indexUpdatesFetchedAt() < std::chrono::minutes(5);
+    if (indexUpdatesFetchedAt() == std::chrono::steady_clock::time_point{} ||
+        std::chrono::steady_clock::now() - indexUpdatesFetchedAt() >= std::chrono::minutes(5))
+        return false;
+
+    for (auto const& entry : getAllIndexes()) {
+        if (!indexUpdateCounts().contains(entry.id)) return false;
+    }
+    return true;
 }
 
 inline void invalidateIndexUpdateCache() {
@@ -136,7 +143,7 @@ inline void fetchIndexUpdates(std::function<void()> callback = {}, bool force = 
                                 auto it = state->installed.find(id);
                                 if (id.empty() || version.empty() || it == state->installed.end()) continue;
                                 indexUpdates().push_back({
-                                    entry.id, entry.name, id,
+                                    entry.id, entry.name, id, it->second->getName(),
                                     it->second->getVersion().toVString(),
                                     version, !it->second->isEnabled()
                                 });
