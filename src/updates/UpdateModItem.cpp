@@ -70,7 +70,7 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
     m_sources = sortedSources(std::move(sources));
     m_mod = Loader::get()->getInstalledMod(m_update.modID);
 
-    setContentSize({330.f, 62.f});
+    setContentSize({330.f, 58.f});
     ignoreAnchorPointForPosition(false);
     setAnchorPoint({.5f, .5f});
     setID("update-mod-item");
@@ -91,7 +91,7 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
 
     auto info = CCNode::create();
     info->setID("info-container");
-    info->setContentSize({172.f, 55.f});
+    info->setContentSize({172.f, 52.f});
     info->setAnchorPoint({0.f, .5f});
     addChildAtPosition(info, Anchor::Left, {45.f, 0.f});
 
@@ -114,12 +114,12 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
 
     auto developers = CCLabelBMFont::create("", "goldFont.fnt");
     developers->setAnchorPoint({0.f, .5f});
-    developers->setScale(.23f);
+    developers->setScale(.25f);
     developers->setColor(ccWHITE);
     if (m_mod) developers->setString(ModMetadata::formatDeveloperDisplayString(m_mod->getMetadata().getDevelopers()).c_str());
     else developers->setString("Unknown developer");
     developers->limitLabelWidth(168.f, .23f, .15f);
-    developers->setPosition({0.f, 29.f});
+    developers->setPosition({0.f, 27.f});
     info->addChild(developers);
 
     bool outdated = m_update.outdated;
@@ -138,7 +138,7 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
         if (restartRequired) m_tags->addChild(makeTag("Restart Required", {153, 245, 245}, {123, 156, 163}));
         m_tags->updateLayout();
         m_tags->setAnchorPoint({0.f, .5f});
-        m_tags->setPosition({0.f, 13.f});
+        m_tags->setPosition({0.f, 11.f});
         info->addChild(m_tags);
     } else {
         auto descriptionBG = NineSlice::create("square02b_001.png");
@@ -154,14 +154,14 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
         description->setColor(descriptionText ? ccWHITE : ccGRAY);
         description->setAnchorPoint({0.f, .5f});
         limitNodeWidth(description, 158.f, 1.f, .065f);
-        description->setPosition({5.f, 7.f});
+        description->setPosition({5.f, 6.f});
         descriptionBG->addChild(description);
         m_description = descriptionBG;
     }
 
     auto controls = CCMenu::create();
     controls->setID("controls");
-    controls->setContentSize({88.f, 28.f});
+    controls->setContentSize({1.f, 28.f});
     controls->setAnchorPoint({1.f, .5f});
     controls->setLayout(SimpleRowLayout::create()->setMainAxisAlignment(MainAxisAlignment::End)->setGap(2.f));
     addChildAtPosition(controls, Anchor::Right, {-4.f, 0.f});
@@ -178,6 +178,7 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
     view->setID("view-button");
     controls->addChild(view);
     controls->updateLayout();
+    controls->setContentSize({controls->getContentWidth(), controls->getContentHeight()});
     return true;
 }
 
