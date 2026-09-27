@@ -315,6 +315,17 @@ void UpdateModItem::finishUpdate(IndexUpdateInfo const& update, bool success) {
     m_updated = true;
     m_update = update;
     refreshStatusTags(true);
+
+    for (auto parent = getParent(); parent; parent = parent->getParent()) {
+        if (auto restart = typeinfo_cast<CCMenuItemSpriteExtra*>(
+            parent->getChildByIDRecursive("restart-button")
+        )) {
+            restart->setVisible(true);
+            restart->setEnabled(true);
+            break;
+        }
+    }
+
     if (m_updateButton) { m_updateButton->setVisible(true); m_updateButton->setEnabled(true); }
 }
 
