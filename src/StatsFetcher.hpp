@@ -45,7 +45,7 @@ struct StatsFetcher {
                                 }
                                 auto current = std::string(label->getString());
                                 label->setString(
-                                    fmt::format("{} | OpenGeode: {}", current, enabled ? "Enabled" : "Disabled").c_str()
+                                    fmt::format("{}\nOpen Geode: {}", current, enabled ? "Enabled" : "Disabled").c_str()
                                 );
                             }
                         );
