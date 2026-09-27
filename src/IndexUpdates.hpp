@@ -401,7 +401,6 @@ inline void showIndexDownloadFailure(
         }
     };
 
-    auto status = code > 0 ? fmt::format("HTTP {}", code) : "Request failed";
     auto text = fmt::format(
         "Failed to download {} v{} from {}.\\n\\nServer response:\\n{}",
         update.modName,
