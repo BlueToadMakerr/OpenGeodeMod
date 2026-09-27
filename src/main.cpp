@@ -8,39 +8,6 @@ using namespace geode::prelude;
 
 namespace opengeode {
 
-namespace {
-
-std::string sourceMismatchKey(std::string const& modID, std::string const& version, std::string const& indexID) {
-    return "mod-source-approved-" + modID + "-" + version + "-" + indexID;
-}
-
-void showSourceMismatchPopup(
-    std::string const& modID,
-    std::string const& version,
-    std::string const& modName,
-    std::string const& installedIndex,
-    std::string const& newIndex
-) {
-    createQuickPopup(
-        "Download From New Index?",
-        fmt::format(
-            "<cy>{}</c> is installed from <cg>{}</c>, but this update is from <co>{}</c>.\n\n"
-            "Download the update from the new index?\n\n"
-            "If you choose <cg>Download</c>, please <cy>retry the download</c> afterward.",
-            modName,
-            installedIndex,
-            newIndex
-        ),
-        "Cancel",
-        "Download",
-        [modID, version, newIndex](FLAlertLayer*, bool confirmed) {
-            if (confirmed) {
-                writeSetting(sourceMismatchKey(modID, version, newIndex), "1");
-            }
-        }
-    );
-}
-
 } // namespace
 
 $on_mod(Loaded) {
@@ -74,62 +41,6 @@ $on_mod(Loaded) {
                             givenUrl.replace(apiPos, givenUrl.size() - apiPos, downloadPath);
                             req.url(givenUrl);
                             takePendingVersionInstall(modID);
-                        }
-                    }
-                }
-            }
-
-            // Match the download request regardless of which index URL it was
-            // already rewritten to. This must happen before no_override is
-            // honored so normal Geode downloads can still be checked.
-            auto versionedPos = givenUrl.find(modsPath);
-            if (versionedPos != std::string::npos) {
-                auto versionedModStart = versionedPos + modsPath.size();
-                auto versionMarker = givenUrl.find("/versions/", versionedModStart);
-                if (versionMarker != std::string::npos && versionMarker > versionedModStart) {
-                    auto versionStart = versionMarker + std::string("/versions/").size();
-                    auto downloadPos = givenUrl.find("/download", versionStart);
-                    if (downloadPos != std::string::npos && downloadPos > versionStart) {
-                        auto modID = givenUrl.substr(versionedModStart, versionMarker - versionedModStart);
-                        auto version = givenUrl.substr(versionStart, downloadPos - versionStart);
-                        if (!modID.empty() && !version.empty()) {
-                            auto installedSource = getInstalledModSource(modID);
-                            auto activeIndex = getActiveIndexId();
-
-                            // The installed source is the source for the currently
-                            // installed version. Any different index attempting to
-                            // provide a newer version needs confirmation.
-                            if (installedSource &&
-                                !installedSource->indexId.empty() &&
-                                installedSource->indexId != activeIndex) {
-                                auto approval = sourceMismatchKey(modID, version, activeIndex);
-                                if (readSetting(approval, "") != "1") {
-                                    std::string installedName = installedSource->indexName.empty() ? installedSource->indexId : installedSource->indexName;
-                                    std::string activeName = activeIndex;
-                                    for (auto const& index : getAllIndexes()) {
-                                        if (index.id == activeIndex) {
-                                            activeName = index.name.empty() ? index.id : index.name;
-                                            break;
-                                        }
-                                    }
-                                    auto mod = Loader::get()->getInstalledMod(modID);
-                                    auto modName = mod ? std::string(mod->getName()) : modID;
-                                    showSourceMismatchPopup(modID, version, modName, installedName, activeName);
-
-                                    // Use a deliberately invalid URL rather than
-                                    // stopping the event. This makes Geode handle it
-                                    // as an ordinary failed download while preventing
-                                    // the original request from reaching the server.
-                                    req.url("https://opengeode.invalid/source-mismatch");
-                                    return ListenerResult::Propagate;
-                                }
-                            }
-
-                            if (installedSource) {
-                                setInstalledModSource(modID, version, activeIndex, true);
-                            } else {
-                                setInstalledModSource(modID, version);
-                            }
                         }
                     }
                 }
