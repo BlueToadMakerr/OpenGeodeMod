@@ -102,7 +102,6 @@ bool UpdateSourcePopup::init() {
         }
 
         auto updateSprite = ButtonSprite::create("Update", "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .30f);
-        updateSprite->setScale(.90f);
         auto button = CCMenuItemExt::createSpriteExtra(updateSprite, [this, option](CCMenuItemSpriteExtra*) {
             auto callback = std::move(m_callback);
             this->onClose(nullptr);
