@@ -35,6 +35,7 @@ struct IndexUpdateInfo {
     std::string newVersion;
     bool disabled = false;
     bool outdated = false;
+    bool updatedFromIndex = false;
 };
 
 inline std::unordered_map<std::string, int>& indexUpdateCounts() {
@@ -106,6 +107,36 @@ inline void invalidateIndexUpdateCache() {
     indexUpdatesFetchedAt() = {};
     indexUpdateCounts().clear();
     indexUpdates().clear();
+}
+
+inline void appendPendingUpdatedMods() {
+    for (auto* mod : Loader::get()->getAllMods()) {
+        if (!mod || mod->getID() == "geode.loader" || !wasModUpdatedFromIndex(mod->getID())) continue;
+
+        auto source = getInstalledModSource(mod->getID());
+        if (!source || source->version != mod->getVersion().toVString() || source->indexId.empty()) continue;
+
+        auto existing = std::find_if(indexUpdates().begin(), indexUpdates().end(), [&](auto const& update) {
+            return update.modID == mod->getID() && update.indexID == source->indexId;
+        });
+
+        if (existing != indexUpdates().end()) {
+            existing->updatedFromIndex = true;
+            continue;
+        }
+
+        indexUpdates().push_back({
+            source->indexId,
+            source->indexName.empty() ? source->indexId : source->indexName,
+            mod->getID(),
+            mod->getName(),
+            source->version,
+            source->version,
+            !mod->isLoaded(),
+            mod->targetsOutdatedVersion().has_value(),
+            true
+        });
+    }
 }
 
 inline void fetchIndexUpdates(std::function<void()> callback = {}, bool force = false) {
@@ -213,6 +244,7 @@ inline void fetchIndexUpdates(std::function<void()> callback = {}, bool force = 
                     }
 
                     if (--state->pending == 0) {
+                        appendPendingUpdatedMods();
                         indexUpdatesFetchedAt() = std::chrono::steady_clock::now();
                         indexUpdatesLoading() = false;
                         if (state->callback) state->callback();
