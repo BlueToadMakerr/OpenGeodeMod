@@ -6,6 +6,8 @@
 #include <Geode/ui/Popup.hpp>
 #include <Geode/ui/ScrollLayer.hpp>
 
+#include <map>
+
 using namespace geode::prelude;
 
 namespace opengeode {
@@ -23,56 +25,72 @@ protected:
         scroll->setPosition({20.f, 42.f});
         m_mainLayer->addChild(scroll);
 
-        auto const& updates = indexUpdates();
-        float rowHeight = 46.f;
-        float totalHeight = std::max(rowHeight * updates.size(), scroll->getContentSize().height);
+        // Group all index results by mod. A mod can therefore have several
+        // update rows when multiple indexes provide a newer version.
+        std::map<std::string, std::vector<IndexUpdateInfo>> grouped;
+        for (auto const& update : indexUpdates())
+            grouped[update.modID].push_back(update);
+
+        constexpr float rowHeight = 50.f;
+        float totalHeight = std::max(rowHeight * static_cast<float>(grouped.size()), scroll->getContentSize().height);
         float y = totalHeight;
 
-        for (auto const& update : updates) {
+        for (auto const& [modID, modUpdates] : grouped) {
             y -= rowHeight;
 
             auto row = CCNode::create();
             row->setContentSize({320.f, rowHeight});
             row->setPosition({0.f, y});
 
-            auto modLabel = CCLabelBMFont::create(update.modName.c_str(), "bigFont.fnt");
+            auto const& first = modUpdates.front();
+            auto modLabel = CCLabelBMFont::create(first.modName.c_str(), "bigFont.fnt");
             modLabel->setScale(0.42f);
             modLabel->setAnchorPoint({0.f, 0.5f});
-            modLabel->setPosition({5.f, 29.f});
+            modLabel->setPosition({5.f, 37.f});
             row->addChild(modLabel);
 
-            auto status = CCLabelBMFont::create(
-                update.disabled ? "Disabled • Outdated" : "Outdated",
-                "chatFont.fnt"
-            );
-            status->setScale(0.5f);
-            status->setColor(update.disabled ? ccYELLOW : ccGRAY);
-            status->setAnchorPoint({0.f, 0.5f});
-            status->setPosition({5.f, 13.f});
-            row->addChild(status);
+            // Match Geode/FavoriteMods' status semantics: a mod may be both
+            // disabled and outdated, so don't turn every update into an
+            // "Outdated" status just because an update exists.
+            std::string statusText;
+            bool disabled = false;
+            bool outdated = false;
+            for (auto const& update : modUpdates) {
+                disabled |= update.disabled;
+                outdated |= update.outdated;
+            }
 
-            auto version = CCLabelBMFont::create(
-                fmt::format("{} -> {}", update.currentVersion, update.newVersion).c_str(),
-                "chatFont.fnt"
-            );
-            version->setScale(0.5f);
-            version->setAnchorPoint({1.f, 0.5f});
-            version->setPosition({315.f, 29.f});
-            row->addChild(version);
+            if (disabled && outdated) statusText = "Disabled • Outdated";
+            else if (disabled) statusText = "Disabled";
+            else if (outdated) statusText = "Outdated";
 
-            auto indexLabel = CCLabelBMFont::create(
-                update.indexName.c_str(),
-                "chatFont.fnt"
-            );
-            indexLabel->setScale(0.5f);
-            indexLabel->setAnchorPoint({1.f, 0.5f});
-            indexLabel->setPosition({315.f, 13.f});
-            row->addChild(indexLabel);
+            if (!statusText.empty()) {
+                auto status = CCLabelBMFont::create(statusText.c_str(), "chatFont.fnt");
+                status->setScale(0.5f);
+                status->setColor(disabled ? ccYELLOW : ColorProvider::get()->color3b("geode.loader/mod-list-outdated-label"));
+                status->setAnchorPoint({0.f, 0.5f});
+                status->setPosition({5.f, 20.f});
+                row->addChild(status);
+            }
+
+            // Each index gets its own line, while the mod name is shown only once.
+            float indexY = 37.f;
+            for (auto const& update : modUpdates) {
+                auto indexLine = CCLabelBMFont::create(
+                    fmt::format("{}: {} -> {}", update.indexName, update.currentVersion, update.newVersion).c_str(),
+                    "chatFont.fnt"
+                );
+                indexLine->setScale(0.45f);
+                indexLine->setAnchorPoint({1.f, 0.5f});
+                indexLine->setPosition({315.f, indexY});
+                row->addChild(indexLine);
+                indexY -= 14.f;
+            }
 
             scroll->m_contentLayer->addChild(row);
         }
 
-        if (updates.empty()) {
+        if (grouped.empty()) {
             auto label = CCLabelBMFont::create("No updates available", "bigFont.fnt");
             label->setScale(0.45f);
             label->setPosition({160.f, 117.5f});
