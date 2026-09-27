@@ -260,10 +260,10 @@ inline void downloadIndexUpdate(IndexUpdateInfo update, std::function<void(bool)
                 if (ec) {
                     log::error("Failed to remove old package for {}: {}", update.modID, ec.message());
                 } else {
-                    success = file::writeBinary(path, data).has_value();
+                    success = file::writeBinary(path, data).isOk();
                 }
             } else {
-                success = file::writeBinary(path, data).has_value();
+                success = file::writeBinary(path, data).isOk();
             }
 
             if (success) {
