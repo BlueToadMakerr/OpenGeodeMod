@@ -129,7 +129,10 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
     title->setPosition({0.f, 44.f});
     info->addChild(title);
 
-    auto version = CCLabelBMFont::create(fmt::format("v{} -> v{}", cleanVersion(m_update.currentVersion), cleanVersion(m_update.newVersion)).c_str(), "bigFont.fnt");
+    auto versionText = m_update.updatedFromIndex
+        ? fmt::format("v{}", cleanVersion(m_update.newVersion))
+        : fmt::format("v{} -> v{}", cleanVersion(m_update.currentVersion), cleanVersion(m_update.newVersion));
+    auto version = CCLabelBMFont::create(versionText.c_str(), "bigFont.fnt");
     version->setID("version-change");
     version->setAnchorPoint({0.f, .5f});
     version->setScale(.24f);
@@ -148,7 +151,7 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
     info->addChild(developers);
 
     bool outdated = m_update.outdated;
-    bool restartRequired = isCompleted(m_update) || wasModUpdatedFromIndex(m_update.modID);
+    bool restartRequired = isCompleted(m_update) || wasModUpdatedFromIndex(m_update.modID) || m_update.updatedFromIndex;
     auto gameVersion = m_mod ? m_mod->getMetadata().getGameVersion() : std::nullopt;
 
     if (outdated || restartRequired || m_update.disabled) {
@@ -159,6 +162,13 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
         if (outdated) {
             auto text = gameVersion ? fmt::format("Outdated (GD {})", *gameVersion) : "Outdated";
             m_tags->addChild(makeTag(text, {245, 153, 245}, {156, 123, 163}));
+        }
+        if (m_update.updatedFromIndex) {
+            m_tags->addChild(makeTag(
+                fmt::format("Updated From {}", m_update.indexName),
+                {190, 170, 255},
+                {120, 105, 155}
+            ));
         }
         if (restartRequired) m_tags->addChild(makeTag("Restart Required", {153, 245, 245}, {123, 156, 163}));
         if (m_update.disabled) m_tags->addChild(makeTag("Disabled", {255, 170, 170}, {165, 95, 95}));
@@ -199,6 +209,8 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
     updateSprite->setScale(.58f);
     m_updateButton = CCMenuItemSpriteExtra::create(updateSprite, this, menu_selector(UpdateModItem::onUpdate));
     m_updateButton->setID("update-button");
+    m_updateButton->setVisible(!m_update.updatedFromIndex);
+    m_updateButton->setEnabled(!m_update.updatedFromIndex);
     controls->addChild(m_updateButton);
 
     auto viewSprite = createActionButtonSprite("View");
@@ -229,7 +241,7 @@ void UpdateModItem::refreshStatusTags(bool restartRequired) {
 
     bool outdated = m_update.outdated;
     bool disabled = m_update.disabled;
-    if (!outdated && !disabled && !restartRequired) return;
+    if (!outdated && !disabled && !restartRequired && !m_update.updatedFromIndex) return;
 
     auto tags = CCNode::create();
     tags->setID("status-tags");
@@ -242,6 +254,13 @@ void UpdateModItem::refreshStatusTags(bool restartRequired) {
         tags->addChild(makeTag(text, {245, 153, 245}, {156, 123, 163}));
     }
     if (disabled) tags->addChild(makeTag("Disabled", {255, 170, 170}, {165, 95, 95}));
+    if (m_update.updatedFromIndex) {
+        tags->addChild(makeTag(
+            fmt::format("Updated From {}", m_update.indexName),
+            {190, 170, 255},
+            {120, 105, 155}
+        ));
+    }
     if (restartRequired) tags->addChild(makeTag("Restart Required", {153, 245, 245}, {123, 156, 163}));
 
     tags->updateLayout();
@@ -314,6 +333,7 @@ void UpdateModItem::finishUpdate(IndexUpdateInfo const& update, bool success) {
     }
     m_updated = true;
     m_update = update;
+    m_update.updatedFromIndex = false;
     refreshStatusTags(true);
 
     for (auto parent = getParent(); parent; parent = parent->getParent()) {
