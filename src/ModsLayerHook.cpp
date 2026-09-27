@@ -114,7 +114,7 @@ protected:
         auto indexBtn = typeinfo_cast<CCMenuItemSpriteExtra*>(actionsMenu->getChildByID("index-switcher-button"_spr));
         if (!indexBtn) {
             indexBtn = CCMenuItemExt::createSpriteExtra(
-                CircleButtonSprite::createWithSpriteFrameName("geode.loader/geode-logo.png", 0.85f, CircleBaseColor::Blue),
+                CircleButtonSprite::createWithSpriteFrameName("geode.loader/geode-logo-outline-gold.png", 0.85f, CircleBaseColor::Blue),
                 [](auto) { showIndexListPopup(); }
             );
             indexBtn->setScale(0.8f);
