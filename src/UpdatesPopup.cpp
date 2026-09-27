@@ -597,7 +597,9 @@ public:
 
 void showUpdatesPopup() {
     fetchIndexUpdates([] {
-        UpdatesPopup::create()->show();
+        inferOriginalIndexSources([] {
+            UpdatesPopup::create()->show();
+        });
     }, true);
 }
 
