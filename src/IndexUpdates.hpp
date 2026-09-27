@@ -24,6 +24,7 @@ struct IndexUpdateInfo {
     std::string currentVersion;
     std::string newVersion;
     bool disabled = false;
+    bool outdated = false;
 };
 
 inline std::unordered_map<std::string, int>& indexUpdateCounts() {
@@ -142,10 +143,24 @@ inline void fetchIndexUpdates(std::function<void()> callback = {}, bool force = 
                                 auto version = update["version"].asString().unwrapOr("");
                                 auto it = state->installed.find(id);
                                 if (id.empty() || version.empty() || it == state->installed.end()) continue;
+
+                                auto currentVersion = it->second->getVersion().toVString();
+                                // An index can report the installed version itself. That is not an update.
+                                if (version == currentVersion) continue;
+
+                                auto const loadProblem = it->second->targetsOutdatedVersion();
+                                bool outdated = loadProblem.has_value() && loadProblem->type == LoadProblem::Type::Outdated;
+                                bool disabled = !it->second->isLoaded();
+
                                 indexUpdates().push_back({
-                                    entry.id, entry.name, id, it->second->getName(),
-                                    it->second->getVersion().toVString(),
-                                    version, !it->second->isOrWillBeEnabled()
+                                    entry.id,
+                                    entry.name,
+                                    id,
+                                    it->second->getName(),
+                                    currentVersion,
+                                    version,
+                                    disabled,
+                                    outdated
                                 });
                                 ++indexUpdateCounts()[entry.id];
                             }
