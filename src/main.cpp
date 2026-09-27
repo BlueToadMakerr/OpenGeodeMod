@@ -33,9 +33,9 @@ void showSourceMismatchPopup(
         ),
         "Cancel",
         "Download",
-        [modID, version](FLAlertLayer*, bool confirmed) {
+        [modID, version, newIndex](FLAlertLayer*, bool confirmed) {
             if (confirmed) {
-                writeSetting(sourceMismatchKey(modID, version, getActiveIndexId()), "1");
+                writeSetting(sourceMismatchKey(modID, version, newIndex), "1");
             }
         }
     );
@@ -79,9 +79,9 @@ $on_mod(Loaded) {
                 }
             }
 
-            // Check source mismatches before honoring no_override. Some normal
-            // Geode download requests carry no_override, but they still need to
-            // pass through the source-mismatch check.
+            // Match the download request regardless of which index URL it was
+            // already rewritten to. This must happen before no_override is
+            // honored so normal Geode downloads can still be checked.
             auto versionedPos = givenUrl.find(modsPath);
             if (versionedPos != std::string::npos) {
                 auto versionedModStart = versionedPos + modsPath.size();
@@ -95,6 +95,10 @@ $on_mod(Loaded) {
                         if (!modID.empty() && !version.empty()) {
                             auto installedSource = getInstalledModSource(modID);
                             auto activeIndex = getActiveIndexId();
+
+                            // The installed source is the source for the currently
+                            // installed version. Any different index attempting to
+                            // provide a newer version needs confirmation.
                             if (installedSource &&
                                 !installedSource->indexId.empty() &&
                                 installedSource->indexId != activeIndex &&
@@ -111,13 +115,12 @@ $on_mod(Loaded) {
                                     }
                                     auto mod = Loader::get()->getInstalledMod(modID);
                                     auto modName = mod ? std::string(mod->getName()) : modID;
-                                    showSourceMismatchPopup(modID, version, modName, installedName, activeName);
+                                    showSourceMismatchPopup(modID, version, modName, installedName, activeIndex);
 
-                                    // Keep the request in the normal web pipeline, but
-                                    // replace it with a deliberately invalid URL so the
-                                    // original download cannot happen. This mirrors the
-                                    // previous data: URL approach without relying on the
-                                    // data: scheme being accepted by the web layer.
+                                    // Use a deliberately invalid URL rather than
+                                    // stopping the event. This makes Geode handle it
+                                    // as an ordinary failed download while preventing
+                                    // the original request from reaching the server.
                                     req.url("https://opengeode.invalid/source-mismatch");
                                     return ListenerResult::Propagate;
                                 }
@@ -166,7 +169,7 @@ $on_mod(Loaded) {
 
             return ListenerResult::Propagate;
         },
-        Priority::Stub
+        Priority::First
     ).leak();
 }
 
