@@ -26,25 +26,29 @@ IndexUpdateInfo highestUpdate(std::vector<IndexUpdateInfo> const& sources) {
 class UpdatesPopup : public Popup {
 protected:
     bool init() {
-        if (!Popup::init(390.f, 295.f, getPopupBackground())) return false;
+        if (!Popup::init(390.f, 285.f, getPopupBackground())) return false;
         setTitle("Updates");
         if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .875f);
         auto size = m_mainLayer->getScaledContentSize();
         auto groups = groupUpdates();
         auto total = CCLabelBMFont::create(fmt::format("{} update{} available", groups.size(), groups.size() == 1 ? "" : "s").c_str(), "goldFont.fnt");
-        total->setScale(.31f);
-        total->setPosition({size.width / 2.f, size.height - 31.f});
+        total->setScale(.30f);
+        total->setPosition({size.width / 2.f, size.height - 30.f});
         m_mainLayer->addChild(total);
+
         auto listBG = NineSlice::create(getSectionBackground());
-        listBG->setContentSize({size.width - 20.f, size.height - 72.f});
-        listBG->setOpacity(70);
-        listBG->setPosition({size.width / 2.f, size.height / 2.f - 7.f});
+        listBG->setContentSize({size.width - 20.f, size.height - 68.f});
+        listBG->setOpacity(90);
+        listBG->setColor({0, 0, 0});
+        listBG->setPosition({size.width / 2.f, size.height / 2.f - 6.f});
         m_mainLayer->addChild(listBG);
-        auto scroll = ScrollLayer::create({size.width - 30.f, size.height - 84.f});
-        scroll->setPosition({15.f, 31.f});
+
+        auto scroll = ScrollLayer::create({size.width - 30.f, size.height - 80.f});
+        scroll->setPosition({15.f, 28.f});
         scroll->m_contentLayer->setContentWidth(scroll->getContentWidth());
-        constexpr float cardHeight = 72.f;
-        constexpr float gap = 5.f;
+        scroll->m_contentLayer->setAnchorPoint({.5f, .5f});
+        constexpr float cardHeight = 62.f;
+        constexpr float gap = 4.f;
         auto contentHeight = std::max(scroll->getContentHeight(), static_cast<float>(groups.size()) * (cardHeight + gap) + gap);
         scroll->m_contentLayer->setContentSize({scroll->getContentWidth(), contentHeight});
         float y = contentHeight - gap - cardHeight / 2.f;
