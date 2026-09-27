@@ -29,7 +29,6 @@ class UpdateModItem : public CCNode {
 
 public:
     static UpdateModItem* create(IndexUpdateInfo update, std::vector<IndexUpdateInfo> sources);
-    static UpdateModItem* createProgressTest();
 };
 
 } // namespace opengeode
