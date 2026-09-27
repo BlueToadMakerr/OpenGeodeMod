@@ -28,7 +28,7 @@ class UpdateModItem : public CCNode {
     void refreshStatusTags(bool restartRequired);
 
 public:
-    static UpdateModItem* create(IndexUpdateInfo update, std::vector<IndexUpdateInfo> sources);
+    static UpdateModItem* create(IndexUpdateInfo update, std::vector<IndexUpdateInfo> sources);\n    static UpdateModItem* createProgressTest();
 };
 
 } // namespace opengeode
