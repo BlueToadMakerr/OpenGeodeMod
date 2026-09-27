@@ -100,7 +100,7 @@ bool UpdateSourcePopup::init() {
         auto buttonSprite = ButtonSprite::create(
             text.c_str(), "goldFont.fnt", getButtonTexture("GE_button_01.png"), .46f
         );
-        buttonSprite->setBaseScale(.46f);
+        buttonSprite->setScale(.46f);
         auto button = CCMenuItemExt::createSpriteExtra(
             buttonSprite,
             [this, option](CCMenuItemSpriteExtra*) {
@@ -127,8 +127,11 @@ bool UpdateSourcePopup::init() {
     }
 
     menu->updateLayout();
-    menu->setPositionY(std::max(4.f, scroll->getContentHeight() - menu->getContentHeight() - 4.f));
-    scroll->m_contentLayer->setContentSize({scroll->getContentWidth(), std::max(scroll->getContentHeight(), menu->getContentHeight() + 8.f)});
+    scroll->m_contentLayer->setContentSize({
+        scroll->getContentWidth(),
+        std::max(scroll->getContentHeight(), menu->getContentHeight() + 8.f)
+    });
+    menu->setPositionY(std::max(4.f, scroll->m_contentLayer->getContentHeight() - menu->getContentHeight() - 4.f));
     scroll->m_contentLayer->addChild(menu);
     m_mainLayer->addChild(scroll);
     return true;
