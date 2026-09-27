@@ -41,8 +41,7 @@ class OpenGeodeTabSprite : public CCNode {
         m_selectedBG->setColor(to3B(ColorProvider::get()->color("geode.loader.mod-list-tab-selected-bg")));
         addChildAtPosition(m_selectedBG, Anchor::Center);
 
-        auto iconPath = Mod::get()->getResourcesDir() / iconFrame;
-        m_icon = CCSprite::create(iconPath.string().c_str());
+        m_icon = CCSprite::createWithSpriteFrameName(iconFrame);
         if (!m_icon) return false;
         limitNodeSize(m_icon, iconSize, 3.f, .1f);
         addChildAtPosition(m_icon, Anchor::Left, ccp(16, 0), false);
@@ -132,7 +131,7 @@ void ensureCommentsTab(CCNode* popup) {
     auto changelog = typeinfo_cast<CCMenuItemSpriteExtra*>(tabs->getChildByID("changelog"));
     if (!description || !changelog) return;
 
-    auto commentsSprite = OpenGeodeTabSprite::create("resources/chat.png", "Comments", 140.f);
+    auto commentsSprite = OpenGeodeTabSprite::create("chat.png", "Comments", 140.f);
     if (!commentsSprite) return;
 
     auto item = CCMenuItemExt::createSpriteExtra(
