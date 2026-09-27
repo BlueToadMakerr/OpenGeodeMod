@@ -143,11 +143,9 @@ bool UpdateSourcePopup::init() {
 }
 
 void UpdateSourcePopup::onClose(CCObject* sender) {
+    auto callback = !m_selected ? std::move(m_closeCallback) : std::function<void()>{};
     Popup::onClose(sender);
-    if (!m_selected) {
-        auto callback = std::move(m_closeCallback);
-        if (callback) callback();
-    }
+    if (callback) callback();
 }
 
 UpdateSourcePopup* UpdateSourcePopup::create(
