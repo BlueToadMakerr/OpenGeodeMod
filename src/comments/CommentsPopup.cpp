@@ -83,8 +83,8 @@ void selectExistingTab(CCMenuItemSpriteExtra* item, bool selected) {
     if (!item) return;
     auto image = item->getNormalImage();
     if (!image) return;
-    auto deselected = typeinfo_cast<NineSlice*>(image->getChildByType<NineSlice>(0));
-    auto selectedBG = typeinfo_cast<NineSlice*>(image->getChildByType<NineSlice>(1));
+    auto deselected = typeinfo_cast<CCScale9Sprite*>(image->getChildByType<CCScale9Sprite>(0));
+    auto selectedBG = typeinfo_cast<CCScale9Sprite*>(image->getChildByType<CCScale9Sprite>(1));
     if (deselected) deselected->setVisible(!selected);
     if (selectedBG) selectedBG->setVisible(selected);
 }
@@ -131,7 +131,7 @@ void ensureCommentsTab(CCNode* popup) {
     auto changelog = typeinfo_cast<CCMenuItemSpriteExtra*>(tabs->getChildByID("changelog"));
     if (!description || !changelog) return;
 
-    auto commentsSprite = OpenGeodeTabSprite::create("chat.png", "Comments", 140.f);
+    auto commentsSprite = OpenGeodeTabSprite::create("chat", "Comments", 140.f);
     if (!commentsSprite) return;
 
     auto item = CCMenuItemExt::createSpriteExtra(
