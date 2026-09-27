@@ -23,7 +23,7 @@ protected:
         scroll->setPosition({20.f, 42.f});
         m_mainLayer->addChild(scroll);
 
-        auto const& updates = getIndexUpdates();
+        auto const& updates = indexUpdates();
         float rowHeight = 46.f;
         float totalHeight = std::max(rowHeight * updates.size(), scroll->getContentSize().height);
         float y = totalHeight;
