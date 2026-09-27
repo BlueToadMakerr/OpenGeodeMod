@@ -10,6 +10,7 @@ namespace opengeode {
 
 $on_mod(Loaded) {
     ensurePresetsExist();
+    clearPendingModUpdates();
 
     web::WebRequestInterceptEvent().listen(
         [](std::string_view id, web::WebRequest& req) {
