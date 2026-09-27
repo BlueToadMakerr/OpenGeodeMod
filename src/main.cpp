@@ -1,31 +1,56 @@
-#pragma once
-
 #include "Settings.hpp"
 #include "InstalledMods.hpp"
-#include "IndexUpdates.hpp"
-#include "UpdateSourcePopup.hpp"
 
 #include <Geode/Geode.hpp>
 #include <Geode/utils/web.hpp>
-
-#include <string>
 
 using namespace geode::prelude;
 
 namespace opengeode {
 
+namespace {
+
+std::string sourceMismatchKey(std::string const& modID, std::string const& version, std::string const& indexID) {
+    return "mod-source-approved-" + modID + "-" + version + "-" + indexID;
+}
+
+void showSourceMismatchPopup(
+    std::string const& modID,
+    std::string const& version,
+    std::string const& modName,
+    std::string const& installedIndex,
+    std::string const& newIndex
+) {
+    createQuickPopup(
+        "Download From New Index?",
+        fmt::format(
+            "<cy>{}</c> is installed from <cg>{}</c>, but this update is from <co>{}</c>.\n\n"
+            "Download the update from the new index?",
+            modName,
+            installedIndex,
+            newIndex
+        ),
+        "Cancel",
+        "Download",
+        [modID, version, newIndex, installedIndex](FLAlertLayer*, bool confirmed) {
+            if (confirmed) {
+                writeSetting(sourceMismatchKey(modID, version, getActiveIndexId()), "1");
+            }
+        }
+    );
+}
+
+} // namespace
 
 $on_mod(Loaded) {
     ensurePresetsExist();
+    clearPendingModUpdates();
 
     web::WebRequestInterceptEvent().listen(
         [](std::string_view id, web::WebRequest& req) {
             std::string givenUrl = req.getUrl().data();
             auto modsPath = std::string("/v1/mods/");
 
-            // The native install flow requests version metadata first, then the
-            // download. For an exact-version install, make both requests target
-            // the selected version so the metadata hash matches the downloaded file.
             auto modStart = givenUrl.find(modsPath);
             if (modStart != std::string::npos) {
                 modStart += modsPath.size();
@@ -43,9 +68,7 @@ $on_mod(Loaded) {
                         }
                         else if (endpoint.starts_with("/download") ||
                             (endpoint.starts_with("/versions/") && endpoint.find("/download") != std::string::npos)) {
-                            auto downloadPath = fmt::format(
-                                "/v1/mods/{}/versions/{}/download", modID, version
-                            );
+                            auto downloadPath = fmt::format("/v1/mods/{}/versions/{}/download", modID, version);
                             auto apiPos = givenUrl.find(modsPath);
                             givenUrl.replace(apiPos, givenUrl.size() - apiPos, downloadPath);
                             req.url(givenUrl);
@@ -55,12 +78,8 @@ $on_mod(Loaded) {
                 }
             }
 
-            if (req.getUrlParams().count("no_override") > 0) {
-                return ListenerResult::Propagate;
-            }
+            if (req.getUrlParams().count("no_override") > 0) return ListenerResult::Propagate;
 
-            // Track versioned downloads, including those created by the native
-            // Geode install flow after a pending-version override.
             auto versionedPos = givenUrl.find(modsPath);
             if (versionedPos != std::string::npos) {
                 auto versionedModStart = versionedPos + modsPath.size();
@@ -72,22 +91,51 @@ $on_mod(Loaded) {
                         auto modID = givenUrl.substr(versionedModStart, versionMarker - versionedModStart);
                         auto version = givenUrl.substr(versionStart, downloadPos - versionStart);
                         if (!modID.empty() && !version.empty()) {
-                            setInstalledModSource(modID, version);
+                            auto installedSource = getInstalledModSource(modID);
+                            if (installedSource && installedSource->indexId != getActiveIndexId() &&
+                                installedSource->version != version) {
+                                auto approval = sourceMismatchKey(modID, version, getActiveIndexId());
+                                if (readSetting(approval, "") != "1") {
+                                    std::string installedName = installedSource->indexName.empty() ? installedSource->indexId : installedSource->indexName;
+                                    std::string activeName = getActiveIndexId();
+                                    for (auto const& index : getAllIndexes()) {
+                                        if (index.id == getActiveIndexId()) {
+                                            activeName = index.name.empty() ? index.id : index.name;
+                                            break;
+                                        }
+                                    }
+                                    auto mod = Loader::get()->getInstalledMod(modID);
+                                    auto modName = mod ? std::string(mod->getName()) : modID;
+                                    showSourceMismatchPopup(modID, version, modName, installedName, activeName);
+
+                                    auto dataText = fmt::format(
+                                        "data:text/html,<html><body><h2>Download canceled</h2>"
+                                        "<p>OpenGeode canceled the update of <b>{}</b> because it was requested from <b>{}</b>, "
+                                        "but the mod was installed from <b>{}</b>.</p><p>Choose Download in the OpenGeode prompt and retry the update "
+                                        "to approve the new source.</p></body></html>",
+                                        modName, activeName, installedName
+                                    );
+                                    req.url(dataText);
+                                    return ListenerResult::Propagate;
+                                }
+                            }
+
+                            if (installedSource) {
+                                setInstalledModSource(modID, version, getActiveIndexId(), true);
+                            } else {
+                                setInstalledModSource(modID, version);
+                            }
                         }
                     }
                 }
             }
 
-            if (!string::contains(givenUrl, "api.geode-sdk.org")) {
-                return ListenerResult::Propagate;
-            }
+            if (!string::contains(givenUrl, "api.geode-sdk.org")) return ListenerResult::Propagate;
 
             auto const modListPrefix = std::string("https://api.geode-sdk.org/v1/mods");
             bool isModListRequest = false;
             if (givenUrl.starts_with(modListPrefix)) {
-                auto next = givenUrl.size() == modListPrefix.size()
-                    ? '\0'
-                    : givenUrl[modListPrefix.size()];
+                auto next = givenUrl.size() == modListPrefix.size() ? '\0' : givenUrl[modListPrefix.size()];
                 isModListRequest = next == '\0' || next == '?';
             }
 
@@ -96,31 +144,25 @@ $on_mod(Loaded) {
             req.url(givenUrl);
 
             auto accessToken = getAuthAccessToken();
-            if (!accessToken.empty()) {
-                req.header("Authorization", "Bearer " + accessToken);
-            }
+            if (!accessToken.empty()) req.header("Authorization", "Bearer " + accessToken);
 
             auto const& config = getCurrentTabConfig();
-
             if (!config.platform.empty()) {
                 if (req.getUrlParams().count("platforms") > 0) req.param("platforms", config.platform);
                 if (req.getUrlParams().count("platform") > 0) req.param("platform", config.platform);
             }
-
             if (!config.geodeVersion.empty()) {
                 if (req.getUrlParams().count("geode") > 0) req.param("geode", config.geodeVersion);
             }
-
             if (!config.gdVersion.empty()) {
                 if (req.getUrlParams().count("gd") > 0) req.param("gd", config.gdVersion);
             }
-
-            if (isModListRequest) {
-                req.param("status", statusToString(config.status));
-            }
+            if (isModListRequest) req.param("status", statusToString(config.status));
 
             return ListenerResult::Propagate;
         },
         Priority::Stub
     ).leak();
 }
+
+} // namespace opengeode
