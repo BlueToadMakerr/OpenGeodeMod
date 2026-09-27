@@ -33,7 +33,7 @@ CCNode* makeTag(std::string text, ccColor3B labelColor, ccColor3B bgColor) {
 }
 
 CCSprite* createActionButtonSprite(char const* text) {
-    auto sprite = ButtonSprite::create(text, "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .30f);
+    auto sprite = ButtonSprite::create(text, "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .36f);
     return sprite;
 }
 
@@ -251,7 +251,7 @@ void UpdateModItem::startUpdate(IndexUpdateInfo update) {
     m_progress->m_touchLogic->m_thumb->setVisible(false);
     m_progress->setScale(1.0f);
     m_progress->setValue(0.f);
-    m_progress->setContentSize({120.f, 6.f});
+    m_progress->setContentSize({90.f, 4.5f});
     if (m_tags) m_tags->setVisible(false);
     if (m_description) m_description->setVisible(false);
     auto info = getChildByID("info-container");
