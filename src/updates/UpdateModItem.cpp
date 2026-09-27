@@ -255,10 +255,6 @@ void UpdateModItem::refreshStatusTags(bool restartRequired) {
     m_tags = tags;
 }
 
-void UpdateModItem::updateWithoutConfirmation(IndexUpdateInfo update, std::function<void(bool)> callback) {
-    startUpdate(std::move(update), std::move(callback));
-}
-
 void UpdateModItem::onUpdate(CCObject*) {
     if (m_sources.size() <= 1) {
         if (!m_sources.empty()) {
@@ -276,11 +272,8 @@ void UpdateModItem::showSourcePicker() {
     })->show();
 }
 
-void UpdateModItem::startUpdate(IndexUpdateInfo update, std::function<void(bool)> callback) {
-    if (!m_updateButton) {
-        if (callback) callback(false);
-        return;
-    }
+void UpdateModItem::startUpdate(IndexUpdateInfo update) {
+    if (!m_updateButton) return;
     m_updateButton->setVisible(false);
     m_updateButton->setEnabled(false);
     m_progress = Slider::create(nullptr, nullptr);
@@ -296,9 +289,8 @@ void UpdateModItem::startUpdate(IndexUpdateInfo update, std::function<void(bool)
         info->addChild(m_progress, 5);
         m_progress->setPosition({82.f, 10.f});
     }
-    downloadIndexUpdate(update, [this, update, callback = std::move(callback)](bool success) mutable {
+    downloadIndexUpdate(update, [this, update](bool success) {
         finishUpdate(update, success);
-        if (callback) callback(success);
     }, [this](float progress) { setProgress(progress); });
 }
 
