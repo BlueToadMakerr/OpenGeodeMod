@@ -39,7 +39,7 @@ CCNode* makeStatusTag(std::string text, bool updated) {
 bool UpdateSourcePopup::init() {
     if (!Popup::init(350.f, 250.f, getPopupBackground())) return false;
 
-    setTitle("Choose Update Source");
+    setTitle(m_alwaysInstalledCallback ? "Update Conflict" : "Choose Update Source");
     if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .875f);
 
     auto size = m_mainLayer->getScaledContentSize();
