@@ -211,7 +211,7 @@ inline void fetchIndexUpdates(std::function<void()> callback = {}, bool force = 
                     if (--state->pending == 0) {
                         indexUpdatesFetchedAt() = std::chrono::steady_clock::now();
                         indexUpdatesLoading() = false;
-                        finishIndexSourceInference();
+                        if (state->callback) state->callback();
                     }
                 }
             );
@@ -272,7 +272,7 @@ inline void inferOriginalIndexSources(std::function<void()> callback = {}) {
         std::unordered_set<std::string> checked;
     };
     auto state = std::make_shared<State>();
-    state->callback = std::move(callback);
+    state->callback = [] {};
 
     struct Task {
         async::TaskHolder<web::WebResponse> holder;
@@ -337,7 +337,7 @@ inline void inferOriginalIndexSources(std::function<void()> callback = {}) {
     if (state->pending == 0) {
         for (auto const& id : state->checked)
             writeSetting("mod-source-checked-version-" + id, state->versions[id]);
-        if (state->callback) state->callback();
+        finishIndexSourceInference();
     }
 }
 
