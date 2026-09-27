@@ -2,6 +2,7 @@
 
 #include "Settings.hpp"
 #include "InstalledMods.hpp"
+#include "PopupSectionUtils.hpp"
 
 #include <Geode/Geode.hpp>
 #include <Geode/utils/async.hpp>
