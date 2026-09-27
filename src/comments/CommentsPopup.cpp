@@ -126,7 +126,7 @@ void ensureCommentsTab(CCNode* popup) {
     auto changelog = typeinfo_cast<CCMenuItemSpriteExtra*>(tabs->getChildByID("changelog"));
     if (!description || !changelog) return;
 
-    auto commentsSprite = OpenGeodeTabSprite::create("chat.png", "Comments", 140.f);
+    auto commentsSprite = OpenGeodeTabSprite::create("resources/chat.png", "Comments", 140.f);
     if (!commentsSprite) return;
 
     auto item = CCMenuItemExt::createSpriteExtra(
