@@ -24,7 +24,7 @@ struct StatsFetcher {
 
         listener.spawn(
             req.get(url + "/v1/stats"),
-            [this](web::WebResponse res) {
+            [this, url](web::WebResponse res) {
                 if (res.ok()) {
                     auto json = res.json().unwrapOr(matjson::Value());
                     if (json.contains("payload")) {
