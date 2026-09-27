@@ -31,14 +31,14 @@ class OpenGeodeTabSprite : public CCNode {
         if (!m_deselectedBG) return false;
         m_deselectedBG->setScale(.8f);
         m_deselectedBG->setContentSize(itemSize / .8f);
-        m_deselectedBG->setColor(ColorProvider::get()->color3b("mod-list-tab-deselected-bg"));
+        m_deselectedBG->setColor(ColorProvider::get()->color3b("geode.loader/mod-list-tab-deselected-bg"));
         addChildAtPosition(m_deselectedBG, Anchor::Center);
 
         m_selectedBG = CCScale9Sprite::createWithSpriteFrameName("geode.loader/tab-bg.png");
         if (!m_selectedBG) return false;
         m_selectedBG->setScale(.8f);
         m_selectedBG->setContentSize(itemSize / .8f);
-        m_selectedBG->setColor(to3B(ColorProvider::get()->color("mod-list-tab-selected-bg")));
+        m_selectedBG->setColor(to3B(ColorProvider::get()->color("geode.loader/mod-list-tab-selected-bg")));
         addChildAtPosition(m_selectedBG, Anchor::Center);
 
         m_icon = CCSprite::createWithSpriteFrameName(iconFrame);
@@ -131,7 +131,7 @@ void ensureCommentsTab(CCNode* popup) {
     auto changelog = typeinfo_cast<CCMenuItemSpriteExtra*>(tabs->getChildByID("changelog"));
     if (!description || !changelog) return;
 
-    auto commentsSprite = OpenGeodeTabSprite::create("chat", "Comments", 140.f);
+    auto commentsSprite = OpenGeodeTabSprite::create("chat.png"_spr, "Comments", 140.f);
     if (!commentsSprite) return;
 
     auto item = CCMenuItemExt::createSpriteExtra(
