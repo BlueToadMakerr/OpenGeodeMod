@@ -46,7 +46,7 @@ protected:
         auto scroll = ScrollLayer::create({size.width - 30.f, size.height - 80.f});
         scroll->setPosition({15.f, 28.f});
         scroll->m_contentLayer->setContentWidth(scroll->getContentWidth());
-        constexpr float cardHeight = 52.f;
+        constexpr float cardHeight = 58.f;
         constexpr float gap = 2.f;
         auto contentHeight = std::max(scroll->getContentHeight(), static_cast<float>(groups.size()) * (cardHeight + gap) + gap);
         scroll->m_contentLayer->setContentSize({scroll->getContentWidth(), contentHeight});
