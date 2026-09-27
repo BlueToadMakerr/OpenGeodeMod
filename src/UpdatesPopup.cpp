@@ -22,10 +22,8 @@ std::vector<UpdateGroup> groupUpdates() {
         auto it = std::find_if(groups.begin(), groups.end(), [&](auto const& group) {
             return group.modID == update.modID;
         });
-        if (it == groups.end())
-            groups.push_back({update.modID, {update}});
-        else
-            it->sources.push_back(update);
+        if (it == groups.end()) groups.push_back({update.modID, {update}});
+        else it->sources.push_back(update);
     }
 
     std::sort(groups.begin(), groups.end(), [](auto const& a, auto const& b) {
@@ -45,12 +43,10 @@ IndexUpdateInfo highestUpdate(std::vector<IndexUpdateInfo> const& sources) {
 class UpdatesPopup : public Popup {
 protected:
     bool init() {
-        if (!Popup::init(390.f, 345.f, getPopupBackground()))
-            return false;
+        if (!Popup::init(390.f, 345.f, getPopupBackground())) return false;
 
         setTitle("Updates");
-        if (auto close = createGeodeCloseButton())
-            setCloseButtonSpr(close, .875f);
+        if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .875f);
 
         auto size = m_mainLayer->getScaledContentSize();
         auto groups = groupUpdates();
@@ -73,7 +69,7 @@ protected:
         scroll->setPosition({15.f, 35.f});
         scroll->m_contentLayer->setContentWidth(scroll->getContentWidth());
 
-        constexpr float cardHeight = 112.f;
+        constexpr float cardHeight = 88.f;
         constexpr float gap = 7.f;
         auto contentHeight = std::max(
             scroll->getContentHeight(),
