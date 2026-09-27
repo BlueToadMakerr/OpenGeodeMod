@@ -81,6 +81,13 @@ public:
             return;
         }
 
+        // Skip mods that were already updated, including mods completed earlier
+        // in this same Update All session.
+        if (wasModUpdatedFromIndex(group.modID)) {
+            next();
+            return;
+        }
+
         auto installed = getInstalledModSource(group.modID);
         auto installedIt = installed
             ? std::find_if(group.sources.begin(), group.sources.end(), [&](auto const& source) {
@@ -205,6 +212,22 @@ void startUpdateAll(
     CCMenuItemSpriteExtra* updateAllButton
 ) {
     if (groups.empty() || activeBatch()) return;
+
+    // Do not include mods that have already been updated when the confirmation
+    // count is calculated or when the batch is started.
+    groups.erase(
+        std::remove_if(groups.begin(), groups.end(), [](auto const& group) {
+            return wasModUpdatedFromIndex(group.modID);
+        }),
+        groups.end()
+    );
+    if (groups.empty()) {
+        if (updateAllButton) {
+            updateAllButton->setVisible(false);
+            updateAllButton->setEnabled(false);
+        }
+        return;
+    }
 
     auto state = std::make_shared<BatchUpdateState>();
     state->groups = std::move(groups);
@@ -339,16 +362,29 @@ protected:
             [groups, items, &updateAll](CCMenuItemSpriteExtra*) {
                 if (groups.empty() || activeBatch()) return;
 
+                auto pendingGroups = groups;
+                pendingGroups.erase(
+                    std::remove_if(pendingGroups.begin(), pendingGroups.end(), [](auto const& group) {
+                        return wasModUpdatedFromIndex(group.modID);
+                    }),
+                    pendingGroups.end()
+                );
+                if (pendingGroups.empty()) {
+                    updateAll->setVisible(false);
+                    updateAll->setEnabled(false);
+                    return;
+                }
+
                 createQuickPopup(
                     "Update All",
                     fmt::format(
                         "Are you sure you want to update {} mods?",
-                        groups.size()
+                        pendingGroups.size()
                     ),
                     "Cancel",
                     "Update All",
-                    [groups, items, updateAll](auto, bool confirmed) {
-                        if (confirmed) startUpdateAll(groups, items, updateAll);
+                    [pendingGroups, items, updateAll](auto, bool confirmed) {
+                        if (confirmed) startUpdateAll(pendingGroups, items, updateAll);
                     },
                     true
                 );
