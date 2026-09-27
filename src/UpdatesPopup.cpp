@@ -1,56 +1,245 @@
 #include "IndexUpdates.hpp"
 #include "updates/UpdateModItem.hpp"
+#include "updates/UpdateSourcePopup.hpp"
 #include "PopupSectionUtils.hpp"
+
 #include <Geode/Geode.hpp>
+#include <Geode/ui/GeodeUI.hpp>
 #include <Geode/ui/Popup.hpp>
 #include <Geode/ui/ScrollLayer.hpp>
+
 using namespace geode::prelude;
+
 namespace opengeode {
+
 namespace {
-struct UpdateGroup { std::string modID; std::vector<IndexUpdateInfo> sources; };
+
+struct UpdateGroup {
+    std::string modID;
+    std::vector<IndexUpdateInfo> sources;
+};
+
 std::vector<UpdateGroup> groupUpdates() {
     std::vector<UpdateGroup> groups;
     for (auto const& update : indexUpdates()) {
-        auto it = std::find_if(groups.begin(), groups.end(), [&](auto const& group) { return group.modID == update.modID; });
+        auto it = std::find_if(groups.begin(), groups.end(), [&](auto const& group) {
+            return group.modID == update.modID;
+        });
         if (it == groups.end()) groups.push_back({update.modID, {update}});
         else it->sources.push_back(update);
     }
+
     std::sort(groups.begin(), groups.end(), [](auto const& a, auto const& b) {
-        return (a.sources.empty() ? a.modID : a.sources.front().modName) < (b.sources.empty() ? b.modID : b.sources.front().modName);
+        return (a.sources.empty() ? a.modID : a.sources.front().modName) <
+            (b.sources.empty() ? b.modID : b.sources.front().modName);
     });
     return groups;
 }
+
 IndexUpdateInfo highestUpdate(std::vector<IndexUpdateInfo> const& sources) {
-    return *std::max_element(sources.begin(), sources.end(), [](auto const& a, auto const& b) { return parseUpdateVersion(a.newVersion) < parseUpdateVersion(b.newVersion); });
+    return *std::max_element(
+        sources.begin(),
+        sources.end(),
+        [](auto const& a, auto const& b) {
+            return parseUpdateVersion(a.newVersion) < parseUpdateVersion(b.newVersion);
+        }
+    );
 }
+
+class BatchUpdateState : public std::enable_shared_from_this<BatchUpdateState> {
+public:
+    std::vector<UpdateGroup> groups;
+    size_t current = 0;
+    bool alwaysInstalled = false;
+    int successful = 0;
+    int failed = 0;
+    std::function<void()> finished;
+
+    void next() {
+        if (current >= groups.size()) {
+            auto finishedCallback = std::move(finished);
+            if (finishedCallback) finishedCallback();
+            return;
+        }
+
+        auto group = groups[current++];
+        if (group.sources.empty()) {
+            next();
+            return;
+        }
+
+        auto installed = getInstalledModSource(group.modID);
+        auto installedIt = installed
+            ? std::find_if(group.sources.begin(), group.sources.end(), [&](auto const& source) {
+                return source.indexID == installed->indexId;
+            })
+            : group.sources.end();
+
+        if (group.sources.size() == 1) {
+            download(group.sources.front());
+            return;
+        }
+
+        if (alwaysInstalled && installedIt != group.sources.end()) {
+            download(*installedIt);
+            return;
+        }
+
+        if (installedIt != group.sources.end()) {
+            auto installedSource = *installedIt;
+            auto weak = weak_from_this();
+            UpdateSourcePopup::create(
+                group.sources,
+                [weak](IndexUpdateInfo selected) {
+                    if (auto state = weak.lock()) state->download(selected);
+                },
+                [weak] {
+                    if (auto state = weak.lock()) state->next();
+                },
+                [weak, installedSource] {
+                    if (auto state = weak.lock()) {
+                        state->alwaysInstalled = true;
+                        state->download(installedSource);
+                    }
+                }
+            )->show();
+            return;
+        }
+
+        auto weak = weak_from_this();
+        createQuickPopup(
+            "Update Conflict",
+            fmt::format(
+                "<cy>{}</c> has updates from multiple indexes, but its installed "
+                "source could not be identified. Choose an update source to continue.",
+                group.sources.front().modName
+            ),
+            "Skip",
+            "Choose Source",
+            [weak, sources = group.sources](auto, bool chooseSource) {
+                auto state = weak.lock();
+                if (!state) return;
+                if (!chooseSource) {
+                    state->next();
+                    return;
+                }
+                UpdateSourcePopup::create(
+                    sources,
+                    [weak](IndexUpdateInfo selected) {
+                        if (auto state = weak.lock()) state->download(selected);
+                    },
+                    [weak] {
+                        if (auto state = weak.lock()) state->next();
+                    }
+                )->show();
+            },
+            true
+        );
+    }
+
+    void download(IndexUpdateInfo update) {
+        auto weak = weak_from_this();
+        downloadIndexUpdate(
+            std::move(update),
+            [weak](bool success) {
+                if (auto state = weak.lock()) {
+                    if (success) ++state->successful;
+                    else ++state->failed;
+                    state->next();
+                }
+            }
+        );
+    }
+};
+
+std::weak_ptr<BatchUpdateState>& activeBatch() {
+    static std::weak_ptr<BatchUpdateState> batch;
+    return batch;
+}
+
+void startUpdateAll(std::vector<UpdateGroup> groups) {
+    if (groups.empty() || !activeBatch().expired()) return;
+
+    auto state = std::make_shared<BatchUpdateState>();
+    state->groups = std::move(groups);
+    state->finished = [weak = std::weak_ptr<BatchUpdateState>(state)] {
+        auto state = weak.lock();
+        if (!state) return;
+
+        if (state->successful > 0) {
+            Notification::create(
+                fmt::format(
+                    "Updated {} mod{} — restart required",
+                    state->successful,
+                    state->successful == 1 ? "" : "s"
+                ).c_str(),
+                NotificationIcon::Success,
+                3.f
+            )->show();
+        }
+
+        if (state->failed > 0) {
+            Notification::create(
+                fmt::format(
+                    "{} update{} failed",
+                    state->failed,
+                    state->failed == 1 ? "" : "s"
+                ).c_str(),
+                NotificationIcon::Error,
+                3.f
+            )->show();
+        }
+
+        activeBatch().reset();
+    };
+    activeBatch() = state;
+    state->next();
+}
+
 class UpdatesPopup : public Popup {
 protected:
     bool init() {
         if (!Popup::init(390.f, 285.f, getPopupBackground())) return false;
         setTitle("Updates");
         if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .875f);
+
         auto size = m_mainLayer->getScaledContentSize();
         auto groups = groupUpdates();
-        auto total = CCLabelBMFont::create(fmt::format("{} update{} available", groups.size(), groups.size() == 1 ? "" : "s").c_str(), "goldFont.fnt");
+
+        auto total = CCLabelBMFont::create(
+            fmt::format(
+                "{} update{} available",
+                groups.size(),
+                groups.size() == 1 ? "" : "s"
+            ).c_str(),
+            "goldFont.fnt"
+        );
         total->setScale(.30f);
         total->setPosition({size.width / 2.f, size.height - 30.f});
         m_mainLayer->addChild(total);
 
         auto listBG = NineSlice::create(getSectionBackground());
-        listBG->setContentSize({size.width - 20.f, size.height - 68.f});
+        listBG->setContentSize({size.width - 20.f, 184.f});
         listBG->setOpacity(90);
         listBG->setColor({0, 0, 0});
-        listBG->setPosition({size.width / 2.f, size.height / 2.f - 6.f});
+        listBG->setPosition({size.width / 2.f, 139.f});
         m_mainLayer->addChild(listBG);
 
-        auto scroll = ScrollLayer::create({size.width - 30.f, size.height - 80.f});
-        scroll->setPosition({15.f, 28.f});
+        auto scroll = ScrollLayer::create({size.width - 30.f, 174.f});
+        scroll->setPosition({15.f, 52.f});
         scroll->m_contentLayer->setContentWidth(scroll->getContentWidth());
+
         constexpr float cardHeight = 58.f;
         constexpr float gap = 2.f;
-        auto itemCount = groups.size() + 1;
-        auto contentHeight = std::max(scroll->getContentHeight(), static_cast<float>(itemCount) * (cardHeight + gap) + gap);
-        scroll->m_contentLayer->setContentSize({scroll->getContentWidth(), contentHeight});
+        auto contentHeight = std::max(
+            scroll->getContentHeight(),
+            static_cast<float>(groups.size()) * (cardHeight + gap) + gap
+        );
+        scroll->m_contentLayer->setContentSize({
+            scroll->getContentWidth(),
+            contentHeight
+        });
+
         float y = contentHeight - gap - cardHeight / 2.f;
         for (auto const& group : groups) {
             auto item = UpdateModItem::create(highestUpdate(group.sources), group.sources);
@@ -59,24 +248,99 @@ protected:
             scroll->m_contentLayer->addChild(item);
             y -= cardHeight + gap;
         }
-        auto testItem = UpdateModItem::createProgressTest();
-        if (testItem) {
-            testItem->setPosition({scroll->getContentWidth() / 2.f, y});
-            scroll->m_contentLayer->addChild(testItem);
+
+        if (groups.empty()) {
+            auto label = CCLabelBMFont::create("No updates available", "bigFont.fnt");
+            label->setScale(.40f);
+            label->setPosition({
+                scroll->getContentWidth() / 2.f,
+                scroll->getContentHeight() / 2.f
+            });
+            scroll->m_contentLayer->addChild(label);
         }
+
         m_mainLayer->addChild(scroll);
+
+        auto buttons = CCMenu::create();
+        buttons->setLayout(
+            SimpleRowLayout::create()
+                ->setMainAxisAlignment(MainAxisAlignment::Center)
+                ->setGap(6.f)
+        );
+        buttons->setContentSize({size.width - 20.f, 32.f});
+        buttons->setPosition({size.width / 2.f, 24.f});
+
+        auto updateAllSprite = ButtonSprite::create(
+            "Update All",
+            "bigFont.fnt",
+            getButtonTexture("GJ_button_01.png"),
+            .42f
+        );
+        auto updateAll = CCMenuItemExt::createSpriteExtra(
+            updateAllSprite,
+            [groups](CCMenuItemSpriteExtra*) {
+                if (groups.empty() || !activeBatch().expired()) return;
+
+                createQuickPopup(
+                    "Update All",
+                    fmt::format(
+                        "Are you sure you want to update {} mods?",
+                        groups.size()
+                    ),
+                    "Cancel",
+                    "Update All",
+                    [groups](auto, bool confirmed) {
+                        if (confirmed) startUpdateAll(groups);
+                    },
+                    true
+                );
+            }
+        );
+        updateAll->setID("update-all-button");
+        updateAll->setEnabled(activeBatch().expired());
+        buttons->addChild(updateAll);
+
+        auto restartSprite = ButtonSprite::create(
+            "Restart",
+            "bigFont.fnt",
+            getButtonTexture("GJ_button_01.png"),
+            .42f
+        );
+        auto restart = CCMenuItemExt::createSpriteExtra(
+            restartSprite,
+            [](CCMenuItemSpriteExtra*) {
+                game::restart();
+            }
+        );
+        restart->setID("restart-button");
+        restart->setVisible(!completedIndexUpdates().empty());
+        restart->setEnabled(!completedIndexUpdates().empty());
+        buttons->addChild(restart);
+
+        m_mainLayer->addChild(buttons, 10);
         return true;
     }
+
 public:
     static UpdatesPopup* create() {
         auto ret = new UpdatesPopup();
-        if (ret && ret->init()) { ret->autorelease(); return ret; }
+        if (ret && ret->init()) {
+            ret->autorelease();
+            return ret;
+        }
         delete ret;
         return nullptr;
     }
 };
+
 }
+
 void showUpdatesPopup() {
-    fetchIndexUpdates([] { inferOriginalIndexSources([] { UpdatesPopup::create()->show(); }); }, false);
+    fetchIndexUpdates([] {
+        inferOriginalIndexSources([] {
+            UpdatesPopup::create()->show();
+        });
+    }, false);
 }
-}
+
+} // namespace opengeode
