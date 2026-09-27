@@ -207,7 +207,11 @@ protected:
                             );
 
                             std::string warning;
-                            if (!source.empty() && source != updateCopy.indexID) {
+                            if (source.empty()) {
+                                warning =
+                                    "\n\n<cr>The original index this mod was installed from is unknown.</c>"
+                                    "\nThis update will be installed from <cy>" + updateCopy.indexName + "</c>.";
+                            } else if (source != updateCopy.indexID) {
                                 auto indexes = getAllIndexes();
                                 auto sourceIt = std::find_if(
                                     indexes.begin(),
