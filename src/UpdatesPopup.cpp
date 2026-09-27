@@ -48,7 +48,7 @@ protected:
         scroll->m_contentLayer->setContentWidth(scroll->getContentWidth());
         constexpr float cardHeight = 58.f;
         constexpr float gap = 2.f;
-        auto contentHeight = std::max(scroll->getContentHeight(), static_cast<float>(groups.size()) * (cardHeight + gap) + gap);
+        auto itemCount = groups.size() + 1;\n        auto contentHeight = std::max(scroll->getContentHeight(), static_cast<float>(itemCount) * (cardHeight + gap) + gap);
         scroll->m_contentLayer->setContentSize({scroll->getContentWidth(), contentHeight});
         float y = contentHeight - gap - cardHeight / 2.f;
         for (auto const& group : groups) {
@@ -58,7 +58,7 @@ protected:
             scroll->m_contentLayer->addChild(item);
             y -= cardHeight + gap;
         }
-        m_mainLayer->addChild(scroll);
+        auto testItem = UpdateModItem::createProgressTest();\n        if (testItem) {\n            testItem->setPosition({scroll->getContentWidth() / 2.f, y});\n            scroll->m_contentLayer->addChild(testItem);\n        }\n        m_mainLayer->addChild(scroll);
         return true;
     }
 public:
