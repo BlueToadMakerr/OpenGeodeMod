@@ -31,14 +31,14 @@ class OpenGeodeTabSprite : public CCNode {
         if (!m_deselectedBG) return false;
         m_deselectedBG->setScale(.8f);
         m_deselectedBG->setContentSize(itemSize / .8f);
-        m_deselectedBG->setColor(ColorProvider::get()->color3b("geode.loader.mod-list-tab-deselected-bg"));
+        m_deselectedBG->setColor(ColorProvider::get()->color3b("mod-list-tab-deselected-bg"));
         addChildAtPosition(m_deselectedBG, Anchor::Center);
 
         m_selectedBG = CCScale9Sprite::createWithSpriteFrameName("geode.loader/tab-bg.png");
         if (!m_selectedBG) return false;
         m_selectedBG->setScale(.8f);
         m_selectedBG->setContentSize(itemSize / .8f);
-        m_selectedBG->setColor(to3B(ColorProvider::get()->color("geode.loader.mod-list-tab-selected-bg")));
+        m_selectedBG->setColor(to3B(ColorProvider::get()->color("mod-list-tab-selected-bg")));
         addChildAtPosition(m_selectedBG, Anchor::Center);
 
         m_icon = CCSprite::createWithSpriteFrameName(iconFrame);
@@ -83,8 +83,8 @@ void selectExistingTab(CCMenuItemSpriteExtra* item, bool selected) {
     if (!item) return;
     auto image = item->getNormalImage();
     if (!image) return;
-    auto deselected = typeinfo_cast<CCScale9Sprite*>(image->getChildByType<CCScale9Sprite>(0));
-    auto selectedBG = typeinfo_cast<CCScale9Sprite*>(image->getChildByType<CCScale9Sprite>(1));
+    auto deselected = typeinfo_cast<NineSlice*>(image->getChildByType<NineSlice>(0));
+    auto selectedBG = typeinfo_cast<NineSlice*>(image->getChildByType<NineSlice>(1));
     if (deselected) deselected->setVisible(!selected);
     if (selectedBG) selectedBG->setVisible(selected);
 }
