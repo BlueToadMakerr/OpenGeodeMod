@@ -11,7 +11,7 @@
 #include <Geode/ui/SceneEvent.hpp>
 #include <Geode/utils/web.hpp>
 #include <Geode/loader/ModEvent.hpp>
-#include <Geode/loader/DownloadManager.hpp>
+#include <server/DownloadManager.hpp>
 
 #include <algorithm>
 #include <string>
@@ -61,7 +61,7 @@ void trackModDownloads() {
         auto version = download->getVersion();
         if (!version) return;
 
-        if (auto confirm = std::get_if<server::DownloadStatusConfirm>(&download->getStatus())) {
+        if (std::holds_alternative<server::DownloadStatusConfirm>(download->getStatus())) {
             if (!promptedSourceMismatches().insert(id).second) return;
 
             updatingDownloads().insert(id);
@@ -97,8 +97,8 @@ void trackModDownloads() {
                         current->confirm();
                     } else {
                         current->cancel();
-                        web::openLinkInBrowser(
-                            "data:text/html,"
+                        web::openLinkUnsafe(
+                            "data:text/html,
                             "<html><body><h2>Download Cancelled</h2>"
                             "<p>The update was cancelled because the selected "
                             "index is different from the source the installed "
