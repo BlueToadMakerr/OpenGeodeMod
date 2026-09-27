@@ -90,6 +90,7 @@ public:
 
         if (group.sources.size() == 1) {
             download(group.sources.front());
+            next();
             return;
         }
 
@@ -104,7 +105,10 @@ public:
             UpdateSourcePopup::create(
                 group.sources,
                 [weak](IndexUpdateInfo selected) {
-                    if (auto state = weak.lock()) state->download(selected);
+                    if (auto state = weak.lock()) {
+                        state->download(selected);
+                        state->next();
+                    }
                 },
                 [weak] {
                     if (auto state = weak.lock()) state->next();
@@ -113,6 +117,7 @@ public:
                     if (auto state = weak.lock()) {
                         state->alwaysInstalled = true;
                         state->download(installedSource);
+                        state->next();
                     }
                 }
             )->show();
@@ -139,7 +144,10 @@ public:
                 UpdateSourcePopup::create(
                     sources,
                     [weak](IndexUpdateInfo selected) {
-                        if (auto state = weak.lock()) state->download(selected);
+                        if (auto state = weak.lock()) {
+                            state->download(selected);
+                            state->next();
+                        }
                     },
                     [weak] {
                         if (auto state = weak.lock()) state->next();
@@ -162,7 +170,8 @@ public:
                         if (success) ++state->successful;
                         else ++state->failed;
                         --state->pending;
-                        state->next();
+                        if (state->current >= state->groups.size() && state->pending == 0)
+                            state->next();
                     }
                 }
             );
@@ -176,7 +185,8 @@ public:
                     if (success) ++state->successful;
                     else ++state->failed;
                     --state->pending;
-                    state->next();
+                    if (state->current >= state->groups.size() && state->pending == 0)
+                        state->next();
                 }
             }
         );
