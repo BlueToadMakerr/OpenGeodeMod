@@ -41,7 +41,8 @@ class OpenGeodeTabSprite : public CCNode {
         m_selectedBG->setColor(to3B(ColorProvider::get()->color("geode.loader.mod-list-tab-selected-bg")));
         addChildAtPosition(m_selectedBG, Anchor::Center);
 
-        m_icon = CCSprite::create(iconFrame);
+        auto iconPath = Mod::get()->getResourcesDir() / iconFrame;
+        m_icon = CCSprite::create(iconPath.string().c_str());
         if (!m_icon) return false;
         limitNodeSize(m_icon, iconSize, 3.f, .1f);
         addChildAtPosition(m_icon, Anchor::Left, ccp(16, 0), false);
@@ -92,11 +93,16 @@ void selectExistingTab(CCMenuItemSpriteExtra* item, bool selected) {
 void clearCommentsTab(CCNode* popup) {
     if (!popup) return;
 
-    if (auto layer = popup->getChildByIDRecursive("opengeode-comments-layer"))
-        layer->removeFromParent();
+    for (auto const* containerID : {"description-container", "changelog-container"}) {
+        auto container = popup->getChildByIDRecursive(containerID);
+        if (!container) continue;
 
-    if (auto textarea = popup->getChildByIDRecursive("textarea"))
-        textarea->setVisible(true);
+        if (auto layer = container->getChildByIDRecursive("opengeode-comments-layer"))
+            layer->removeFromParent();
+
+        if (auto textarea = container->getChildByIDRecursive("textarea"))
+            textarea->setVisible(true);
+    }
 
     auto tabs = popup->getChildByIDRecursive("tabs-menu");
     if (!tabs) return;
