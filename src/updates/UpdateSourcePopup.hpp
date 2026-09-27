@@ -15,7 +15,7 @@ class UpdateSourcePopup : public Popup {
     std::function<void()> m_alwaysInstalledCallback;
     bool m_selected = false;
 
-    bool init();
+    bool init() override;
     void onClose(CCObject* sender) override;
 
 public:
