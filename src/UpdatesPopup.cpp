@@ -96,6 +96,7 @@ public:
 
         if (alwaysInstalled && installedIt != group.sources.end()) {
             download(*installedIt);
+            next();
             return;
         }
 
