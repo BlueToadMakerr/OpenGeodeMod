@@ -7,7 +7,6 @@
 #include <Geode/Geode.hpp>
 #include <Geode/ui/GeodeUI.hpp>
 #include <Geode/ui/SimpleAxisLayout.hpp>
-#include <Geode/ui/ScrollLayer.hpp>
 #include <Geode/binding/Slider.hpp>
 
 using namespace geode::prelude;
@@ -47,10 +46,7 @@ std::vector<IndexUpdateInfo> sortedSources(std::vector<IndexUpdateInfo> sources)
     return sources;
 }
 
-void showUpdateConfirmation(
-    IndexUpdateInfo update,
-    std::function<void(bool)> callback
-) {
+void showUpdateConfirmation(IndexUpdateInfo update, std::function<void(bool)> callback) {
     auto installed = getInstalledModSource(update.modID);
     std::string warning;
 
@@ -105,20 +101,15 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
     addChildAtPosition(bg, Anchor::Center);
 
     CCNode* logo = nullptr;
-    if (m_mod) {
-        logo = geode::createModLogo(m_mod);
-    }
-    if (!logo) {
-        logo = createServerModLogo(m_update.modID);
-    }
-    if (!logo) {
-        logo = CCSprite::createWithSpriteFrameName("GJ_folderIcon_001.png");
-    }
+    if (m_mod) logo = geode::createModLogo(m_mod);
+    if (!logo) logo = createServerModLogo(m_update.modID);
+    if (!logo) logo = CCSprite::createWithSpriteFrameName("GJ_folderIcon_001.png");
     logo->setID("mod-logo");
     logo->setScale(.65f);
     addChildAtPosition(logo, Anchor::Left, {31.f, 0.f});
 
     auto info = CCNode::create();
+    info->setID("info-container");
     info->setContentSize({205.f, 100.f});
     addChildAtPosition(info, Anchor::Left, {60.f, 0.f});
 
@@ -159,40 +150,37 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
 
     if (outdated || restartRequired) {
         m_tags = CCNode::create();
+        m_tags->setID("status-tags");
         m_tags->setContentSize({200.f, 30.f});
         m_tags->setLayout(
             SimpleRowLayout::create()->setMainAxisAlignment(MainAxisAlignment::Start)->setGap(4.f)
         );
 
         if (outdated) {
-            auto text = gameVersion
-                ? fmt::format("Outdated (GD {})", *gameVersion)
-                : "Outdated";
+            auto text = gameVersion ? fmt::format("Outdated (GD {})", *gameVersion) : "Outdated";
             m_tags->addChild(makeTag(text, {255, 190, 70}));
         }
-        if (restartRequired) {
+        if (restartRequired)
             m_tags->addChild(makeTag("Restart Required", {153, 245, 245}));
-        }
+
         m_tags->updateLayout();
         m_tags->setPosition({0.f, 28.f});
         info->addChild(m_tags);
     } else {
         auto descriptionBG = NineSlice::create("square02b_001.png");
+        descriptionBG->setID("description-bg");
         descriptionBG->setContentSize({200.f, 31.f});
         descriptionBG->setOpacity(75);
         descriptionBG->setAnchorPoint({0.f, .5f});
         descriptionBG->setPosition({0.f, 28.f});
         info->addChild(descriptionBG);
 
+        auto descriptionText = m_mod ? m_mod->getMetadata().getDescription() : std::nullopt;
         auto description = CCLabelBMFont::create(
-            m_mod && m_mod->getMetadata().getDescription()
-                ? m_mod->getMetadata().getDescription()->c_str()
-                : "[No Description Provided]",
+            descriptionText ? descriptionText->c_str() : "[No Description Provided]",
             "chatFont.fnt"
         );
-        description->setColor(
-            m_mod && m_mod->getMetadata().getDescription() ? ccWHITE : ccGRAY
-        );
+        description->setColor(descriptionText ? ccWHITE : ccGRAY);
         description->setAnchorPoint({0.f, .5f});
         description->limitLabelWidth(185.f, .23f, .11f);
         description->setPosition({8.f, 15.5f});
@@ -201,6 +189,7 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
     }
 
     auto controls = CCMenu::create();
+    controls->setID("controls");
     controls->setContentSize({72.f, 90.f});
     controls->setLayout(
         ColumnLayout::create()->setGap(5.f)->setAxisAlignment(AxisAlignment::Center)
@@ -222,21 +211,19 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
 }
 
 void UpdateModItem::onView(CCObject*) {
-    if (m_mod) {
-        openInfoPopup(m_mod);
-    }
+    if (m_mod) openInfoPopup(m_mod);
 }
 
 void UpdateModItem::onUpdate(CCObject*) {
     if (m_sources.size() <= 1) {
         if (!m_sources.empty()) {
-            showUpdateConfirmation(m_sources.front(), [this, update = m_sources.front()](bool confirmed) {
+            auto update = m_sources.front();
+            showUpdateConfirmation(update, [this, update](bool confirmed) {
                 if (confirmed) startUpdate(update);
             });
         }
         return;
     }
-
     showSourcePicker();
 }
 
@@ -271,18 +258,13 @@ void UpdateModItem::startUpdate(IndexUpdateInfo update) {
 
     downloadIndexUpdate(
         update,
-        [this, update](bool success) {
-            finishUpdate(update, success);
-        },
-        [this](float progress) {
-            setProgress(progress);
-        }
+        [this, update](bool success) { finishUpdate(update, success); },
+        [this](float progress) { setProgress(progress); }
     );
 }
 
 void UpdateModItem::setProgress(float progress) {
-    if (m_progress)
-        m_progress->setValue(std::clamp(progress, 0.f, 1.f));
+    if (m_progress) m_progress->setValue(std::clamp(progress, 0.f, 1.f));
 }
 
 void UpdateModItem::finishUpdate(IndexUpdateInfo const& update, bool success) {
@@ -292,31 +274,44 @@ void UpdateModItem::finishUpdate(IndexUpdateInfo const& update, bool success) {
     }
 
     if (!success) {
-        m_updateButton->setVisible(true);
-        m_updateButton->setEnabled(true);
+        if (m_updateButton) {
+            m_updateButton->setVisible(true);
+            m_updateButton->setEnabled(true);
+        }
         return;
     }
 
     m_updated = true;
-    if (m_updateButton)
-        m_updateButton->setVisible(false);
+    if (m_updateButton) m_updateButton->setVisible(false);
 
-    if (m_tags)
+    if (m_tags) {
         m_tags->removeFromParentAndCleanup(true);
+        m_tags = nullptr;
+    }
 
-    auto info = getChildByType<CCNode>(0);
+    auto info = getChildByID("info-container");
     if (info) {
         auto restart = makeTag("Restart Required", {153, 245, 245});
-        restart->setPosition({60.f, 28.f});
-        addChild(restart, 8);
+        restart->setID("restart-required-tag");
+        restart->setAnchorPoint({0.f, .5f});
+        restart->setPosition({0.f, 28.f});
+        info->addChild(restart, 8);
     }
 
     auto check = CCSprite::createWithSpriteFrameName("GJ_checkOn_001.png");
     if (check) {
+        check->setID("updated-check");
         check->setScale(.42f);
         check->setPosition({getContentWidth() - 42.f, 28.f});
         addChild(check, 8);
     }
+
+    auto source = CCLabelBMFont::create(update.indexName.c_str(), "bigFont.fnt");
+    source->setID("updated-source");
+    source->setScale(.20f);
+    source->setAnchorPoint({1.f, .5f});
+    source->setPosition({getContentWidth() - 48.f, 14.f});
+    addChild(source, 8);
 }
 
 UpdateModItem* UpdateModItem::create(IndexUpdateInfo update, std::vector<IndexUpdateInfo> sources) {
