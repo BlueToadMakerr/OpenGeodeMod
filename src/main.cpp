@@ -25,14 +25,15 @@ void showSourceMismatchPopup(
         "Download From New Index?",
         fmt::format(
             "<cy>{}</c> is installed from <cg>{}</c>, but this update is from <co>{}</c>.\n\n"
-            "Download the update from the new index?",
+            "Download the update from the new index?\n\n"
+            "If you choose <cg>Download</c>, please <cy>retry the download</c> afterward.",
             modName,
             installedIndex,
             newIndex
         ),
         "Cancel",
         "Download",
-        [modID, version, newIndex, installedIndex](FLAlertLayer*, bool confirmed) {
+        [modID, version](FLAlertLayer*, bool confirmed) {
             if (confirmed) {
                 writeSetting(sourceMismatchKey(modID, version, getActiveIndexId()), "1");
             }
@@ -108,15 +109,7 @@ $on_mod(Loaded) {
                                     auto modName = mod ? std::string(mod->getName()) : modID;
                                     showSourceMismatchPopup(modID, version, modName, installedName, activeName);
 
-                                    auto dataText = fmt::format(
-                                        "data:text/html,<html><body><h2>Download canceled</h2>"
-                                        "<p>OpenGeode canceled the update of <b>{}</b> because it was requested from <b>{}</b>, "
-                                        "but the mod was installed from <b>{}</b>.</p><p>Choose Download in the OpenGeode prompt and retry the update "
-                                        "to approve the new source.</p></body></html>",
-                                        modName, activeName, installedName
-                                    );
-                                    req.url(dataText);
-                                    return ListenerResult::Propagate;
+                                    return ListenerResult::Stop;
                                 }
                             }
 
