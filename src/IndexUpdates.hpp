@@ -286,10 +286,19 @@ inline void inferOriginalIndexSources(std::function<void()> callback = {}) {
 
         auto version = mod->getVersion().toVString();
         state->versions[modID] = version;
-        if (readSetting("mod-source-checked-version-" + modID, "") == version) {
+        auto checkedKey = "mod-source-checked-version-" + modID;
+        if (readSetting(checkedKey, "") == version) {
             state->checked.insert(modID);
             continue;
         }
+
+        // Mark this installed version as checked before starting requests. This
+        // prevents repeated popup openings from re-querying the same version,
+        // even if the requests are still finishing in the background.
+        writeSetting(checkedKey, version);
+        deleteSetting("mod-source-index-" + modID);
+        deleteSetting("mod-source-version-" + modID);
+        deleteSetting("mod-source-candidates-" + modID);
 
         for (auto const& index : indexes) {
             auto base = index.url;
