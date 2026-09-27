@@ -53,9 +53,18 @@ inline bool& indexUpdatesLoading() {
     return loading;
 }
 
-inline int getTotalUpdateCount() {\n    int total = 0;\n    for (auto const& [_, count] : indexUpdateCounts()) total += count;\n    return total;\n}\n\ninline int getIndexUpdateCount(std::string const& id) {
-    auto it = indexUpdateCounts().find(id);
-    return it == indexUpdateCounts().end() ? -1 : it->second;
+inline int getIndexUpdateCount(std::string const& indexID) {
+    auto const& counts = indexUpdateCounts();
+    auto it = counts.find(indexID);
+    return it != counts.end() ? it->second : 0;
+}
+
+inline int getTotalUpdateCount() {
+    int total = 0;
+    for (auto const& [_, count] : indexUpdateCounts()) {
+        total += count;
+    }
+    return total;
 }
 
 inline std::tuple<int, int, int> parseUpdateVersion(std::string value) {
