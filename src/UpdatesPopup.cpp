@@ -23,22 +23,19 @@ struct GroupedUpdate {
 
 std::vector<GroupedUpdate> groupUpdates() {
     std::vector<GroupedUpdate> result;
-
     for (auto const& update : indexUpdates()) {
         auto it = std::find_if(result.begin(), result.end(), [&](auto const& group) {
             return group.modID == update.modID;
         });
-
         if (it == result.end()) {
             result.push_back({update.modID, update.modName, update.currentVersion,
                               update.disabled, update.outdated, {&update}});
         } else {
             it->indexes.push_back(&update);
-            it->disabled = it->disabled || update.disabled;
-            it->outdated = it->outdated || update.outdated;
+            it->disabled |= update.disabled;
+            it->outdated |= update.outdated;
         }
     }
-
     std::sort(result.begin(), result.end(), [](auto const& a, auto const& b) {
         return a.modName < b.modName;
     });
@@ -81,7 +78,6 @@ protected:
     bool init() {
         if (!Popup::init(380.f, 300.f, getPopupBackground())) return false;
         setTitle("Available Updates");
-
         if (auto close = createGeodeCloseButton())
             setCloseButtonSpr(close, 0.875f);
 
@@ -99,7 +95,6 @@ protected:
         for (auto const& group : groups) {
             float rowHeight = 70.f + static_cast<float>(group.indexes.size()) * 16.f;
             y -= rowHeight;
-
             auto row = CCNode::create();
             row->setContentSize({340.f, rowHeight});
             row->setPosition({0.f, y});
@@ -144,7 +139,6 @@ protected:
                 row->addChild(version);
                 versionY -= 16.f;
             }
-
             scroll->m_contentLayer->addChild(row);
         }
 
@@ -154,12 +148,10 @@ protected:
             label->setPosition({170.f, 117.5f});
             scroll->m_contentLayer->addChild(label);
         }
-
         scroll->m_contentLayer->setContentSize({340.f, totalHeight});
         scroll->scrollToTop();
         return true;
     }
-
 public:
     static UpdatesPopup* create() {
         auto ret = new UpdatesPopup();
