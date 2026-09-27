@@ -80,7 +80,7 @@ protected:
     bool init(std::function<void()> onLoggedIn) {
         if (!Popup::init(280.f, 175.f, getPopupBackground())) return false;
         m_onLoggedIn = std::move(onLoggedIn);
-        setTitle("OpenGeode Login");
+        setTitle("Geode Login");
         if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .875f);
         auto center = m_mainLayer->getContentWidth() / 2;
         auto label = CCLabelBMFont::create("Enter the 4-character code from the website", "chatFont.fnt");

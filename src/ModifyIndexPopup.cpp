@@ -22,13 +22,13 @@ protected:
         m_id = entry.id;
         m_onSaved = std::move(onSaved);
 
-        if (!Popup::init(300.f, 250.f, getPopupBackground())) return false;
+        if (!Popup::init(300.f, 220.f, getPopupBackground())) return false;
         this->setTitle("Modify Index");
         if (auto close = createGeodeCloseButton())
             this->setCloseButtonSpr(close, 0.875f);
 
         float centerX = m_mainLayer->getContentWidth() / 2;
-        float top = m_mainLayer->getContentHeight() - 40.f;
+        float top = m_mainLayer->getContentHeight() - 32.f;
 
         auto nameLbl = CCLabelBMFont::create("Name", "bigFont.fnt");
         nameLbl->setScale(0.35f);
@@ -52,7 +52,7 @@ protected:
 
         m_stats.label = CCLabelBMFont::create("Fetching index stats...", "bigFont.fnt");
         m_stats.label->setScale(0.35f);
-        m_stats.label->setPosition({centerX, top - 100.f});
+        m_stats.label->setPosition({centerX, top - 88.f});
         m_mainLayer->addChild(m_stats.label);
 
         auto saveBtn = CCMenuItemExt::createSpriteExtra(
@@ -75,7 +75,7 @@ protected:
 
         auto menu = CCMenu::create();
         menu->addChild(saveBtn);
-        menu->setPosition({centerX, 20.f});
+        menu->setPosition({centerX, 16.f});
         menu->updateLayout();
         m_mainLayer->addChild(menu);
 

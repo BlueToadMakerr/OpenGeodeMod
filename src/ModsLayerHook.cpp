@@ -5,6 +5,7 @@
 #include "MoreManagePopup.hpp"
 #include "VersionsPopup.hpp"
 #include "Settings.hpp"
+#include "IndexUpdates.hpp"
 
 #include <Geode/Geode.hpp>
 #include <Geode/ui/SceneEvent.hpp>
@@ -42,6 +43,7 @@ class ModsLayerWatcher : public CCNode {
     async::TaskHolder<web::WebResponse> m_capabilityTask;
     std::string m_capabilityIndex;
     CCMenuItemSpriteExtra* m_accountButton = nullptr;
+    CCNode* m_updateBadge = nullptr;
     bool m_capabilityPending = false;
     bool m_capabilityAttempted = false;
     bool m_inModsLayer = false;
@@ -93,6 +95,12 @@ protected:
         if (!filtersMenu) return;
 
         ensureIndexSwitcherButton(scene);
+        if (!indexUpdatesLoading() && !hasFreshIndexUpdateCache()) {
+            fetchIndexUpdates([this] {
+                auto scene = CCDirector::sharedDirector()->getRunningScene();
+                if (scene) ensureIndexSwitcherButton(scene);
+            });
+        }
         ensureFilterButton(filtersMenu);
         ensureAccountButton(scene);
         ensureVersionsButton(scene);
@@ -101,15 +109,49 @@ protected:
 
     void ensureIndexSwitcherButton(CCNode* scene) {
         auto actionsMenu = typeinfo_cast<CCMenu*>(scene->getChildByIDRecursive("actions-menu"));
-        if (!actionsMenu || actionsMenu->getChildByID("index-switcher-button"_spr)) return;
-        auto indexBtn = CCMenuItemExt::createSpriteExtra(
-            CircleButtonSprite::createWithSpriteFrameName("geode.loader/geode-logo-outline-gold.png", 0.85f, CircleBaseColor::Blue),
-            [](auto) { showIndexListPopup(); }
-        );
-        indexBtn->setScale(0.8f);
-        indexBtn->m_baseScale = 0.8f;
-        indexBtn->setID("index-switcher-button"_spr);
-        actionsMenu->addChild(indexBtn);
+        if (!actionsMenu) return;
+
+        auto indexBtn = typeinfo_cast<CCMenuItemSpriteExtra*>(actionsMenu->getChildByID("index-switcher-button"_spr));
+        if (!indexBtn) {
+            indexBtn = CCMenuItemExt::createSpriteExtra(
+                CircleButtonSprite::createWithSpriteFrameName("geode.loader/geode-logo-outline-gold.png", 0.85f, CircleBaseColor::Blue),
+                [](auto) { showIndexListPopup(); }
+            );
+            indexBtn->setScale(0.8f);
+            indexBtn->m_baseScale = 0.8f;
+            indexBtn->setID("index-switcher-button"_spr);
+            actionsMenu->addChild(indexBtn);
+        }
+
+        auto count = getTotalUpdateCount();
+        if (m_updateBadge) {
+            m_updateBadge->removeFromParentAndCleanup(true);
+            m_updateBadge = nullptr;
+        }
+
+        if (count > 0) {
+            auto badge = CCNode::create();
+            badge->setContentSize({40.5f, 40.5f});
+            badge->setAnchorPoint({.5f, .5f});
+
+            auto icon = CCSprite::createWithSpriteFrameName("geode.loader/updates-available.png");
+            if (icon) {
+                icon->setScale(.825f);
+                icon->setPosition({20.25f, 20.25f});
+                badge->addChild(icon);
+            }
+
+            auto label = CCLabelBMFont::create(std::to_string(count).c_str(), "bigFont.fnt");
+            label->setScale(.42f);
+            label->setAnchorPoint({.5f, .5f});
+            label->setPosition({20.25f, 20.25f});
+            badge->addChild(label, 2);
+
+            badge->setPosition({indexBtn->getContentWidth() - 7.f, indexBtn->getContentHeight() - 7.f});
+            indexBtn->addChild(badge, 10);
+            m_updateBadge = badge;
+        }
+
         actionsMenu->updateLayout();
     }
 

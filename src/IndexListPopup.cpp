@@ -4,6 +4,7 @@
 #include "PopupSectionUtils.hpp"
 #include "PresetIndexPopup.hpp"
 #include "Settings.hpp"
+#include "IndexUpdates.hpp"
 
 #include <Geode/Geode.hpp>
 #include <Geode/ui/GeodeUI.hpp>
@@ -13,6 +14,8 @@
 using namespace geode::prelude;
 
 namespace opengeode {
+
+void showUpdatesPopup();
 
 class IndexListPopup : public Popup {
 protected:
@@ -31,21 +34,40 @@ protected:
         m_mainLayer->addChild(m_scrollLayer);
 
         rebuildList();
+        fetchIndexUpdates([this] { rebuildList(); });
 
         auto addBtn = CCMenuItemExt::createSpriteExtra(
             ButtonSprite::create("+ Add", "goldFont.fnt", getButtonTexture("GJ_button_01.png"), 0.6f),
-            [this](auto) { showAddIndexPopup([this] { rebuildList(); }); }
+            [this](auto) {
+                showAddIndexPopup([this] {
+                    invalidateIndexUpdateCache();
+                    rebuildList();
+                    fetchIndexUpdates([this] { rebuildList(); });
+                });
+            }
         );
 
         auto presetBtn = CCMenuItemExt::createSpriteExtra(
             ButtonSprite::create("Presets", "goldFont.fnt", getButtonTexture("GJ_button_02.png"), 0.6f),
-            [this](auto) { showPresetIndexPopup([this] { rebuildList(); }); }
+            [this](auto) {
+                showPresetIndexPopup([this] {
+                    invalidateIndexUpdateCache();
+                    rebuildList();
+                    fetchIndexUpdates([this] { rebuildList(); });
+                });
+            }
+        );
+
+        auto updatesBtn = CCMenuItemExt::createSpriteExtra(
+            ButtonSprite::create("Updates", "goldFont.fnt", getButtonTexture("GJ_button_01.png"), 0.6f),
+            [](auto) { showUpdatesPopup(); }
         );
 
         auto bottomMenu = CCMenu::create();
         bottomMenu->addChild(addBtn);
         bottomMenu->addChild(presetBtn);
-        bottomMenu->setLayout(RowLayout::create()->setGap(10.f));
+        bottomMenu->addChild(updatesBtn);
+        bottomMenu->setLayout(RowLayout::create()->setGap(7.f));
         bottomMenu->setPosition({centerX, 25.f});
         bottomMenu->updateLayout();
         m_mainLayer->addChild(bottomMenu);
@@ -72,13 +94,35 @@ protected:
             row->setPosition({0.f, y});
 
             bool isActive = entry.url == getIndexUrl();
+            auto updateCount = getIndexUpdateCount(entry.id);
+            float nameX = 4.f;
+
+            if (updateCount > 0) {
+                auto updateIcon = CCSprite::createWithSpriteFrameName(
+                    "geode.loader/updates-available.png"
+                );
+                updateIcon->setScale(0.5f);
+                updateIcon->setPosition({10.f, rowHeight / 2});
+                row->addChild(updateIcon);
+
+                auto updateLabel = CCLabelBMFont::create(
+                    std::to_string(updateCount).c_str(),
+                    "bigFont.fnt"
+                );
+                updateLabel->setScale(0.28f);
+                updateLabel->setAnchorPoint({0.5f, 0.5f});
+                updateLabel->setPosition(updateIcon->getPosition());
+                row->addChild(updateLabel);
+                nameX = 24.f;
+            }
+
             auto label = CCLabelBMFont::create(
                 (isActive ? ("> " + entry.name) : entry.name).c_str(),
                 "bigFont.fnt"
             );
             label->setScale(0.35f);
             label->setAnchorPoint({0.f, 0.5f});
-            label->setPosition({4.f, rowHeight / 2});
+            label->setPosition({nameX, rowHeight / 2});
             row->addChild(label);
 
             auto useBtn = CCMenuItemExt::createSpriteExtra(
@@ -122,7 +166,9 @@ protected:
                         [this, id](auto, bool confirmed) {
                             if (confirmed) {
                                 deleteCustomIndex(id);
+                                invalidateIndexUpdateCache();
                                 rebuildList();
+                                fetchIndexUpdates([this] { rebuildList(); });
                             }
                         }
                     );
