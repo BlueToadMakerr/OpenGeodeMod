@@ -79,8 +79,9 @@ $on_mod(Loaded) {
                 }
             }
 
-            if (req.getUrlParams().count("no_override") > 0) return ListenerResult::Propagate;
-
+            // Check source mismatches before honoring no_override. Some normal
+            // Geode download requests carry no_override, but they still need to
+            // pass through the source-mismatch check.
             auto versionedPos = givenUrl.find(modsPath);
             if (versionedPos != std::string::npos) {
                 auto versionedModStart = versionedPos + modsPath.size();
@@ -93,14 +94,17 @@ $on_mod(Loaded) {
                         auto version = givenUrl.substr(versionStart, downloadPos - versionStart);
                         if (!modID.empty() && !version.empty()) {
                             auto installedSource = getInstalledModSource(modID);
-                            if (installedSource && installedSource->indexId != getActiveIndexId() &&
+                            auto activeIndex = getActiveIndexId();
+                            if (installedSource &&
+                                !installedSource->indexId.empty() &&
+                                installedSource->indexId != activeIndex &&
                                 installedSource->version != version) {
-                                auto approval = sourceMismatchKey(modID, version, getActiveIndexId());
+                                auto approval = sourceMismatchKey(modID, version, activeIndex);
                                 if (readSetting(approval, "") != "1") {
                                     std::string installedName = installedSource->indexName.empty() ? installedSource->indexId : installedSource->indexName;
-                                    std::string activeName = getActiveIndexId();
+                                    std::string activeName = activeIndex;
                                     for (auto const& index : getAllIndexes()) {
-                                        if (index.id == getActiveIndexId()) {
+                                        if (index.id == activeIndex) {
                                             activeName = index.name.empty() ? index.id : index.name;
                                             break;
                                         }
@@ -109,12 +113,14 @@ $on_mod(Loaded) {
                                     auto modName = mod ? std::string(mod->getName()) : modID;
                                     showSourceMismatchPopup(modID, version, modName, installedName, activeName);
 
+                                    // Block this request. After choosing Download in
+                                    // the popup, the user must retry the download.
                                     return ListenerResult::Stop;
                                 }
                             }
 
                             if (installedSource) {
-                                setInstalledModSource(modID, version, getActiveIndexId(), true);
+                                setInstalledModSource(modID, version, activeIndex, true);
                             } else {
                                 setInstalledModSource(modID, version);
                             }
@@ -122,6 +128,8 @@ $on_mod(Loaded) {
                     }
                 }
             }
+
+            if (req.getUrlParams().count("no_override") > 0) return ListenerResult::Propagate;
 
             if (!string::contains(givenUrl, "api.geode-sdk.org")) return ListenerResult::Propagate;
 
