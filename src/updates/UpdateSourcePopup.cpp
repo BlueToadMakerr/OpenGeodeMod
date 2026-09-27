@@ -101,8 +101,9 @@ bool UpdateSourcePopup::init() {
             row->addChild(installed, 2);
         }
 
-        auto updateSprite = ButtonSprite::create("Update", "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .36f);
+        auto updateSprite = ButtonSprite::create("Update", "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .42f);
         auto button = CCMenuItemExt::createSpriteExtra(updateSprite, [this, option](CCMenuItemSpriteExtra*) {
+            m_selected = true;
             auto callback = std::move(m_callback);
             this->onClose(nullptr);
             if (callback) callback(option);
@@ -124,10 +125,23 @@ bool UpdateSourcePopup::init() {
     return true;
 }
 
-UpdateSourcePopup* UpdateSourcePopup::create(std::vector<IndexUpdateInfo> options, std::function<void(IndexUpdateInfo)> callback) {
+void UpdateSourcePopup::onClose(CCObject* sender) {
+    Popup::onClose(sender);
+    if (!m_selected) {
+        auto callback = std::move(m_closeCallback);
+        if (callback) callback();
+    }
+}
+
+UpdateSourcePopup* UpdateSourcePopup::create(
+    std::vector<IndexUpdateInfo> options,
+    std::function<void(IndexUpdateInfo)> callback,
+    std::function<void()> closeCallback
+) {
     auto ret = new UpdateSourcePopup();
     ret->m_options = std::move(options);
     ret->m_callback = std::move(callback);
+    ret->m_closeCallback = std::move(closeCallback);
     if (ret && ret->init()) { ret->autorelease(); return ret; }
     delete ret;
     return nullptr;
