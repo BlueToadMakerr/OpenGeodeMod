@@ -313,7 +313,7 @@ protected:
         auto updateAll = CCMenuItemExt::createSpriteExtra(
             updateAllSprite,
             [groups, items](CCMenuItemSpriteExtra*) {
-                if (groups.empty() || !activeBatch().expired()) return;
+                if (groups.empty() || activeBatch()) return;
 
                 createQuickPopup(
                     "Update All",
