@@ -194,7 +194,7 @@ void confirmIndexUpdate(
             progressBar->addChild(background);
             if (row) {
                 row->addChild(progressBar, 5);
-                progressBar->setPosition({42.f, 18.f});
+                progressBar->setPosition({42.f, row->getContentSize().height - 75.f});
                 row->retain();
             }
 
@@ -433,7 +433,7 @@ protected:
 
         float y = totalHeight;
 
-        for (auto const& group : groups) {
+        for (auto& group : groups) {
             float rowHeight = 92.f + static_cast<float>(group.indexes.size()) * 24.f;
             y -= rowHeight;
 
@@ -464,29 +464,7 @@ protected:
 
             addStatusTags(row, group, 40.f, rowHeight - 45.f);
 
-                auto originalSource = getOriginalSourceID(group.modID);
-            auto originalVersion = getOriginalSourceVersion(group.modID);
-            bool sourceCurrent = !originalSource.empty() &&
-                !originalVersion.empty() &&
-                originalVersion == group.currentVersion;
-
-            if (sourceCurrent) {
-                addCheckmark(row, {
-                    scroll->getContentSize().width - 50.f,
-                    rowHeight - 28.f
-                }, 0.4f);
-                auto sourceLabel = CCLabelBMFont::create(
-                    getOriginalSourceName(group.modID).c_str(),
-                    "bigFont.fnt"
-                );
-                sourceLabel->setScale(0.22f);
-                sourceLabel->setAnchorPoint({1.f, 0.5f});
-                sourceLabel->setPosition({
-                    scroll->getContentSize().width - 58.f,
-                    rowHeight - 28.f
-                });
-                row->addChild(sourceLabel, 5);
-            } else {
+                {
                 auto updateSprite = CCSprite::createWithSpriteFrameName(
                     "geode.loader/update.png"
                 );
