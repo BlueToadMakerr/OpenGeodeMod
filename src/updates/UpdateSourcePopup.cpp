@@ -47,7 +47,7 @@ bool UpdateSourcePopup::init() {
 
     auto sourceLabel = CCLabelBMFont::create(
         m_alwaysInstalledCallback
-            ? fmt::format("<cy>{}</c> has updates from multiple indexes", modID).c_str()
+            ? fmt::format("<cy>{}</c> has updates from multiple indexes", m_options.empty() ? "Unknown Mod" : m_options.front().modName).c_str()
             : "Choose an index to update from",
         "bigFont.fnt"
     );
@@ -55,21 +55,22 @@ bool UpdateSourcePopup::init() {
     sourceLabel->setColor(ccGRAY);
     sourceLabel->setPosition({
         size.width / 2.f,
-        m_alwaysInstalledCallback ? size.height - 29.f : size.height - 33.f
+        211.f
     });
     m_mainLayer->addChild(sourceLabel);
 
     CCMenu* actionMenu = nullptr;
     if (m_alwaysInstalledCallback) {
         actionMenu = CCMenu::create();
+        actionMenu->setAnchorPoint({.5f, .5f});
+        actionMenu->setContentSize({size.width, 34.f});
         actionMenu->setPosition({size.width / 2.f, 20.f});
-        actionMenu->setContentSize({size.width - 24.f, 30.f});
 
         auto alwaysSprite = ButtonSprite::create(
             "Always Installed",
             "bigFont.fnt",
             getButtonTexture("GJ_button_01.png"),
-            .36f
+            .46f
         );
         auto alwaysButton = CCMenuItemExt::createSpriteExtra(alwaysSprite, [this](CCMenuItemSpriteExtra*) {
             m_selected = true;
@@ -77,7 +78,7 @@ bool UpdateSourcePopup::init() {
             this->onClose(nullptr);
             if (callback) callback();
         });
-        alwaysButton->setPosition({actionMenu->getContentWidth() / 2.f, actionMenu->getContentHeight() / 2.f});
+        alwaysButton->setPosition({size.width / 2.f, 17.f});
         actionMenu->addChild(alwaysButton);
         m_mainLayer->addChild(actionMenu, 10);
     }
