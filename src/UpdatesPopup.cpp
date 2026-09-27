@@ -189,7 +189,7 @@ protected:
                 row->addChild(version);
 
                 auto updateSprite = CCSprite::createWithSpriteFrameName(
-                    "update.png"_spr
+                    "geode.loader/update.png"
                 );
                 auto circle = CircleButtonSprite::create(
                     updateSprite,
