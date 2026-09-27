@@ -1,8 +1,8 @@
 #include "IndexUpdates.hpp"
 #include "updates/UpdateModItem.hpp"
+#include "PopupSectionUtils.hpp"
 
 #include <Geode/Geode.hpp>
-#include <Geode/ui/GeodeUI.hpp>
 #include <Geode/ui/Popup.hpp>
 #include <Geode/ui/ScrollLayer.hpp>
 
@@ -63,7 +63,7 @@ protected:
         total->setPosition({size.width / 2.f, size.height - 33.f});
         m_mainLayer->addChild(total);
 
-        auto listBG = NineSlice::create("square02b_001.png");
+        auto listBG = NineSlice::create(getSectionBackground());
         listBG->setContentSize({size.width - 20.f, size.height - 80.f});
         listBG->setOpacity(70);
         listBG->setPosition({size.width / 2.f, size.height / 2.f - 8.f});
