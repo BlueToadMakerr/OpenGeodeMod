@@ -8,6 +8,8 @@
 #include <Geode/utils/web.hpp>
 #include <Geode/loader/Dirs.hpp>
 #include <Geode/utils/file.hpp>
+#include <Geode/ui/MDTextArea.hpp>
+#include <Geode/ui/Popup.hpp>
 
 #include <algorithm>
 #include <cctype>
@@ -360,6 +362,63 @@ inline std::string indexUpdateKey(IndexUpdateInfo const& update) {
     return update.indexID + ":" + update.modID + ":" + update.newVersion;
 }
 
+inline void showIndexDownloadFailure(
+    IndexUpdateInfo const& update,
+    int code,
+    std::string body,
+    std::string error
+) {
+    auto responseText = body;
+    if (responseText.empty()) responseText = error;
+    if (responseText.empty()) responseText = "No response body was provided by the server.";
+
+    class DownloadFailurePopup : public Popup {
+        std::string m_text;
+        bool init(std::string text, std::string title) {
+            if (!Popup::init(380.f, 285.f, getPopupBackground())) return false;
+            setTitle(title.c_str());
+            if (auto close = createGeodeCloseButton())
+                setCloseButtonSpr(close, .8f);
+
+            auto area = MDTextArea::create(text, {350.f, 220.f}, true);
+            if (!area) return false;
+            area->getScrollLayer()->m_cutContent = false;
+            area->getScrollLayer()->m_disableMovement = false;
+            area->getScrollLayer()->setMouseEnabled(true);
+            if (auto bg = area->getChildByType<CCScale9Sprite>(0)) bg->setVisible(false);
+            m_mainLayer->addChildAtPosition(area, Anchor::Center);
+            return true;
+        }
+    public:
+        static DownloadFailurePopup* create(std::string text, std::string title) {
+            auto ret = new DownloadFailurePopup();
+            if (ret && ret->init(std::move(text), std::move(title))) {
+                ret->autorelease();
+                return ret;
+            }
+            delete ret;
+            return nullptr;
+        }
+    };
+
+    auto status = code > 0 ? fmt::format("HTTP {}", code) : "Request failed";
+    auto text = fmt::format(
+        "Failed to download {} v{} from {}.\\n\\nServer response:\\n{}",
+        update.modName,
+        update.newVersion,
+        update.indexName,
+        responseText
+    );
+    if (code <= 0 && !error.empty())
+        text += fmt::format("\\n\\nError: {}", error);
+
+    Loader::get()->queueInMainThread([text = std::move(text), status = std::move(status)] {
+        if (auto popup = DownloadFailurePopup::create(std::move(text), "Download Failed")) {
+            popup->show();
+        }
+    });
+}
+
 inline void downloadIndexUpdate(
     IndexUpdateInfo update,
     std::function<void(bool)> callback = {},
@@ -404,6 +463,10 @@ inline void downloadIndexUpdate(
 
     task->spawn(req.get(url), [key, update = std::move(update), callback = std::move(callback)](web::WebResponse response) mutable {
         bool success = false;
+        int responseCode = response.code();
+        std::string responseBody;
+        std::string responseError;
+
         if (response.ok()) {
             auto data = std::move(response).data();
             auto path = dirs::getModsDir() / (update.modID + ".geode");
@@ -425,9 +488,17 @@ inline void downloadIndexUpdate(
                 writeSetting("mod-source-index-" + update.modID, update.indexID);
                 writeSetting("mod-source-version-" + update.modID, update.newVersion);
                 setInstalledModSource(update.modID, update.newVersion, update.indexID, true);
+            } else {
+                responseBody = "The server returned a valid download, but the file could not be saved locally.";
             }
         } else {
+            responseBody = std::string(response.data().begin(), response.data().end());
+            responseError = std::string(response.errorMessage());
             log::error("Failed to download {} {} from {}: HTTP {}", update.modID, update.newVersion, update.indexName, response.code());
+        }
+
+        if (!success) {
+            showIndexDownloadFailure(update, responseCode, std::move(responseBody), std::move(responseError));
         }
 
         tasks.erase(key);
