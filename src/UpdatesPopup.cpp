@@ -344,8 +344,14 @@ protected:
             }
         );
         restart->setID("restart-button");
-        restart->setVisible(!completedIndexUpdates().empty());
-        restart->setEnabled(!completedIndexUpdates().empty());
+        bool restartRequired = !completedIndexUpdates().empty();
+        if (!restartRequired) {
+            restartRequired = std::any_of(groups.begin(), groups.end(), [](auto const& group) {
+                return wasModUpdatedFromIndex(group.modID);
+            });
+        }
+        restart->setVisible(restartRequired);
+        restart->setEnabled(restartRequired);
         restart->setPosition({buttons->getContentWidth() / 2.f + restart->getScaledContentWidth() / 2.f + 3.f, 18.f});
         buttons->addChild(restart);
 
