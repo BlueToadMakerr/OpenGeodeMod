@@ -411,7 +411,7 @@ inline void showIndexDownloadFailure(
     if (code <= 0 && !error.empty())
         text += fmt::format("\\n\\nError: {}", error);
 
-    Loader::get()->queueInMainThread([text = std::move(text), status = std::move(status)] {
+    Loader::get()->queueInMainThread([text = std::move(text)] {
         if (auto popup = DownloadFailurePopup::create(std::move(text), "Download Failed")) {
             popup->show();
         }
