@@ -245,12 +245,23 @@ protected:
                                 ),
                                 "Cancel",
                                 "Update",
-                                [updateCopy](auto, bool confirmed) {
+                                [updateCopy, row](auto, bool confirmed) {
                                     if (!confirmed) return;
 
+                                    row->retain();
                                     downloadIndexUpdate(
                                         updateCopy,
-                                        [](bool success) {
+                                        [row](bool success) {
+                                            if (success && row->getParent()) {
+                                                auto restart = makeStatusTag(
+                                                    "Restart Required",
+                                                    {153, 245, 245}
+                                                );
+                                                restart->setAnchorPoint({0.f, 0.5f});
+                                                restart->setPosition({150.f, 25.f});
+                                                row->addChild(restart);
+                                            }
+
                                             if (success) {
                                                 Notification::create(
                                                     "Update downloaded — restart required",
@@ -264,6 +275,8 @@ protected:
                                                     3.f
                                                 )->show();
                                             }
+
+                                            row->release();
                                         }
                                     );
                                 },
