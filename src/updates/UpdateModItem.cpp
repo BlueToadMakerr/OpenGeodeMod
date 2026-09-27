@@ -54,17 +54,37 @@ std::vector<IndexUpdateInfo> sortedSources(std::vector<IndexUpdateInfo> sources)
 void showUpdateConfirmation(IndexUpdateInfo update, std::function<void(bool)> callback) {
     auto installed = getInstalledModSource(update.modID);
     std::string warning;
-    if (!installed) warning = "
 
-<cr>The original index this mod was installed from is unknown.</c>";
-    else if (installed->indexId != update.indexID) {
-        warning = fmt::format("
-
-<cr>Originally installed from <cy>{}</c>.</c>
-You are updating it from <cy>{}</c> instead.", installed->indexName.empty() ? installed->indexId : installed->indexName, update.indexName);
+    if (!installed) {
+        warning = "\n\n<cr>The original index this mod was installed from is unknown.</c>";
     }
-    createQuickPopup("Update Mod", fmt::format("Update <cy>{}</c> from <cg>{}</c>?
-Version: <cy>v{}</c> -> <cg>v{}</c>{}", update.modName, update.indexName, cleanVersion(update.currentVersion), cleanVersion(update.newVersion), warning), "Cancel", "Update", [callback = std::move(callback)](auto, bool confirmed) mutable { if (callback) callback(confirmed); }, true);
+    else if (installed->indexId != update.indexID) {
+        warning = fmt::format(
+            "\n\n<cr>Originally installed from <cy>{}</c>.</c>\n"
+            "You are updating it from <cy>{}</c> instead.",
+            installed->indexName.empty() ? installed->indexId : installed->indexName,
+            update.indexName
+        );
+    }
+
+    createQuickPopup(
+        "Update Mod",
+        fmt::format(
+            "Update <cy>{}</c> from <cg>{}</c>?\n"
+            "Version: <cy>v{}</c> -> <cg>v{}</c>{}",
+            update.modName,
+            update.indexName,
+            cleanVersion(update.currentVersion),
+            cleanVersion(update.newVersion),
+            warning
+        ),
+        "Cancel",
+        "Update",
+        [callback = std::move(callback)](auto, bool confirmed) mutable {
+            if (callback) callback(confirmed);
+        },
+        true
+    );
 }
 
 } // namespace
@@ -171,7 +191,11 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
     controls->setLayout(SimpleRowLayout::create()->setMainAxisAlignment(MainAxisAlignment::End)->setGap(2.f));
 
     auto updateIcon = CCSprite::createWithSpriteFrameName("geode.loader/update.png");
-    auto updateSprite = CircleButtonSprite::create(\n        updateIcon,\n        isGeodeTheme() ? CircleBaseColor::DarkPurple : CircleBaseColor::Green,\n        CircleBaseSize::Medium\n    );
+    auto updateSprite = CircleButtonSprite::create(
+        updateIcon,
+        isGeodeTheme() ? CircleBaseColor::DarkPurple : CircleBaseColor::Green,
+        CircleBaseSize::Medium
+    );
     updateSprite->setScale(.58f);
     m_updateButton = CCMenuItemSpriteExtra::create(updateSprite, this, menu_selector(UpdateModItem::onUpdate));
     m_updateButton->setID("update-button");
