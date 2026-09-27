@@ -229,7 +229,11 @@ inline std::string indexUpdateKey(IndexUpdateInfo const& update) {
     return update.indexID + ":" + update.modID + ":" + update.newVersion;
 }
 
-inline void downloadIndexUpdate(IndexUpdateInfo update, std::function<void(bool)> callback = {}) {
+inline void downloadIndexUpdate(
+    IndexUpdateInfo update,
+    std::function<void(bool)> callback = {},
+    std::function<void(float)> progressCallback = {}
+) {
     static std::unordered_map<std::string, std::shared_ptr<async::TaskHolder<web::WebResponse>>> tasks;
 
     auto key = indexUpdateKey(update);
@@ -253,6 +257,16 @@ inline void downloadIndexUpdate(IndexUpdateInfo update, std::function<void(bool)
     url += fmt::format("/v1/mods/{}/versions/{}/download", update.modID, update.newVersion);
 
     auto req = web::WebRequest();
+    if (progressCallback) {
+        req.onProgress([progressCallback = std::move(progressCallback)](web::WebProgress const& progress) mutable {
+            if (auto value = progress.downloadProgress()) {
+                Loader::get()->queueInMainThread([progressCallback, value = *value] {
+                    progressCallback(std::clamp(value, 0.f, 1.f));
+                });
+            }
+        });
+    }
+
     auto token = getAuthAccessTokenForIndex(update.indexID);
     if (!token.empty())
         req.header("Authorization", "Bearer " + token);
@@ -278,6 +292,7 @@ inline void downloadIndexUpdate(IndexUpdateInfo update, std::function<void(bool)
             if (success) {
                 completedIndexUpdates().insert(key);
                 writeSetting("mod-source-index-" + update.modID, update.indexID);
+                writeSetting("mod-source-version-" + update.modID, update.newVersion);
             }
         } else {
             log::error("Failed to download {} {} from {}: HTTP {}", update.modID, update.newVersion, update.indexName, response.code());
