@@ -101,8 +101,7 @@ $on_mod(Loaded) {
                             // provide a newer version needs confirmation.
                             if (installedSource &&
                                 !installedSource->indexId.empty() &&
-                                installedSource->indexId != activeIndex &&
-                                installedSource->version != version) {
+                                installedSource->indexId != activeIndex) {
                                 auto approval = sourceMismatchKey(modID, version, activeIndex);
                                 if (readSetting(approval, "") != "1") {
                                     std::string installedName = installedSource->indexName.empty() ? installedSource->indexId : installedSource->indexName;
@@ -115,7 +114,7 @@ $on_mod(Loaded) {
                                     }
                                     auto mod = Loader::get()->getInstalledMod(modID);
                                     auto modName = mod ? std::string(mod->getName()) : modID;
-                                    showSourceMismatchPopup(modID, version, modName, installedName, activeIndex);
+                                    showSourceMismatchPopup(modID, version, modName, installedName, activeName);
 
                                     // Use a deliberately invalid URL rather than
                                     // stopping the event. This makes Geode handle it
