@@ -333,10 +333,10 @@ public:
     }
 };
 
+} // namespace
+
 void showUpdatesPopup() {
     UpdatesPopup::create()->show();
 }
-
-} // namespace
 
 } // namespace opengeode
