@@ -19,6 +19,7 @@ struct GroupedUpdate {
     bool disabled = false;
     bool outdated = false;
     std::vector<IndexUpdateInfo const*> indexes;
+    CCNode* row = nullptr;
 };
 
 std::vector<GroupedUpdate> groupUpdates() {
@@ -34,7 +35,8 @@ std::vector<GroupedUpdate> groupUpdates() {
                 update.currentVersion,
                 update.disabled,
                 update.outdated,
-                {&update}
+                {&update},
+                nullptr
             });
         } else {
             it->indexes.push_back(&update);
@@ -209,7 +211,7 @@ void confirmIndexUpdate(
                         );
                         restart->setID("restart-badge");
                         restart->setAnchorPoint({0.f, 0.5f});
-                        restart->setPosition({40.f, 25.f});
+                        restart->setPosition({40.f, row->getContentSize().height - 60.f});
                         row->addChild(restart, 6);
 
                         if (auto button = row->getChildByID("update-button"))
@@ -462,26 +464,28 @@ protected:
 
             addStatusTags(row, group, 40.f, rowHeight - 45.f);
 
-            auto originalSource = getOriginalSourceID(group.modID);
+                auto originalSource = getOriginalSourceID(group.modID);
             auto originalVersion = getOriginalSourceVersion(group.modID);
             bool sourceCurrent = !originalSource.empty() &&
                 !originalVersion.empty() &&
                 originalVersion == group.currentVersion;
 
-            auto updateMenu = CCMenu::create();
-            updateMenu->setContentSize({100.f, 45.f});
-            updateMenu->setPosition({scroll->getContentSize().width - 55.f, rowHeight - 28.f});
-
             if (sourceCurrent) {
-                addCheckmark(updateMenu, {48.f, 22.f}, 0.4f);
+                addCheckmark(row, {
+                    scroll->getContentSize().width - 50.f,
+                    rowHeight - 28.f
+                }, 0.4f);
                 auto sourceLabel = CCLabelBMFont::create(
                     getOriginalSourceName(group.modID).c_str(),
                     "bigFont.fnt"
                 );
                 sourceLabel->setScale(0.22f);
                 sourceLabel->setAnchorPoint({1.f, 0.5f});
-                sourceLabel->setPosition({38.f, 22.f});
-                updateMenu->addChild(sourceLabel);
+                sourceLabel->setPosition({
+                    scroll->getContentSize().width - 58.f,
+                    rowHeight - 28.f
+                });
+                row->addChild(sourceLabel, 5);
             } else {
                 auto updateSprite = CCSprite::createWithSpriteFrameName(
                     "geode.loader/update.png"
@@ -502,13 +506,17 @@ protected:
                     updateButton->setID("update-button");
                     updateButton->setScale(0.55f);
                     updateButton->m_baseScale = 0.55f;
-                    updateButton->setPosition({50.f, 22.f});
+                    updateButton->setPosition({
+                        scroll->getContentSize().width - 50.f,
+                        rowHeight - 28.f
+                    });
                     row->addChild(updateButton, 10);
                     handleTouchPriority(updateButton, true);
                 }
             }
 
-            float progressY = rowHeight - 64.f;
+            group.row = row;
+            float progressY = rowHeight - 82.f;
             for (auto const* update : group.indexes) {
                 auto version = CCLabelBMFont::create(
                     fmt::format(
@@ -524,19 +532,6 @@ protected:
                 version->setPosition({8.f, progressY});
                 row->addChild(version);
                 progressY -= 24.f;
-            }
-
-            if (groups.empty()) {
-                auto label = CCLabelBMFont::create(
-                    "No updates available",
-                    "bigFont.fnt"
-                );
-                label->setScale(0.45f);
-                label->setPosition({
-                    scroll->getContentSize().width / 2.f,
-                    scroll->getContentSize().height / 2.f
-                });
-                scroll->m_contentLayer->addChild(label);
             }
 
             scroll->m_contentLayer->addChild(row);
@@ -577,7 +572,7 @@ protected:
 
                     chooseUpdateSource(
                         (*sharedGroups)[index],
-                        nullptr,
+                        (*sharedGroups)[index].row,
                         [runNext, index](bool) {
                             (*runNext)(index + 1);
                         }
