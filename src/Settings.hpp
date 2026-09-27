@@ -153,8 +153,12 @@ inline std::string getActiveIndexId() {
     return "url-" + fmt::format("{:016x}", static_cast<unsigned long long>(hasher(url)));
 }
 
+inline std::string getAuthAccessTokenForIndex(std::string const& indexID) {
+    return readSetting("auth-access-" + indexID, "");
+}
+
 inline std::string getAuthAccessToken() {
-    return readSetting("auth-access-" + getActiveIndexId(), "");
+    return getAuthAccessTokenForIndex(getActiveIndexId());
 }
 
 inline std::string getAuthRefreshToken() {
