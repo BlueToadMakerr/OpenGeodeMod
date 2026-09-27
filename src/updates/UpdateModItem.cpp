@@ -34,7 +34,6 @@ CCNode* makeTag(std::string text, ccColor3B labelColor, ccColor3B bgColor) {
 }
 
 CCSprite* createActionButtonSprite(char const* text) {
-    // Regular PUSAB rather than the gold font used by the old update UI.
     return ButtonSprite::create(text, "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .50f);
 }
 
@@ -113,23 +112,27 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
     info->setAnchorPoint({0.f, .5f});
     addChildAtPosition(info, Anchor::Left, {52.f, 0.f});
 
-    auto title = CCLabelBMFont::create(m_update.modName.c_str(), "bigFont.fnt");
+    auto title = CCLabelBMFont::create(
+        fmt::format("{}  v{} -> v{}", m_update.modName, cleanVersion(m_update.currentVersion), cleanVersion(m_update.newVersion)).c_str(),
+        "bigFont.fnt"
+    );
     title->setID("mod-name");
     title->setAnchorPoint({0.f, .5f});
     title->setScale(.42f);
-    title->limitLabelWidth(188.f, .42f, .27f);
+    title->setColor(ccWHITE);
+    title->limitLabelWidth(188.f, .42f, .20f);
     title->setPosition({0.f, 63.f});
     info->addChild(title);
 
-    auto versions = CCLabelBMFont::create(
-        fmt::format("v{} -> v{}", cleanVersion(m_update.currentVersion), cleanVersion(m_update.newVersion)).c_str(),
-        "bigFont.fnt"
-    );
+    auto versions = CCLabelBMFont::create("", "bigFont.fnt");
     versions->setAnchorPoint({0.f, .5f});
-    versions->setColor({120, 190, 255});
-    versions->setScale(.27f);
-    versions->setPosition({0.f, 49.f});
+    versions->setScale(.01f);
+    versions->setPosition({0.f, -20.f});
     info->addChild(versions);
+    versions->setVisible(false);
+
+    auto versionPos = title->getPosition();
+    (void)versionPos;
 
     auto developers = CCLabelBMFont::create("", "goldFont.fnt");
     developers->setAnchorPoint({0.f, .5f});
@@ -141,7 +144,7 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
         developers->setString("Unknown developer");
     }
     developers->limitLabelWidth(188.f, .24f, .15f);
-    developers->setPosition({0.f, 36.f});
+    developers->setPosition({0.f, 39.f});
     info->addChild(developers);
 
     bool outdated = m_update.outdated;
@@ -152,8 +155,7 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
         m_tags = CCNode::create();
         m_tags->setID("status-tags");
         m_tags->setContentSize({188.f, 18.f});
-        m_tags->setLayout(SimpleRowLayout::create()
-            ->setMainAxisAlignment(MainAxisAlignment::Start)->setGap(4.f));
+        m_tags->setLayout(SimpleRowLayout::create()->setMainAxisAlignment(MainAxisAlignment::Start)->setGap(4.f));
 
         if (outdated) {
             auto text = gameVersion ? fmt::format("Outdated (GD {})", *gameVersion) : "Outdated";
@@ -164,15 +166,15 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
 
         m_tags->updateLayout();
         m_tags->setAnchorPoint({0.f, .5f});
-        m_tags->setPosition({0.f, 21.f});
+        m_tags->setPosition({0.f, 19.f});
         info->addChild(m_tags);
     } else {
         auto descriptionBG = NineSlice::create("square02b_001.png");
         descriptionBG->setID("description-bg");
-        descriptionBG->setContentSize({188.f, 19.f});
+        descriptionBG->setContentSize({188.f, 17.f});
         descriptionBG->setOpacity(75);
         descriptionBG->setAnchorPoint({0.f, .5f});
-        descriptionBG->setPosition({0.f, 21.f});
+        descriptionBG->setPosition({0.f, 19.f});
         info->addChild(descriptionBG);
 
         auto descriptionText = m_mod ? m_mod->getMetadata().getDescription() : std::nullopt;
@@ -181,17 +183,17 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
         );
         description->setColor(descriptionText ? ccWHITE : ccGRAY);
         description->setAnchorPoint({0.f, .5f});
-        limitNodeWidth(description, 178.f, 1.f, .095f);
-        description->setPosition({6.f, 9.5f});
+        limitNodeWidth(description, 178.f, 1.f, .085f);
+        description->setPosition({6.f, 8.5f});
         descriptionBG->addChild(description);
         m_description = descriptionBG;
     }
 
     auto controls = CCMenu::create();
     controls->setID("controls");
-    controls->setContentSize({98.f, 42.f});
+    controls->setContentSize({112.f, 42.f});
     controls->setLayout(SimpleRowLayout::create()->setMainAxisAlignment(MainAxisAlignment::End)->setGap(5.f));
-    addChildAtPosition(controls, Anchor::Right, {-8.f, 0.f});
+    addChildAtPosition(controls, Anchor::Right, {-7.f, 0.f});
 
     auto updateSprite = CircleButtonSprite::create(
         CCSprite::createWithSpriteFrameName("update.png"_spr),
@@ -221,21 +223,13 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
     return true;
 }
 
-void UpdateModItem::onView(CCObject*) {
-    if (m_mod) openInfoPopup(m_mod);
-}
-
-void UpdateModItem::onEnable(CCObject*) {
-    if (!m_mod || m_mod->isInternal()) return;
-    m_mod->requestEnable();
-    addRestartRequiredTag();
-}
+void UpdateModItem::onView(CCObject*) { if (m_mod) openInfoPopup(m_mod); }
+void UpdateModItem::onEnable(CCObject*) { if (!m_mod || m_mod->isInternal()) return; m_mod->requestEnable(); addRestartRequiredTag(); }
 
 void UpdateModItem::addRestartRequiredTag() {
     auto info = getChildByID("info-container");
     if (!info) return;
     if (info->getChildByID("status-tags")) return;
-
     auto tags = CCNode::create();
     tags->setID("status-tags");
     tags->setContentSize({188.f, 18.f});
@@ -243,8 +237,7 @@ void UpdateModItem::addRestartRequiredTag() {
     tags->addChild(makeTag("Restart Required", {153, 245, 245}, {123, 156, 163}));
     tags->updateLayout();
     tags->setAnchorPoint({0.f, .5f});
-    tags->setPosition({0.f, 21.f});
-
+    tags->setPosition({0.f, 19.f});
     if (m_description) m_description->removeFromParentAndCleanup(true);
     info->addChild(tags);
     m_tags = tags;
@@ -271,63 +264,30 @@ void UpdateModItem::startUpdate(IndexUpdateInfo update) {
     if (!m_updateButton) return;
     m_updateButton->setVisible(false);
     m_updateButton->setEnabled(false);
-
     m_progress = Slider::create(nullptr, nullptr);
     m_progress->setID("update-progress");
     m_progress->m_touchLogic->m_thumb->setVisible(false);
     m_progress->setScale(1.2f);
     m_progress->setValue(0.f);
     m_progress->setContentSize({26.f, 10.f});
-
-    if (auto parent = m_updateButton->getParent()) {
-        parent->addChild(m_progress, 5);
-        m_progress->setPosition(m_updateButton->getPosition());
-    }
-
-    downloadIndexUpdate(update,
-        [this, update](bool success) { finishUpdate(update, success); },
-        [this](float progress) { setProgress(progress); }
-    );
+    if (auto parent = m_updateButton->getParent()) { parent->addChild(m_progress, 5); m_progress->setPosition(m_updateButton->getPosition()); }
+    downloadIndexUpdate(update, [this, update](bool success) { finishUpdate(update, success); }, [this](float progress) { setProgress(progress); });
 }
-
-void UpdateModItem::setProgress(float progress) {
-    if (m_progress) m_progress->setValue(std::clamp(progress, 0.f, 1.f));
-}
-
+void UpdateModItem::setProgress(float progress) { if (m_progress) m_progress->setValue(std::clamp(progress, 0.f, 1.f)); }
 void UpdateModItem::finishUpdate(IndexUpdateInfo const& update, bool success) {
-    if (m_progress) {
-        m_progress->removeFromParentAndCleanup(true);
-        m_progress = nullptr;
-    }
-    if (!success) {
-        if (m_updateButton) {
-            m_updateButton->setVisible(true);
-            m_updateButton->setEnabled(true);
-        }
-        return;
-    }
-
+    if (m_progress) { m_progress->removeFromParentAndCleanup(true); m_progress = nullptr; }
+    if (!success) { if (m_updateButton) { m_updateButton->setVisible(true); m_updateButton->setEnabled(true); } return; }
     m_updated = true;
     if (m_updateButton) m_updateButton->setVisible(false);
     addRestartRequiredTag();
-
     auto check = CCSprite::createWithSpriteFrameName("GJ_checkOn_001.png");
-    if (check) {
-        check->setID("updated-check");
-        check->setScale(.38f);
-        check->setPosition({getContentWidth() - 18.f, -20.f});
-        addChild(check, 8);
-    }
+    if (check) { check->setID("updated-check"); check->setScale(.38f); check->setPosition({getContentWidth() - 18.f, -20.f}); addChild(check, 8); }
 }
 
 UpdateModItem* UpdateModItem::create(IndexUpdateInfo update, std::vector<IndexUpdateInfo> sources) {
     auto ret = new UpdateModItem();
-    if (ret && ret->init(std::move(update), std::move(sources))) {
-        ret->autorelease();
-        return ret;
-    }
-    delete ret;
-    return nullptr;
+    if (ret && ret->init(std::move(update), std::move(sources))) { ret->autorelease(); return ret; }
+    delete ret; return nullptr;
 }
 
 } // namespace opengeode
