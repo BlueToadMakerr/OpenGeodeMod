@@ -95,7 +95,7 @@ protected:
         if (!filtersMenu) return;
 
         ensureIndexSwitcherButton(scene);
-        if (!indexUpdatesLoading()) {
+        if (!indexUpdatesLoading() && !hasFreshIndexUpdateCache()) {
             fetchIndexUpdates([this] {
                 auto scene = CCDirector::sharedDirector()->getRunningScene();
                 if (scene) ensureIndexSwitcherButton(scene);
