@@ -54,11 +54,17 @@ std::vector<IndexUpdateInfo> sortedSources(std::vector<IndexUpdateInfo> sources)
 void showUpdateConfirmation(IndexUpdateInfo update, std::function<void(bool)> callback) {
     auto installed = getInstalledModSource(update.modID);
     std::string warning;
-    if (!installed) warning = "\n\n<cr>The original index this mod was installed from is unknown.</c>";
+    if (!installed) warning = "
+
+<cr>The original index this mod was installed from is unknown.</c>";
     else if (installed->indexId != update.indexID) {
-        warning = fmt::format("\n\n<cr>Originally installed from <cy>{}</c>.</c>\nYou are updating it from <cy>{}</c> instead.", installed->indexName.empty() ? installed->indexId : installed->indexName, update.indexName);
+        warning = fmt::format("
+
+<cr>Originally installed from <cy>{}</c>.</c>
+You are updating it from <cy>{}</c> instead.", installed->indexName.empty() ? installed->indexId : installed->indexName, update.indexName);
     }
-    createQuickPopup("Update Mod", fmt::format("Update <cy>{}</c> from <cg>{}</c>?\nVersion: <cy>v{}</c> -> <cg>v{}</c>{}", update.modName, update.indexName, cleanVersion(update.currentVersion), cleanVersion(update.newVersion), warning), "Cancel", "Update", [callback = std::move(callback)](auto, bool confirmed) mutable { if (callback) callback(confirmed); }, true);
+    createQuickPopup("Update Mod", fmt::format("Update <cy>{}</c> from <cg>{}</c>?
+Version: <cy>v{}</c> -> <cg>v{}</c>{}", update.modName, update.indexName, cleanVersion(update.currentVersion), cleanVersion(update.newVersion), warning), "Cancel", "Update", [callback = std::move(callback)](auto, bool confirmed) mutable { if (callback) callback(confirmed); }, true);
 }
 
 } // namespace
@@ -165,7 +171,7 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
     controls->setLayout(SimpleRowLayout::create()->setMainAxisAlignment(MainAxisAlignment::End)->setGap(2.f));
 
     auto updateIcon = CCSprite::createWithSpriteFrameName("geode.loader/update.png");
-    auto updateSprite = CircleButtonSprite::create(updateIcon, CircleBaseColor::DarkPurple, CircleBaseSize::Medium);
+    auto updateSprite = CircleButtonSprite::create(\n        updateIcon,\n        isGeodeTheme() ? CircleBaseColor::DarkPurple : CircleBaseColor::Green,\n        CircleBaseSize::Medium\n    );
     updateSprite->setScale(.58f);
     m_updateButton = CCMenuItemSpriteExtra::create(updateSprite, this, menu_selector(UpdateModItem::onUpdate));
     m_updateButton->setID("update-button");
@@ -278,7 +284,37 @@ void UpdateModItem::finishUpdate(IndexUpdateInfo const& update, bool success) {
     if (m_updateButton) { m_updateButton->setVisible(true); m_updateButton->setEnabled(true); }
 }
 
-UpdateModItem* UpdateModItem::createProgressTest() {\n    IndexUpdateInfo test;\n    test.modID = "devtools.progress-test";\n    test.modName = "DevTools Progress Test";\n    test.currentVersion = "1.0.0";\n    test.newVersion = "1.0.1";\n\n    auto ret = new UpdateModItem();\n    if (ret && ret->init(test, {test})) {\n        ret->m_updateButton->setVisible(false);\n        ret->m_updateButton->setEnabled(false);\n        if (ret->m_tags) ret->m_tags->setVisible(false);\n        if (ret->m_description) ret->m_description->setVisible(false);\n        ret->m_progress = Slider::create(nullptr, nullptr);\n        ret->m_progress->setID("update-progress-test");\n        ret->m_progress->m_touchLogic->m_thumb->setVisible(false);\n        ret->m_progress->setScale(.75f);\n        ret->m_progress->setValue(.5f);\n        ret->m_progress->setContentSize({120.f, 6.f});\n        if (auto info = ret->getChildByID("info-container")) {\n            info->addChild(ret->m_progress, 5);\n            ret->m_progress->setPosition({82.f, 10.f});\n        }\n        ret->autorelease();\n        return ret;\n    }\n    delete ret;\n    return nullptr;\n}\n\nUpdateModItem* UpdateModItem::create(IndexUpdateInfo update, std::vector<IndexUpdateInfo> sources) {
+UpdateModItem* UpdateModItem::createProgressTest() {
+    IndexUpdateInfo test;
+    test.modID = "devtools.progress-test";
+    test.modName = "DevTools Progress Test";
+    test.currentVersion = "1.0.0";
+    test.newVersion = "1.0.1";
+
+    auto ret = new UpdateModItem();
+    if (ret && ret->init(test, {test})) {
+        ret->m_updateButton->setVisible(false);
+        ret->m_updateButton->setEnabled(false);
+        if (ret->m_tags) ret->m_tags->setVisible(false);
+        if (ret->m_description) ret->m_description->setVisible(false);
+        ret->m_progress = Slider::create(nullptr, nullptr);
+        ret->m_progress->setID("update-progress-test");
+        ret->m_progress->m_touchLogic->m_thumb->setVisible(false);
+        ret->m_progress->setScale(.75f);
+        ret->m_progress->setValue(.5f);
+        ret->m_progress->setContentSize({120.f, 6.f});
+        if (auto info = ret->getChildByID("info-container")) {
+            info->addChild(ret->m_progress, 5);
+            ret->m_progress->setPosition({82.f, 10.f});
+        }
+        ret->autorelease();
+        return ret;
+    }
+    delete ret;
+    return nullptr;
+}
+
+UpdateModItem* UpdateModItem::create(IndexUpdateInfo update, std::vector<IndexUpdateInfo> sources) {
     auto ret = new UpdateModItem();
     if (ret && ret->init(std::move(update), std::move(sources))) { ret->autorelease(); return ret; }
     delete ret;
