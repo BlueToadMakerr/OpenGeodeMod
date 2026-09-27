@@ -41,7 +41,7 @@ class OpenGeodeTabSprite : public CCNode {
         m_selectedBG->setColor(to3B(ColorProvider::get()->color("geode.loader/mod-list-tab-selected-bg")));
         addChildAtPosition(m_selectedBG, Anchor::Center);
 
-        m_icon = CCSprite::createWithSpriteFrameName(iconFrame);
+        m_icon = CCSprite::create(iconFrame);
         if (!m_icon) return false;
         limitNodeSize(m_icon, iconSize, 3.f, .1f);
         addChildAtPosition(m_icon, Anchor::Left, ccp(16, 0), false);
