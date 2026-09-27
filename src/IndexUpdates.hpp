@@ -6,9 +6,12 @@
 #include <Geode/utils/async.hpp>
 #include <Geode/utils/web.hpp>
 
+#include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <functional>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <vector>
 
@@ -50,6 +53,26 @@ inline bool& indexUpdatesLoading() {
 inline int getIndexUpdateCount(std::string const& id) {
     auto it = indexUpdateCounts().find(id);
     return it == indexUpdateCounts().end() ? -1 : it->second;
+}
+
+inline std::tuple<int, int, int> parseUpdateVersion(std::string value) {
+    if (!value.empty() && value.front() == 'v') value.erase(value.begin());
+    int parts[3] = {0, 0, 0};
+    size_t start = 0;
+    for (int i = 0; i < 3 && start <= value.size(); ++i) {
+        auto end = value.find('.', start);
+        auto part = value.substr(start, end == std::string::npos ? std::string::npos : end - start);
+        size_t numberEnd = 0;
+        while (numberEnd < part.size() && std::isdigit(static_cast<unsigned char>(part[numberEnd]))) ++numberEnd;
+        if (numberEnd > 0) parts[i] = std::stoi(part.substr(0, numberEnd));
+        if (end == std::string::npos) break;
+        start = end + 1;
+    }
+    return {parts[0], parts[1], parts[2]};
+}
+
+inline bool isNewerUpdateVersion(std::string const& current, std::string const& available) {
+    return parseUpdateVersion(available) > parseUpdateVersion(current);
 }
 
 inline bool hasFreshIndexUpdateCache() {
@@ -145,12 +168,18 @@ inline void fetchIndexUpdates(std::function<void()> callback = {}, bool force = 
                                 if (id.empty() || version.empty() || it == state->installed.end()) continue;
 
                                 auto currentVersion = it->second->getVersion().toVString();
-                                // An index can report the installed version itself. That is not an update.
-                                if (version == currentVersion) continue;
+                                if (!isNewerUpdateVersion(currentVersion, version)) continue;
 
                                 auto const loadProblem = it->second->targetsOutdatedVersion();
                                 bool outdated = loadProblem.has_value() && loadProblem->type == LoadProblem::Type::Outdated;
                                 bool disabled = !it->second->isLoaded();
+
+                                // Avoid duplicate reports from the same index while allowing the
+                                // same mod to appear once for every index that has a newer version.
+                                auto duplicate = std::find_if(indexUpdates().begin(), indexUpdates().end(), [&](auto const& existing) {
+                                    return existing.indexID == entry.id && existing.modID == id;
+                                });
+                                if (duplicate != indexUpdates().end()) continue;
 
                                 indexUpdates().push_back({
                                     entry.id,
