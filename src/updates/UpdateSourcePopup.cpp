@@ -63,8 +63,8 @@ bool UpdateSourcePopup::init() {
     scroll->m_contentLayer->setContentWidth(scroll->getContentWidth());
     scroll->m_contentLayer->setAnchorPoint({.5f, .5f});
 
-    constexpr float rowHeight = 45.f;
-    constexpr float gap = 3.f;
+    constexpr float rowHeight = 43.f;
+    constexpr float gap = 1.f;
     auto contentHeight = std::max(scroll->getContentHeight(), static_cast<float>(m_options.size()) * (rowHeight + gap) + gap);
     scroll->m_contentLayer->setContentSize({scroll->getContentWidth(), contentHeight});
 
@@ -100,8 +100,8 @@ bool UpdateSourcePopup::init() {
             row->addChild(installed, 2);
         }
 
-        auto updateSprite = ButtonSprite::create("Update", "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .40f);
-        updateSprite->setScale(.74f);
+        auto updateSprite = ButtonSprite::create("Update", "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .30f);
+        updateSprite->setScale(.90f);
         auto button = CCMenuItemExt::createSpriteExtra(updateSprite, [this, option](CCMenuItemSpriteExtra*) {
             auto callback = std::move(m_callback);
             this->onClose(nullptr);
@@ -114,12 +114,21 @@ bool UpdateSourcePopup::init() {
         menu->addChild(button);
         row->addChild(menu, 5);
 
-        row->setPosition({scroll->getContentWidth() / 2.f, y});
-        scroll->m_contentLayer->addChild(row);
+        scroll->m_contentLayer->addChildAtPosition(row, Anchor::Center, {0.f, y - contentHeight / 2.f});
         y -= rowHeight + gap;
     }
 
     m_mainLayer->addChild(scroll);
+
+    // ScrollLayer manages its content layer using a bottom-left origin, so
+    // explicitly center the list's CCNode after it has been attached.
+    scroll->m_contentLayer->ignoreAnchorPointForPosition(false);
+    scroll->m_contentLayer->setAnchorPoint({.5f, .5f});
+    scroll->m_contentLayer->setPosition({
+        scroll->getContentWidth() / 2.f,
+        contentHeight / 2.f
+    });
+
     return true;
 }
 
