@@ -134,7 +134,7 @@ protected:
             badge->setContentSize({22.f, 22.f});
             badge->setAnchorPoint({.5f, .5f});
 
-            auto icon = CCSprite::createWithSpriteFrameName("geode.loader/update-available.png");
+            auto icon = CCSprite::createWithSpriteFrameName("geode.loader/updates-available.png");
             if (icon) {
                 icon->setScale(.45f);
                 icon->setPosition({11.f, 11.f});
@@ -147,7 +147,7 @@ protected:
             label->setPosition({11.f, 11.f});
             badge->addChild(label, 2);
 
-            badge->setPosition({indexBtn->getContentWidth() * .45f, indexBtn->getContentHeight() * .45f});
+            badge->setPosition({indexBtn->getContentWidth() - 7.f, indexBtn->getContentHeight() - 7.f});
             indexBtn->addChild(badge, 10);
             m_updateBadge = badge;
         }
