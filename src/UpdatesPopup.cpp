@@ -111,7 +111,7 @@ void confirmIndexUpdate(IndexUpdateInfo update, CCNode* row = nullptr, std::func
             "\nIt will be updated from <cy>" + update.indexName + "</c>.";
     } else if (source != update.indexID) {
         warning = fmt::format(
-            "\n\n<cr>Originally downloaded from <cy>{}</c>.</cr>"
+            "\n\n<cr>Originally downloaded from <cy>{}</c>.</c>"
             "\nIt will be updated from <cy>{}</c> instead.",
             getOriginalSourceName(update.modID),
             update.indexName
