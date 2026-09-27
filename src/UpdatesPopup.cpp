@@ -200,7 +200,7 @@ protected:
                 if (circle) {
                     auto updateButton = CCMenuItemExt::createSpriteExtra(
                         circle,
-                        [updateCopy = *update](auto) {
+                        [updateCopy = *update, row](auto) {
                             auto source = readSetting(
                                 "mod-source-index-" + updateCopy.modID,
                                 ""
