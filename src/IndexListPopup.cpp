@@ -99,7 +99,7 @@ protected:
 
             if (updateCount > 0) {
                 auto updateIcon = CCSprite::createWithSpriteFrameName(
-                    "geode.loader/updates-available.png"
+                    "geode.loader/update-available.png"
                 );
                 updateIcon->setScale(0.4f);
                 updateIcon->setPosition({10.f, rowHeight / 2});
