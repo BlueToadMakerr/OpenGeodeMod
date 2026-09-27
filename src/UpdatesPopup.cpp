@@ -175,8 +175,8 @@ public:
     }
 };
 
-std::weak_ptr<BatchUpdateState>& activeBatch() {
-    static std::weak_ptr<BatchUpdateState> batch;
+std::shared_ptr<BatchUpdateState>& activeBatch() {
+    static std::shared_ptr<BatchUpdateState> batch;
     return batch;
 }
 
@@ -184,7 +184,7 @@ void startUpdateAll(
     std::vector<UpdateGroup> groups,
     std::unordered_map<std::string, UpdateModItem*> items
 ) {
-    if (groups.empty() || !activeBatch().expired()) return;
+    if (groups.empty() || activeBatch()) return;
 
     auto state = std::make_shared<BatchUpdateState>();
     state->groups = std::move(groups);
@@ -331,7 +331,7 @@ protected:
             }
         );
         updateAll->setID("update-all-button");
-        updateAll->setEnabled(activeBatch().expired());
+        updateAll->setEnabled(!activeBatch());
         buttons->addChild(updateAll);
 
         auto restartSprite = ButtonSprite::create(
