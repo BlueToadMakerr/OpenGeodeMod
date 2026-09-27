@@ -33,8 +33,8 @@ CCNode* makeTag(std::string text, ccColor3B labelColor, ccColor3B bgColor) {
 }
 
 CCSprite* createActionButtonSprite(char const* text) {
-    auto sprite = ButtonSprite::create(text, "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .24f);
-    sprite->setScale(.82f);
+    auto sprite = ButtonSprite::create(text, "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .30f);
+    sprite->setScale(.95f);
     return sprite;
 }
 
@@ -70,7 +70,7 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
     m_sources = sortedSources(std::move(sources));
     m_mod = Loader::get()->getInstalledMod(m_update.modID);
 
-    setContentSize({330.f, 52.f});
+    setContentSize({330.f, 58.f});
     ignoreAnchorPointForPosition(false);
     setAnchorPoint({.5f, .5f});
     setID("update-mod-item");
@@ -86,30 +86,30 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
     if (!logo) logo = createServerModLogo(m_update.modID);
     if (!logo) logo = CCSprite::createWithSpriteFrameName("GJ_folderIcon_001.png");
     logo->setID("mod-logo");
-    logo->setScale(.48f);
+    logo->setScale(.58f);
     addChildAtPosition(logo, Anchor::Left, {25.f, 0.f});
 
     auto info = CCNode::create();
     info->setID("info-container");
-    info->setContentSize({168.f, 48.f});
+    info->setContentSize({168.f, 52.f});
     info->setAnchorPoint({0.f, .5f});
     addChildAtPosition(info, Anchor::Left, {50.f, 0.f});
 
     auto title = CCLabelBMFont::create(m_update.modName.c_str(), "bigFont.fnt");
     title->setID("mod-name");
     title->setAnchorPoint({0.f, .5f});
-    title->setScale(.34f);
+    title->setScale(.36f);
     title->setColor(ccWHITE);
-    title->limitLabelWidth(108.f, .34f, .17f);
-    title->setPosition({0.f, 39.f});
+    title->limitLabelWidth(108.f, .36f, .17f);
+    title->setPosition({0.f, 44.f});
     info->addChild(title);
 
     auto version = CCLabelBMFont::create(fmt::format("v{} -> v{}", cleanVersion(m_update.currentVersion), cleanVersion(m_update.newVersion)).c_str(), "bigFont.fnt");
     version->setID("version-change");
     version->setAnchorPoint({0.f, .5f});
-    version->setScale(.23f);
+    version->setScale(.24f);
     version->setColor({102, 190, 255});
-    version->setPosition({title->getScaledContentWidth() + 4.f, 39.f});
+    version->setPosition({title->getScaledContentWidth() + 4.f, 44.f});
     info->addChild(version);
 
     auto developers = CCLabelBMFont::create("", "goldFont.fnt");
@@ -119,7 +119,7 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
     if (m_mod) developers->setString(ModMetadata::formatDeveloperDisplayString(m_mod->getMetadata().getDevelopers()).c_str());
     else developers->setString("Unknown developer");
     developers->limitLabelWidth(168.f, .30f, .18f);
-    developers->setPosition({0.f, 23.f});
+    developers->setPosition({0.f, 27.f});
     info->addChild(developers);
 
     bool outdated = m_update.outdated;
@@ -138,7 +138,7 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
         if (restartRequired) m_tags->addChild(makeTag("Restart Required", {153, 245, 245}, {123, 156, 163}));
         m_tags->updateLayout();
         m_tags->setAnchorPoint({0.f, .5f});
-        m_tags->setPosition({0.f, 8.f});
+        m_tags->setPosition({0.f, 10.f});
         info->addChild(m_tags);
     } else {
         auto descriptionBG = NineSlice::create("square02b_001.png");
@@ -147,14 +147,14 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
         descriptionBG->setOpacity(75);
         descriptionBG->setColor({0, 0, 0});
         descriptionBG->setAnchorPoint({0.f, .5f});
-        descriptionBG->setPosition({0.f, 9.f});
+        descriptionBG->setPosition({0.f, 12.f});
         info->addChild(descriptionBG);
         auto descriptionText = m_mod ? m_mod->getMetadata().getDescription() : std::nullopt;
         auto description = CCLabelBMFont::create(descriptionText ? descriptionText->c_str() : "[No Description Provided]", "chatFont.fnt");
         description->setColor(descriptionText ? ccWHITE : ccGRAY);
         description->setAnchorPoint({0.f, .5f});
         limitNodeWidth(description, 154.f, 1.f, .065f);
-        description->setPosition({5.f, 6.5f});
+        description->setPosition({5.f, 6.f});
         descriptionBG->addChild(description);
         m_description = descriptionBG;
     }
@@ -198,7 +198,7 @@ void UpdateModItem::addRestartRequiredTag() {
     tags->addChild(makeTag("Restart Required", {153, 245, 245}, {123, 156, 163}));
     tags->updateLayout();
     tags->setAnchorPoint({0.f, .5f});
-    tags->setPosition({0.f, 8.f});
+    tags->setPosition({0.f, 13.f});
     if (m_description) m_description->removeFromParentAndCleanup(true);
     info->addChild(tags);
     m_tags = tags;
