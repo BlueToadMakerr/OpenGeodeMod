@@ -148,7 +148,7 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
     info->addChild(developers);
 
     bool outdated = m_update.outdated;
-    bool restartRequired = isCompleted(m_update);
+    bool restartRequired = isCompleted(m_update) || wasModUpdatedFromIndex(m_update.modID);
     auto gameVersion = m_mod ? m_mod->getMetadata().getGameVersion() : std::nullopt;
 
     if (outdated || restartRequired || m_update.disabled) {
