@@ -15,6 +15,7 @@
 #include <string>
 #include <tuple>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 using namespace geode::prelude;
@@ -207,6 +208,77 @@ inline void fetchIndexUpdates(std::function<void()> callback = {}, bool force = 
             );
         }
     }
+}
+
+
+inline std::unordered_set<std::string>& completedIndexUpdates() {
+    static std::unordered_set<std::string> completed;
+    return completed;
+}
+
+inline std::string indexUpdateKey(IndexUpdateInfo const& update) {
+    return update.indexID + ":" + update.modID + ":" + update.newVersion;
+}
+
+inline void downloadIndexUpdate(IndexUpdateInfo update, std::function<void(bool)> callback = {}) {
+    static std::unordered_map<std::string, std::shared_ptr<async::TaskHolder<web::WebResponse>>> tasks;
+
+    auto key = indexUpdateKey(update);
+    if (tasks.contains(key)) return;
+
+    auto task = std::make_shared<async::TaskHolder<web::WebResponse>>();
+    tasks[key] = task;
+
+    auto indexes = getAllIndexes();
+    auto base = std::find_if(indexes.begin(), indexes.end(), [&](auto const& entry) {
+        return entry.id == update.indexID;
+    });
+    if (base == indexes.end()) {
+        tasks.erase(key);
+        if (callback) callback(false);
+        return;
+    }
+
+    auto url = base->url;
+    if (!url.empty() && url.back() == '/') url.pop_back();
+    url += fmt::format("/v1/mods/{}/versions/{}/download", update.modID, update.newVersion);
+
+    auto req = web::WebRequest();
+    auto token = getAuthAccessTokenForIndex(update.indexID);
+    if (!token.empty())
+        req.header("Authorization", "Bearer " + token);
+
+    task->spawn(req.get(url), [task, key, update = std::move(update), callback = std::move(callback)](web::WebResponse response) mutable {
+        bool success = false;
+        if (response.ok()) {
+            auto data = std::move(response).data();
+            auto path = dirs::getModsDir() / (update.modID + ".geode");
+
+            if (auto mod = Loader::get()->getInstalledMod(update.modID)) {
+                std::error_code ec;
+                std::filesystem::remove(mod->getPackagePath(), ec);
+                if (ec) {
+                    log::error("Failed to remove old package for {}: {}", update.modID, ec.message());
+                } else {
+                    success = file::writeBinary(path, data).has_value();
+                }
+            } else {
+                success = file::writeBinary(path, data).has_value();
+            }
+
+            if (success) {
+                completedIndexUpdates().insert(key);
+                writeSetting("mod-source-index-" + update.modID, update.indexID);
+            }
+        } else {
+            log::error("Failed to download {} {} from {}: HTTP {}", update.modID, update.newVersion, update.indexName, response.code());
+        }
+
+        tasks.erase(key);
+        Loader::get()->queueInMainThread([callback = std::move(callback), success] {
+            if (callback) callback(success);
+        });
+    });
 }
 
 } // namespace opengeode
