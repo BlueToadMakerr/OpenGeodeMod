@@ -89,8 +89,13 @@ void addStatusTags(CCNode* row, GroupedUpdate const& update, float x, float y) {
 
 
 
+
+std::string getOriginalSourceID(std::string const& modID) {
+    return readSetting("mod-source-index-" + modID, "");
+}
+
 std::string getOriginalSourceName(std::string const& modID) {
-    auto source = readSetting("mod-source-index-" + modID, "");
+    auto source = getOriginalSourceID(modID);
     if (source.empty())
         return "Unknown";
 
@@ -101,8 +106,48 @@ std::string getOriginalSourceName(std::string const& modID) {
     return it != indexes.end() ? it->name : source;
 }
 
-void confirmIndexUpdate(IndexUpdateInfo update, CCNode* row = nullptr, std::function<void(bool)> finished = {}) {
-    auto source = readSetting("mod-source-index-" + update.modID, "");
+std::string getOriginalSourceVersion(std::string const& modID) {
+    return readSetting("mod-source-version-" + modID, "");
+}
+
+bool wasUpdatedFromSource(std::string const& modID, std::string const& indexID, std::string const& currentVersion) {
+    return getOriginalSourceID(modID) == indexID &&
+        getOriginalSourceVersion(modID) == currentVersion;
+}
+
+void addCheckmark(CCNode* parent, CCPoint position, float scale = 0.45f) {
+    auto check = CCSprite::createWithSpriteFrameName("GJ_checkOn_001.png");
+    if (!check) return;
+    check->setScale(scale);
+    check->setPosition(position);
+    parent->addChild(check, 5);
+}
+
+void addProgressBar(CCNode* row, float x, float y, float width, float progress) {
+    auto background = CCLayerColor::create({50, 50, 50, 180}, width, 5.f);
+    background->setPosition({x, y});
+    row->addChild(background, 2);
+
+    auto fill = CCLayerColor::create({153, 245, 245, 255}, width * std::clamp(progress, 0.f, 1.f), 5.f);
+    fill->setPosition({0.f, 0.f});
+    background->addChild(fill);
+}
+
+void updateProgressBar(CCNode* row, float x, float y, float width, float progress) {
+    auto background = row->getChildByTag(9001);
+    if (!background) return;
+    auto fill = background->getChildByTag(9002);
+    if (!fill) return;
+    background->setPosition({x, y});
+    fill->setContentSize({width * std::clamp(progress, 0.f, 1.f), 5.f});
+}
+
+void confirmIndexUpdate(
+    IndexUpdateInfo update,
+    CCNode* row = nullptr,
+    std::function<void(bool)> finished = {}
+) {
+    auto source = getOriginalSourceID(update.modID);
 
     std::string warning;
     if (source.empty()) {
@@ -137,18 +182,51 @@ void confirmIndexUpdate(IndexUpdateInfo update, CCNode* row = nullptr, std::func
                 return;
             }
 
-            if (row) row->retain();
+            auto progressBar = CCNode::create();
+            progressBar->setTag(9001);
+            auto background = CCLayerColor::create({50, 50, 50, 180}, 130.f, 5.f);
+            background->setTag(9001);
+            auto fill = CCLayerColor::create({153, 245, 245, 255}, 0.f, 5.f);
+            fill->setTag(9002);
+            background->addChild(fill);
+            progressBar->addChild(background);
+            if (row) {
+                row->addChild(progressBar, 5);
+                progressBar->setPosition({42.f, 18.f});
+                row->retain();
+            }
+
             downloadIndexUpdate(
                 update,
-                [row, finished = std::move(finished)](bool success) mutable {
+                [row, progressBar, finished = std::move(finished), update](bool success) mutable {
                     if (success && row && row->getParent()) {
+                        if (auto old = row->getChildByID("restart-badge"))
+                            old->removeFromParent();
+
                         auto restart = makeStatusTag(
                             "Restart Required",
                             {153, 245, 245}
                         );
+                        restart->setID("restart-badge");
                         restart->setAnchorPoint({0.f, 0.5f});
-                        restart->setPosition({150.f, 25.f});
-                        row->addChild(restart);
+                        restart->setPosition({40.f, 25.f});
+                        row->addChild(restart, 6);
+
+                        if (auto button = row->getChildByID("update-button"))
+                            button->removeFromParent();
+
+                        addCheckmark(row, {row->getContentSize().width - 50.f, row->getContentSize().height - 28.f});
+                        auto sourceLabel = CCLabelBMFont::create(
+                            update.indexName.c_str(),
+                            "bigFont.fnt"
+                        );
+                        sourceLabel->setScale(0.24f);
+                        sourceLabel->setAnchorPoint({1.f, 0.5f});
+                        sourceLabel->setPosition({
+                            row->getContentSize().width - 58.f,
+                            row->getContentSize().height - 28.f
+                        });
+                        row->addChild(sourceLabel, 5);
                     }
 
                     if (success) {
@@ -165,8 +243,24 @@ void confirmIndexUpdate(IndexUpdateInfo update, CCNode* row = nullptr, std::func
                         )->show();
                     }
 
+                    if (progressBar)
+                        progressBar->removeFromParent();
+
                     if (row) row->release();
                     if (finished) finished(success);
+                },
+                [row, progressBar](float progress) {
+                    if (!row || !progressBar || !row->getParent())
+                        return;
+
+                    auto background = progressBar->getChildByTag(9001);
+                    auto fill = background ? background->getChildByTag(9002) : nullptr;
+                    if (!fill) return;
+
+                    fill->setContentSize({
+                        130.f * std::clamp(progress, 0.f, 1.f),
+                        5.f
+                    });
                 }
             );
         },
@@ -179,7 +273,7 @@ class UpdateSourcePopup : public Popup {
     std::function<void(IndexUpdateInfo)> m_callback;
 
     bool init() {
-        if (!Popup::init(320.f, 250.f, getPopupBackground()))
+        if (!Popup::init(330.f, 260.f, getPopupBackground()))
             return false;
 
         setTitle("Choose Update Source");
@@ -188,9 +282,15 @@ class UpdateSourcePopup : public Popup {
             setCloseButtonSpr(close, 0.875f);
 
         auto size = m_mainLayer->getScaledContentSize();
+        auto originalID = getOriginalSourceID(m_options.front().modID);
+        auto originalVersion = getOriginalSourceVersion(m_options.front().modID);
 
         auto original = CCLabelBMFont::create(
-            fmt::format("Originally downloaded from: {}", getOriginalSourceName(m_options.front().modID)).c_str(),
+            fmt::format(
+                "Originally downloaded from: {}{}",
+                getOriginalSourceName(m_options.front().modID),
+                originalVersion.empty() ? "" : fmt::format(" ({})", originalVersion)
+            ).c_str(),
             "bigFont.fnt"
         );
         original->setScale(0.27f);
@@ -199,7 +299,7 @@ class UpdateSourcePopup : public Popup {
         m_mainLayer->addChild(original);
 
         auto menu = CCMenu::create();
-        menu->setContentSize({size.width - 30.f, size.height - 75.f});
+        menu->setContentSize({size.width - 30.f, size.height - 85.f});
         menu->setPosition({15.f, 15.f});
         menu->setLayout(ColumnLayout::create()->setGap(6.f));
 
@@ -218,6 +318,14 @@ class UpdateSourcePopup : public Popup {
                         callback(option);
                 }
             );
+
+            if (option.indexID == originalID) {
+                addCheckmark(button, {
+                    button->getContentSize().width - 12.f,
+                    button->getContentSize().height / 2.f
+                }, 0.35f);
+            }
+
             menu->addChild(button);
         }
 
@@ -271,7 +379,9 @@ void chooseUpdateSource(
 class UpdatesPopup : public Popup {
 protected:
     bool init() {
-        if (!Popup::init(380.f, 300.f, getPopupBackground())) return false;
+        if (!Popup::init(380.f, 320.f, getPopupBackground()))
+            return false;
+
         setTitle("Available Updates");
 
         if (auto close = createGeodeCloseButton())
@@ -288,14 +398,14 @@ protected:
         totalLabel->setPosition({size.width / 2.f, size.height - 34.f});
         m_mainLayer->addChild(totalLabel);
 
-        auto scrollSize = CCSize{size.width - 20.f, size.height - 112.f};
+        auto scrollSize = CCSize{size.width - 20.f, size.height - 118.f};
 
         auto scrollBackground = NineSlice::create("square02_001.png");
         scrollBackground->setContentSize(scrollSize);
         scrollBackground->setAnchorPoint({0.5f, 0.5f});
         scrollBackground->setPosition({
             size.width / 2.f,
-            55.f + scrollSize.height / 2.f
+            58.f + scrollSize.height / 2.f
         });
         scrollBackground->setOpacity(50);
         m_mainLayer->addChild(scrollBackground);
@@ -307,7 +417,7 @@ protected:
         scroll->setAnchorPoint({0.5f, 0.5f});
         scroll->setPosition({
             size.width / 2.f - scroll->getContentSize().width / 2.f,
-            55.f
+            58.f
         });
         m_mainLayer->addChild(scroll);
 
@@ -315,14 +425,14 @@ protected:
         float totalHeight = 0.f;
 
         for (auto const& group : groups)
-            totalHeight += 70.f + static_cast<float>(group.indexes.size()) * 27.f;
+            totalHeight += 92.f + static_cast<float>(group.indexes.size()) * 24.f;
 
         totalHeight = std::max(totalHeight, scroll->getContentSize().height);
 
         float y = totalHeight;
 
         for (auto const& group : groups) {
-            float rowHeight = 70.f + static_cast<float>(group.indexes.size()) * 27.f;
+            float rowHeight = 92.f + static_cast<float>(group.indexes.size()) * 24.f;
             y -= rowHeight;
 
             auto row = CCMenu::create();
@@ -352,23 +462,27 @@ protected:
 
             addStatusTags(row, group, 40.f, rowHeight - 45.f);
 
-            float versionY = rowHeight - 66.f;
+            auto originalSource = getOriginalSourceID(group.modID);
+            auto originalVersion = getOriginalSourceVersion(group.modID);
+            bool sourceCurrent = !originalSource.empty() &&
+                !originalVersion.empty() &&
+                originalVersion == group.currentVersion;
 
-            for (auto const* update : group.indexes) {
-                auto version = CCLabelBMFont::create(
-                    fmt::format(
-                        "{}: {} -> {}",
-                        update->indexName,
-                        update->currentVersion,
-                        update->newVersion
-                    ).c_str(),
+            auto updateMenu = CCMenu::create();
+            updateMenu->setContentSize({100.f, 45.f});
+            updateMenu->setPosition({scroll->getContentSize().width - 55.f, rowHeight - 28.f});
+
+            if (sourceCurrent) {
+                addCheckmark(updateMenu, {48.f, 22.f}, 0.4f);
+                auto sourceLabel = CCLabelBMFont::create(
+                    getOriginalSourceName(group.modID).c_str(),
                     "bigFont.fnt"
                 );
-                version->setScale(0.24f);
-                version->setAnchorPoint({0.f, 0.5f});
-                version->setPosition({8.f, versionY});
-                row->addChild(version);
-
+                sourceLabel->setScale(0.22f);
+                sourceLabel->setAnchorPoint({1.f, 0.5f});
+                sourceLabel->setPosition({38.f, 22.f});
+                updateMenu->addChild(sourceLabel);
+            } else {
                 auto updateSprite = CCSprite::createWithSpriteFrameName(
                     "geode.loader/update.png"
                 );
@@ -381,26 +495,48 @@ protected:
                 if (circle) {
                     auto updateButton = CCMenuItemExt::createSpriteExtra(
                         circle,
-                        [updateCopy = *update, row](auto) {
-                            GroupedUpdate group;
-                            group.modID = updateCopy.modID;
-                            group.modName = updateCopy.modName;
-                            group.currentVersion = updateCopy.currentVersion;
-                            group.disabled = updateCopy.disabled;
-                            group.outdated = updateCopy.outdated;
-                            group.indexes = {&updateCopy};
+                        [group, row](auto) {
                             chooseUpdateSource(group, row);
                         }
                     );
+                    updateButton->setID("update-button");
                     updateButton->setScale(0.55f);
-                    updateButton->setPosition({
-                        scroll->getContentSize().width - 17.f,
-                        versionY
-                    });
-                    row->addChild(updateButton);
+                    updateButton->m_baseScale = 0.55f;
+                    updateButton->setPosition({50.f, 22.f});
+                    row->addChild(updateButton, 10);
+                    handleTouchPriority(updateButton, true);
                 }
+            }
 
-                versionY -= 27.f;
+            float progressY = rowHeight - 64.f;
+            for (auto const* update : group.indexes) {
+                auto version = CCLabelBMFont::create(
+                    fmt::format(
+                        "{}: {} -> {}",
+                        update->indexName,
+                        update->currentVersion,
+                        update->newVersion
+                    ).c_str(),
+                    "bigFont.fnt"
+                );
+                version->setScale(0.24f);
+                version->setAnchorPoint({0.f, 0.5f});
+                version->setPosition({8.f, progressY});
+                row->addChild(version);
+                progressY -= 24.f;
+            }
+
+            if (groups.empty()) {
+                auto label = CCLabelBMFont::create(
+                    "No updates available",
+                    "bigFont.fnt"
+                );
+                label->setScale(0.45f);
+                label->setPosition({
+                    scroll->getContentSize().width / 2.f,
+                    scroll->getContentSize().height / 2.f
+                });
+                scroll->m_contentLayer->addChild(label);
             }
 
             scroll->m_contentLayer->addChild(row);
@@ -475,7 +611,9 @@ public:
 } // namespace
 
 void showUpdatesPopup() {
-    UpdatesPopup::create()->show();
+    fetchIndexUpdates([] {
+        UpdatesPopup::create()->show();
+    }, true);
 }
 
 } // namespace opengeode
