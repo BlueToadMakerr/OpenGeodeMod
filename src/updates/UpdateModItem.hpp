@@ -25,7 +25,7 @@ class UpdateModItem : public CCNode {
     void startUpdate(IndexUpdateInfo update);
     void finishUpdate(IndexUpdateInfo const& update, bool success);
     void setProgress(float progress);
-    void addRestartRequiredTag();
+    void refreshStatusTags(bool restartRequired);
 
 public:
     static UpdateModItem* create(IndexUpdateInfo update, std::vector<IndexUpdateInfo> sources);
