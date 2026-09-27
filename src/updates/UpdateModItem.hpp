@@ -22,13 +22,12 @@ class UpdateModItem : public CCNode {
     void onView(CCObject*);
     void onUpdate(CCObject*);
     void showSourcePicker();
-    void startUpdate(IndexUpdateInfo update, std::function<void(bool)> callback = {});
+    void startUpdate(IndexUpdateInfo update);
     void finishUpdate(IndexUpdateInfo const& update, bool success);
     void setProgress(float progress);
     void refreshStatusTags(bool restartRequired);
 
 public:
-    void updateWithoutConfirmation(IndexUpdateInfo update, std::function<void(bool)> callback = {});
     static UpdateModItem* create(IndexUpdateInfo update, std::vector<IndexUpdateInfo> sources);
 };
 
