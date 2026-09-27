@@ -96,16 +96,29 @@ std::string getOriginalSourceID(std::string const& modID) {
     return readSetting("mod-source-index-" + modID, "");
 }
 
-std::string getOriginalSourceName(std::string const& modID) {
+std::vector<std::string> getOriginalSourceCandidates(std::string const& modID) {
     auto source = getOriginalSourceID(modID);
-    if (source.empty())
+    if (!source.empty())
+        return {source};
+
+    return splitCSV(readSetting("mod-source-candidates-" + modID, ""));
+}
+
+std::string getOriginalSourceName(std::string const& modID) {
+    auto candidates = getOriginalSourceCandidates(modID);
+    if (candidates.empty())
         return "Unknown";
 
     auto indexes = getAllIndexes();
-    auto it = std::find_if(indexes.begin(), indexes.end(), [&](auto const& entry) {
-        return entry.id == source;
-    });
-    return it != indexes.end() ? it->name : source;
+    std::vector<std::string> names;
+    for (auto const& candidate : candidates) {
+        auto it = std::find_if(indexes.begin(), indexes.end(), [&](auto const& entry) {
+            return entry.id == candidate;
+        });
+        names.push_back(it != indexes.end() ? it->name : candidate);
+    }
+
+    return ranges::join(names, " / ");
 }
 
 std::string getOriginalSourceVersion(std::string const& modID) {
@@ -284,7 +297,7 @@ class UpdateSourcePopup : public Popup {
             setCloseButtonSpr(close, 0.875f);
 
         auto size = m_mainLayer->getScaledContentSize();
-        auto originalID = getOriginalSourceID(m_options.front().modID);
+        auto originalIDs = getOriginalSourceCandidates(m_options.front().modID);
         auto originalVersion = getOriginalSourceVersion(m_options.front().modID);
 
         auto original = CCLabelBMFont::create(
@@ -321,7 +334,7 @@ class UpdateSourcePopup : public Popup {
                 }
             );
 
-            if (option.indexID == originalID) {
+            if (std::find(originalIDs.begin(), originalIDs.end(), option.indexID) != originalIDs.end()) {
                 addCheckmark(button, {
                     button->getContentSize().width - 12.f,
                     button->getContentSize().height / 2.f
