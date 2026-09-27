@@ -118,7 +118,12 @@ std::string getOriginalSourceName(std::string const& modID) {
         names.push_back(it != indexes.end() ? it->name : candidate);
     }
 
-    return ranges::join(names, " / ");
+    std::string result;
+    for (size_t i = 0; i < names.size(); ++i) {
+        if (i) result += " / ";
+        result += names[i];
+    }
+    return result;
 }
 
 std::string getOriginalSourceVersion(std::string const& modID) {
