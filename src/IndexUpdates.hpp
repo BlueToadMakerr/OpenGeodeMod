@@ -136,11 +136,13 @@ inline void appendPendingUpdatedMods() {
             mod->targetsOutdatedVersion().has_value(),
             true
         });
+        ++indexUpdateCounts()[source->indexId];
     }
 }
 
 inline void fetchIndexUpdates(std::function<void()> callback = {}, bool force = false) {
     if (!force && hasFreshIndexUpdateCache()) {
+        appendPendingUpdatedMods();
         if (callback) callback();
         return;
     }
@@ -162,6 +164,7 @@ inline void fetchIndexUpdates(std::function<void()> callback = {}, bool force = 
 
     if (indexes.empty() || ids.empty()) {
         for (auto const& entry : indexes) indexUpdateCounts()[entry.id] = 0;
+        appendPendingUpdatedMods();
         indexUpdatesFetchedAt() = std::chrono::steady_clock::now();
         indexUpdatesLoading() = false;
         if (callback) callback();
