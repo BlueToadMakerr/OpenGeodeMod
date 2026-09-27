@@ -73,7 +73,6 @@ $on_mod(Loaded) {
                                     getActiveIndexId(),
                                     true
                                 );
-                                invalidateIndexUpdateCache();
                             }
                             else {
                                 setInstalledModSource(modID, version);
