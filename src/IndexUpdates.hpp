@@ -220,6 +220,87 @@ inline void fetchIndexUpdates(std::function<void()> callback = {}, bool force = 
 }
 
 
+
+inline void inferOriginalIndexSources(std::function<void()> callback = {}) {
+    auto updates = indexUpdates();
+    std::unordered_set<std::string> modIDs;
+    for (auto const& update : updates) {
+        if (readSetting("mod-source-index-" + update.modID, "").empty())
+            modIDs.insert(update.modID);
+    }
+
+    if (modIDs.empty()) {
+        if (callback) callback();
+        return;
+    }
+
+    struct State {
+        size_t pending = 0;
+        std::function<void()> callback;
+        std::unordered_map<std::string, std::vector<std::string>> matches;
+        std::unordered_map<std::string, std::string> versions;
+    };
+    auto state = std::make_shared<State>();
+    state->callback = std::move(callback);
+
+    struct Task {
+        async::TaskHolder<web::WebResponse> holder;
+    };
+    auto tasks = std::make_shared<std::vector<std::shared_ptr<Task>>>();
+
+    auto indexes = getAllIndexes();
+    for (auto const& modID : modIDs) {
+        auto mod = Loader::get()->getInstalledMod(modID);
+        if (!mod) continue;
+
+        auto version = mod->getVersion().toVString();
+        state->versions[modID] = version;
+
+        for (auto const& index : indexes) {
+            auto base = index.url;
+            if (!base.empty() && base.back() == '/') base.pop_back();
+
+            auto task = std::make_shared<Task>();
+            tasks->push_back(task);
+            ++state->pending;
+
+            task->holder.spawn(
+                web::WebRequest().get(
+                    base + fmt::format("/v1/mods/{}/versions/{}", modID, version)
+                ),
+                [state, tasks, modID, index](web::WebResponse response) {
+                    if (response.ok()) {
+                        auto json = response.json().unwrapOr(matjson::Value());
+                        auto payload = json.contains("payload") ? json["payload"] : json;
+                        if (payload.isObject()) {
+                            auto returnedVersion = payload["version"].asString().unwrapOr("");
+                            if (returnedVersion == state->versions[modID])
+                                state->matches[modID].push_back(index.id);
+                        }
+                    }
+
+                    if (--state->pending == 0) {
+                        for (auto const& [id, matches] : state->matches) {
+                            if (matches.size() == 1) {
+                                writeSetting("mod-source-index-" + id, matches.front());
+                                writeSetting("mod-source-version-" + id, state->versions[id]);
+                            } else if (matches.size() > 1) {
+                                writeSetting("mod-source-candidates-" + id, joinCSV(matches));
+                            }
+                        }
+
+                        if (state->callback)
+                            state->callback();
+                    }
+                }
+            );
+        }
+    }
+
+    if (state->pending == 0 && state->callback)
+        state->callback();
+}
+
 inline std::unordered_set<std::string>& completedIndexUpdates() {
     static std::unordered_set<std::string> completed;
     return completed;
