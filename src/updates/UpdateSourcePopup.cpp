@@ -61,9 +61,7 @@ bool UpdateSourcePopup::init() {
     auto scroll = ScrollLayer::create({size.width - 38.f, size.height - 82.f});
     scroll->setPosition({19.f, 20.f});
     scroll->m_contentLayer->setContentWidth(scroll->getContentWidth());
-    scroll->m_contentLayer->setAnchorPoint({.5f, .5f});
-
-    constexpr float rowHeight = 43.f;
+        constexpr float rowHeight = 40.f;
     constexpr float gap = 1.f;
     auto contentHeight = std::max(scroll->getContentHeight(), static_cast<float>(m_options.size()) * (rowHeight + gap) + gap);
     scroll->m_contentLayer->setContentSize({scroll->getContentWidth(), contentHeight});
@@ -83,20 +81,20 @@ bool UpdateSourcePopup::init() {
         title->setAnchorPoint({0.f, .5f});
         title->setScale(.31f);
         title->limitLabelWidth(175.f, .31f, .16f);
-        title->setPosition({8.f, 31.f});
+        title->setPosition({8.f, 28.f});
         row->addChild(title);
 
         auto versions = CCLabelBMFont::create(fmt::format("v{} -> v{}", cleanVersion(option.currentVersion), cleanVersion(option.newVersion)).c_str(), "bigFont.fnt");
         versions->setAnchorPoint({0.f, .5f});
         versions->setScale(.23f);
         versions->setColor({102, 190, 255});
-        versions->setPosition({8.f, 19.f});
+        versions->setPosition({8.f, 16.f});
         row->addChild(versions);
 
         if (isOriginalSource(modID, option.indexID)) {
             auto installed = makeStatusTag("Installed From");
             installed->setAnchorPoint({0.f, .5f});
-            installed->setPosition({8.f, 7.f});
+            installed->setPosition({8.f, 5.f});
             row->addChild(installed, 2);
         }
 
@@ -114,20 +112,12 @@ bool UpdateSourcePopup::init() {
         menu->addChild(button);
         row->addChild(menu, 5);
 
-        scroll->m_contentLayer->addChildAtPosition(row, Anchor::Center, {0.f, y - contentHeight / 2.f});
+        scroll->m_contentLayer->addChild(row);
+        row->setPosition({scroll->getContentWidth() / 2.f, y});
         y -= rowHeight + gap;
     }
 
     m_mainLayer->addChild(scroll);
-
-    // ScrollLayer manages its content layer using a bottom-left origin, so
-    // explicitly center the list's CCNode after it has been attached.
-    scroll->m_contentLayer->ignoreAnchorPointForPosition(false);
-    scroll->m_contentLayer->setAnchorPoint({.5f, .5f});
-    scroll->m_contentLayer->setPosition({
-        scroll->getContentWidth() / 2.f,
-        contentHeight / 2.f
-    });
 
     return true;
 }
