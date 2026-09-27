@@ -52,21 +52,26 @@ public:
     std::vector<UpdateGroup> groups;
     size_t current = 0;
     bool alwaysInstalled = false;
+    int pending = 0;
     int successful = 0;
     int failed = 0;
     std::unordered_map<std::string, UpdateModItem*> items;
+    CCMenuItemSpriteExtra* updateAllButton = nullptr;
     std::function<void()> finished;
 
     ~BatchUpdateState() {
         for (auto const& [_, item] : items) {
             if (item) item->release();
         }
+        if (updateAllButton) updateAllButton->release();
     }
 
     void next() {
         if (current >= groups.size()) {
-            auto finishedCallback = std::move(finished);
-            if (finishedCallback) finishedCallback();
+            if (pending == 0) {
+                auto finishedCallback = std::move(finished);
+                if (finishedCallback) finishedCallback();
+            }
             return;
         }
 
@@ -146,6 +151,7 @@ public:
     }
 
     void download(IndexUpdateInfo update) {
+        ++pending;
         auto weak = weak_from_this();
         auto it = items.find(update.modID);
         if (it != items.end() && it->second) {
@@ -155,6 +161,7 @@ public:
                     if (auto state = weak.lock()) {
                         if (success) ++state->successful;
                         else ++state->failed;
+                        --state->pending;
                         state->next();
                     }
                 }
@@ -168,6 +175,7 @@ public:
                 if (auto state = weak.lock()) {
                     if (success) ++state->successful;
                     else ++state->failed;
+                    --state->pending;
                     state->next();
                 }
             }
@@ -182,12 +190,15 @@ std::shared_ptr<BatchUpdateState>& activeBatch() {
 
 void startUpdateAll(
     std::vector<UpdateGroup> groups,
-    std::unordered_map<std::string, UpdateModItem*> items
+    std::unordered_map<std::string, UpdateModItem*> items,
+    CCMenuItemSpriteExtra* updateAllButton
 ) {
     if (groups.empty() || activeBatch()) return;
 
     auto state = std::make_shared<BatchUpdateState>();
     state->groups = std::move(groups);
+    state->updateAllButton = updateAllButton;
+    if (state->updateAllButton) state->updateAllButton->retain();
     for (auto const& [modID, item] : items) {
         if (item) {
             item->retain();
@@ -197,6 +208,11 @@ void startUpdateAll(
     state->finished = [weak = std::weak_ptr<BatchUpdateState>(state)] {
         auto state = weak.lock();
         if (!state) return;
+
+        if (state->successful == static_cast<int>(state->groups.size()) && state->updateAllButton) {
+            state->updateAllButton->setVisible(false);
+            state->updateAllButton->setEnabled(false);
+        }
 
         if (state->successful > 0) {
             Notification::create(
@@ -296,9 +312,9 @@ protected:
         m_mainLayer->addChild(scroll);
 
         auto buttons = CCMenu::create();
-        buttons->setAnchorPoint({.5f, .5f});
+        buttons->setAnchorPoint({0.f, 0.f});
         buttons->setContentSize({size.width - 20.f, 36.f});
-        buttons->setPosition({size.width / 2.f, 24.f});
+        buttons->setPosition({10.f, 6.f});
 
         auto updateAllSprite = ButtonSprite::create(
             "Update All",
@@ -320,7 +336,7 @@ protected:
                     "Cancel",
                     "Update All",
                     [groups, items](auto, bool confirmed) {
-                        if (confirmed) startUpdateAll(groups, items);
+                        if (confirmed) startUpdateAll(groups, items, updateAll);
                     },
                     true
                 );
