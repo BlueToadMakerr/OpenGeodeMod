@@ -1,6 +1,5 @@
 #include "Settings.hpp"
 #include "InstalledMods.hpp"
-#include "IndexUpdates.hpp"
 
 #include <Geode/Geode.hpp>
 #include <Geode/utils/web.hpp>
@@ -11,7 +10,6 @@ namespace opengeode {
 
 $on_mod(Loaded) {
     ensurePresetsExist();
-    fetchIndexUpdates();
 
     web::WebRequestInterceptEvent().listen(
         [](std::string_view id, web::WebRequest& req) {
