@@ -59,7 +59,7 @@ protected:
         );
 
         auto updatesBtn = CCMenuItemExt::createSpriteExtra(
-            ButtonSprite::create("Updates", "goldFont.fnt", getButtonTexture("GE_button_01.png"), 0.6f),
+            ButtonSprite::create("Updates", "goldFont.fnt", getButtonTexture("GJ_button_01.png"), 0.6f),
             [](auto) { showUpdatesPopup(); }
         );
 
