@@ -33,7 +33,7 @@ CCNode* makeTag(std::string text, ccColor3B labelColor, ccColor3B bgColor) {
 }
 
 CCSprite* createActionButtonSprite(char const* text) {
-    auto sprite = ButtonSprite::create(text, "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .42f);
+    auto sprite = ButtonSprite::create(text, "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .50f);
     return sprite;
 }
 
@@ -255,6 +255,10 @@ void UpdateModItem::refreshStatusTags(bool restartRequired) {
     m_tags = tags;
 }
 
+void UpdateModItem::updateWithoutConfirmation(IndexUpdateInfo update, std::function<void(bool)> callback) {
+    startUpdate(std::move(update), std::move(callback));
+}
+
 void UpdateModItem::onUpdate(CCObject*) {
     if (m_sources.size() <= 1) {
         if (!m_sources.empty()) {
@@ -272,8 +276,11 @@ void UpdateModItem::showSourcePicker() {
     })->show();
 }
 
-void UpdateModItem::startUpdate(IndexUpdateInfo update) {
-    if (!m_updateButton) return;
+void UpdateModItem::startUpdate(IndexUpdateInfo update, std::function<void(bool)> callback) {
+    if (!m_updateButton) {
+        if (callback) callback(false);
+        return;
+    }
     m_updateButton->setVisible(false);
     m_updateButton->setEnabled(false);
     m_progress = Slider::create(nullptr, nullptr);
@@ -289,7 +296,10 @@ void UpdateModItem::startUpdate(IndexUpdateInfo update) {
         info->addChild(m_progress, 5);
         m_progress->setPosition({82.f, 10.f});
     }
-    downloadIndexUpdate(update, [this, update](bool success) { finishUpdate(update, success); }, [this](float progress) { setProgress(progress); });
+    downloadIndexUpdate(update, [this, update, callback = std::move(callback)](bool success) mutable {
+        finishUpdate(update, success);
+        if (callback) callback(success);
+    }, [this](float progress) { setProgress(progress); });
 }
 
 void UpdateModItem::setProgress(float progress) { if (m_progress) m_progress->setValue(std::clamp(progress, 0.f, 1.f)); }
@@ -306,36 +316,6 @@ void UpdateModItem::finishUpdate(IndexUpdateInfo const& update, bool success) {
     m_update = update;
     refreshStatusTags(true);
     if (m_updateButton) { m_updateButton->setVisible(true); m_updateButton->setEnabled(true); }
-}
-
-UpdateModItem* UpdateModItem::createProgressTest() {
-    IndexUpdateInfo test;
-    test.modID = "devtools.progress-test";
-    test.modName = "DevTools Progress Test";
-    test.currentVersion = "1.0.0";
-    test.newVersion = "1.0.1";
-
-    auto ret = new UpdateModItem();
-    if (ret && ret->init(test, {test})) {
-        ret->m_updateButton->setVisible(false);
-        ret->m_updateButton->setEnabled(false);
-        if (ret->m_tags) ret->m_tags->setVisible(false);
-        if (ret->m_description) ret->m_description->setVisible(false);
-        ret->m_progress = Slider::create(nullptr, nullptr);
-        ret->m_progress->setID("update-progress-test");
-        ret->m_progress->m_touchLogic->m_thumb->setVisible(false);
-        ret->m_progress->setScale(.75f);
-        ret->m_progress->setValue(.5f);
-        ret->m_progress->setContentSize({120.f, 6.f});
-        if (auto info = ret->getChildByID("info-container")) {
-            info->addChild(ret->m_progress, 5);
-            ret->m_progress->setPosition({82.f, 10.f});
-        }
-        ret->autorelease();
-        return ret;
-    }
-    delete ret;
-    return nullptr;
 }
 
 UpdateModItem* UpdateModItem::create(IndexUpdateInfo update, std::vector<IndexUpdateInfo> sources) {
