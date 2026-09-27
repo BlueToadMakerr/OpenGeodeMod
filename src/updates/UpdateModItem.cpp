@@ -34,7 +34,7 @@ CCNode* makeTag(std::string text, ccColor3B labelColor, ccColor3B bgColor) {
 
 CCSprite* createActionButtonSprite(char const* text) {
     auto sprite = ButtonSprite::create(text, "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .40f);
-    sprite->setScale(.78f);
+    sprite->setScale(.74f);
     return sprite;
 }
 
@@ -70,7 +70,7 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
     m_sources = sortedSources(std::move(sources));
     m_mod = Loader::get()->getInstalledMod(m_update.modID);
 
-    setContentSize({330.f, 66.f});
+    setContentSize({330.f, 62.f});
     ignoreAnchorPointForPosition(false);
     setAnchorPoint({.5f, .5f});
     setID("update-mod-item");
@@ -86,40 +86,40 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
     if (!logo) logo = createServerModLogo(m_update.modID);
     if (!logo) logo = CCSprite::createWithSpriteFrameName("GJ_folderIcon_001.png");
     logo->setID("mod-logo");
-    logo->setScale(.49f);
-    addChildAtPosition(logo, Anchor::Left, {24.f, 0.f});
+    logo->setScale(.47f);
+    addChildAtPosition(logo, Anchor::Left, {23.f, 0.f});
 
     auto info = CCNode::create();
     info->setID("info-container");
-    info->setContentSize({172.f, 58.f});
+    info->setContentSize({172.f, 55.f});
     info->setAnchorPoint({0.f, .5f});
-    addChildAtPosition(info, Anchor::Left, {46.f, 0.f});
+    addChildAtPosition(info, Anchor::Left, {45.f, 0.f});
 
     auto title = CCLabelBMFont::create(m_update.modName.c_str(), "bigFont.fnt");
     title->setID("mod-name");
     title->setAnchorPoint({0.f, .5f});
-    title->setScale(.37f);
+    title->setScale(.36f);
     title->setColor(ccWHITE);
-    title->limitLabelWidth(112.f, .37f, .17f);
-    title->setPosition({0.f, 47.f});
+    title->limitLabelWidth(112.f, .36f, .17f);
+    title->setPosition({0.f, 44.f});
     info->addChild(title);
 
     auto version = CCLabelBMFont::create(fmt::format("v{} -> v{}", cleanVersion(m_update.currentVersion), cleanVersion(m_update.newVersion)).c_str(), "bigFont.fnt");
     version->setID("version-change");
     version->setAnchorPoint({0.f, .5f});
-    version->setScale(.255f);
+    version->setScale(.24f);
     version->setColor({102, 190, 255});
-    version->setPosition({title->getScaledContentWidth() + 4.f, 47.f});
+    version->setPosition({title->getScaledContentWidth() + 4.f, 44.f});
     info->addChild(version);
 
     auto developers = CCLabelBMFont::create("", "goldFont.fnt");
     developers->setAnchorPoint({0.f, .5f});
-    developers->setScale(.235f);
+    developers->setScale(.23f);
     developers->setColor(ccWHITE);
     if (m_mod) developers->setString(ModMetadata::formatDeveloperDisplayString(m_mod->getMetadata().getDevelopers()).c_str());
     else developers->setString("Unknown developer");
-    developers->limitLabelWidth(168.f, .235f, .15f);
-    developers->setPosition({0.f, 30.f});
+    developers->limitLabelWidth(168.f, .23f, .15f);
+    developers->setPosition({0.f, 29.f});
     info->addChild(developers);
 
     bool outdated = m_update.outdated;
@@ -153,7 +153,7 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
         auto description = CCLabelBMFont::create(descriptionText ? descriptionText->c_str() : "[No Description Provided]", "chatFont.fnt");
         description->setColor(descriptionText ? ccWHITE : ccGRAY);
         description->setAnchorPoint({0.f, .5f});
-        limitNodeWidth(description, 158.f, 1.f, .07f);
+        limitNodeWidth(description, 158.f, 1.f, .065f);
         description->setPosition({5.f, 7.f});
         descriptionBG->addChild(description);
         m_description = descriptionBG;
@@ -161,15 +161,16 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
 
     auto controls = CCMenu::create();
     controls->setID("controls");
-    controls->setContentSize({92.f, 30.f});
+    controls->setContentSize({88.f, 28.f});
     controls->setAnchorPoint({1.f, .5f});
     controls->setLayout(SimpleRowLayout::create()->setMainAxisAlignment(MainAxisAlignment::End)->setGap(2.f));
     addChildAtPosition(controls, Anchor::Right, {-4.f, 0.f});
 
-    auto updateSprite = CircleButtonSprite::createWithSpriteFrameName("geode.loader/baseCircle_Medium_DarkPurple.png", .62f, CircleBaseColor::DarkPurple, CircleBaseSize::Small);
+    auto updateIcon = CCSprite::createWithSpriteFrameName("geode.loader/update.png");
+    auto updateSprite = CircleButtonSprite::create(updateIcon, CircleBaseColor::DarkPurple, CircleBaseSize::Medium);
+    updateSprite->setScale(.67f);
     m_updateButton = CCMenuItemSpriteExtra::create(updateSprite, this, menu_selector(UpdateModItem::onUpdate));
     m_updateButton->setID("update-button");
-    m_updateButton->setScale(.72f);
     controls->addChild(m_updateButton);
 
     auto viewSprite = createActionButtonSprite("View");
@@ -222,9 +223,9 @@ void UpdateModItem::startUpdate(IndexUpdateInfo update) {
     m_progress = Slider::create(nullptr, nullptr);
     m_progress->setID("update-progress");
     m_progress->m_touchLogic->m_thumb->setVisible(false);
-    m_progress->setScale(1.05f);
+    m_progress->setScale(1.0f);
     m_progress->setValue(0.f);
-    m_progress->setContentSize({22.f, 8.f});
+    m_progress->setContentSize({21.f, 8.f});
     if (auto parent = m_updateButton->getParent()) { parent->addChild(m_progress, 5); m_progress->setPosition(m_updateButton->getPosition()); }
     downloadIndexUpdate(update, [this, update](bool success) { finishUpdate(update, success); }, [this](float progress) { setProgress(progress); });
 }
