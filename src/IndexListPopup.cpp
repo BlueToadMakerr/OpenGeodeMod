@@ -4,6 +4,7 @@
 #include "PopupSectionUtils.hpp"
 #include "PresetIndexPopup.hpp"
 #include "Settings.hpp"
+#include "IndexUpdates.hpp"
 
 #include <Geode/Geode.hpp>
 #include <Geode/ui/GeodeUI.hpp>
@@ -80,6 +81,23 @@ protected:
             label->setAnchorPoint({0.f, 0.5f});
             label->setPosition({4.f, rowHeight / 2});
             row->addChild(label);
+
+            auto updateCount = getIndexUpdateCount(entry.id);
+            if (updateCount > 0) {
+                auto updateIcon = CCSprite::createWithSpriteFrameName("updates-available.png"_spr);
+                updateIcon->setScale(0.4f);
+                updateIcon->setPosition({contentWidth - 132.f, rowHeight / 2});
+                row->addChild(updateIcon);
+
+                auto updateLabel = CCLabelBMFont::create(
+                    std::to_string(updateCount).c_str(),
+                    "bigFont.fnt"
+                );
+                updateLabel->setScale(0.3f);
+                updateLabel->setAnchorPoint({0.f, 0.5f});
+                updateLabel->setPosition({contentWidth - 122.f, rowHeight / 2});
+                row->addChild(updateLabel);
+            }
 
             auto useBtn = CCMenuItemExt::createSpriteExtra(
                 ButtonSprite::create("Use", "goldFont.fnt", getButtonTexture("GJ_button_01.png"), 0.5f),
