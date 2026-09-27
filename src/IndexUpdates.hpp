@@ -145,7 +145,7 @@ inline void fetchIndexUpdates(std::function<void()> callback = {}, bool force = 
                                 indexUpdates().push_back({
                                     entry.id, entry.name, id, it->second->getName(),
                                     it->second->getVersion().toVString(),
-                                    version, !it->second->isEnabled()
+                                    version, !it->second->isOrWillBeEnabled()
                                 });
                                 ++indexUpdateCounts()[entry.id];
                             }
