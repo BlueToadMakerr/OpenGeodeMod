@@ -47,7 +47,7 @@ bool UpdateSourcePopup::init() {
 
     auto sourceLabel = CCLabelBMFont::create(
         m_alwaysInstalledCallback
-            ? fmt::format("<cy>{}</c> has updates from multiple indexes", m_options.empty() ? "Unknown Mod" : m_options.front().modName).c_str()
+            ? fmt::format("{} has updates from multiple indexes", m_options.empty() ? "Unknown Mod" : m_options.front().modName).c_str()
             : "Choose an index to update from",
         "bigFont.fnt"
     );
@@ -62,9 +62,9 @@ bool UpdateSourcePopup::init() {
     CCMenu* actionMenu = nullptr;
     if (m_alwaysInstalledCallback) {
         actionMenu = CCMenu::create();
-        actionMenu->setAnchorPoint({.5f, .5f});
+        actionMenu->setAnchorPoint({0.f, 0.f});
         actionMenu->setContentSize({size.width, 34.f});
-        actionMenu->setPosition({size.width / 2.f, 20.f});
+        actionMenu->setPosition({0.f, 0.f});
 
         auto alwaysSprite = ButtonSprite::create(
             "Always Installed",
