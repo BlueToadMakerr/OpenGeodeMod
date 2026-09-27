@@ -59,7 +59,7 @@ protected:
         );
 
         auto updatesBtn = CCMenuItemExt::createSpriteExtra(
-            ButtonSprite::create("Updates", "goldFont.fnt", getButtonTexture("GJ_button_03.png"), 0.6f),
+            ButtonSprite::create("Updates", "goldFont.fnt", getButtonTexture("GE_button_01.png"), 0.6f),
             [](auto) { showUpdatesPopup(); }
         );
 
@@ -98,7 +98,9 @@ protected:
             float nameX = 4.f;
 
             if (updateCount > 0) {
-                auto updateIcon = CCSprite::createWithSpriteFrameName("geode.loader/updates-available.png"_spr);
+                auto updateIcon = CCSprite::createWithSpriteFrameName(
+                    "updates-available.png"_spr
+                );
                 updateIcon->setScale(0.4f);
                 updateIcon->setPosition({10.f, rowHeight / 2});
                 row->addChild(updateIcon);
@@ -107,11 +109,11 @@ protected:
                     std::to_string(updateCount).c_str(),
                     "bigFont.fnt"
                 );
-                updateLabel->setScale(0.3f);
-                updateLabel->setAnchorPoint({0.f, 0.5f});
-                updateLabel->setPosition({19.f, rowHeight / 2});
+                updateLabel->setScale(0.24f);
+                updateLabel->setAnchorPoint({0.5f, 0.5f});
+                updateLabel->setPosition(updateIcon->getPosition());
                 row->addChild(updateLabel);
-                nameX = 36.f;
+                nameX = 24.f;
             }
 
             auto label = CCLabelBMFont::create(
