@@ -296,12 +296,8 @@ protected:
         m_mainLayer->addChild(scroll);
 
         auto buttons = CCMenu::create();
-        buttons->setLayout(
-            SimpleRowLayout::create()
-                ->setMainAxisAlignment(MainAxisAlignment::Center)
-                ->setGap(6.f)
-        );
-        buttons->setContentSize({size.width - 20.f, 32.f});
+        buttons->setAnchorPoint({.5f, .5f});
+        buttons->setContentSize({size.width - 20.f, 36.f});
         buttons->setPosition({size.width / 2.f, 24.f});
 
         auto updateAllSprite = ButtonSprite::create(
@@ -332,6 +328,7 @@ protected:
         );
         updateAll->setID("update-all-button");
         updateAll->setEnabled(!activeBatch());
+        updateAll->setPosition({buttons->getContentWidth() / 2.f - updateAll->getScaledContentWidth() / 2.f - 3.f, 18.f});
         buttons->addChild(updateAll);
 
         auto restartSprite = ButtonSprite::create(
@@ -349,6 +346,7 @@ protected:
         restart->setID("restart-button");
         restart->setVisible(!completedIndexUpdates().empty());
         restart->setEnabled(!completedIndexUpdates().empty());
+        restart->setPosition({buttons->getContentWidth() / 2.f + restart->getScaledContentWidth() / 2.f + 3.f, 18.f});
         buttons->addChild(restart);
 
         m_mainLayer->addChild(buttons, 10);
