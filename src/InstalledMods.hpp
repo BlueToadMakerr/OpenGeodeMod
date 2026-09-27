@@ -50,6 +50,38 @@ inline void setInstalledModSource(std::string const& modID, std::string const& v
     writeSetting(prefix + "-index-name", indexName);
     writeSetting(prefix + "-index-url", indexUrl);
     writeSetting(prefix + "-version", version);
+    deleteSetting(prefix + "-updated");
+}
+
+inline void setInstalledModSource(
+    std::string const& modID,
+    std::string const& version,
+    std::string const& indexId,
+    bool updated
+) {
+    if (modID.empty() || version.empty() || indexId.empty()) return;
+
+    auto prefix = installedModSettingPrefix(modID);
+    auto indexName = indexId;
+    auto indexUrl = std::string();
+
+    for (auto const& entry : getAllIndexes()) {
+        if (entry.id == indexId) {
+            indexName = entry.name;
+            indexUrl = entry.url;
+            break;
+        }
+    }
+
+    writeSetting(prefix + "-index-id", indexId);
+    writeSetting(prefix + "-index-name", indexName);
+    writeSetting(prefix + "-index-url", indexUrl);
+    writeSetting(prefix + "-version", version);
+    writeSetting(prefix + "-updated", updated ? "1" : "0");
+}
+
+inline bool wasModUpdatedFromIndex(std::string const& modID) {
+    return readSetting(installedModSettingPrefix(modID) + "-updated", "0") == "1";
 }
 
 inline std::optional<InstalledModSource> getInstalledModSource(std::string const& modID) {
