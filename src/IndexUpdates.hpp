@@ -225,7 +225,10 @@ inline void inferOriginalIndexSources(std::function<void()> callback = {}) {
     auto updates = indexUpdates();
     std::unordered_set<std::string> modIDs;
     for (auto const& update : updates) {
-        if (readSetting("mod-source-index-" + update.modID, "").empty())
+        if (
+            readSetting("mod-source-index-" + update.modID, "").empty() &&
+            readSetting("mod-source-candidates-" + update.modID, "").empty()
+        )
             modIDs.insert(update.modID);
     }
 
