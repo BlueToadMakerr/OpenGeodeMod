@@ -54,15 +54,17 @@ bool UpdateSourcePopup::init() {
     auto listBG = NineSlice::create(getSectionBackground());
     listBG->setContentSize({size.width - 24.f, size.height - 68.f});
     listBG->setOpacity(70);
+    listBG->setColor({0, 0, 0});
     listBG->setPosition({size.width / 2.f, size.height / 2.f - 7.f});
     m_mainLayer->addChild(listBG);
 
     auto scroll = ScrollLayer::create({size.width - 38.f, size.height - 82.f});
     scroll->setPosition({19.f, 20.f});
     scroll->m_contentLayer->setContentWidth(scroll->getContentWidth());
+    scroll->m_contentLayer->setAnchorPoint({.5f, .5f});
 
-    constexpr float rowHeight = 48.f;
-    constexpr float gap = 4.f;
+    constexpr float rowHeight = 45.f;
+    constexpr float gap = 3.f;
     auto contentHeight = std::max(scroll->getContentHeight(), static_cast<float>(m_options.size()) * (rowHeight + gap) + gap);
     scroll->m_contentLayer->setContentSize({scroll->getContentWidth(), contentHeight});
 
@@ -81,14 +83,14 @@ bool UpdateSourcePopup::init() {
         title->setAnchorPoint({0.f, .5f});
         title->setScale(.31f);
         title->limitLabelWidth(175.f, .31f, .16f);
-        title->setPosition({8.f, 33.f});
+        title->setPosition({8.f, 31.f});
         row->addChild(title);
 
         auto versions = CCLabelBMFont::create(fmt::format("v{} -> v{}", cleanVersion(option.currentVersion), cleanVersion(option.newVersion)).c_str(), "bigFont.fnt");
         versions->setAnchorPoint({0.f, .5f});
         versions->setScale(.23f);
         versions->setColor({102, 190, 255});
-        versions->setPosition({8.f, 20.f});
+        versions->setPosition({8.f, 19.f});
         row->addChild(versions);
 
         if (isOriginalSource(modID, option.indexID)) {
@@ -98,8 +100,8 @@ bool UpdateSourcePopup::init() {
             row->addChild(installed, 2);
         }
 
-        auto updateSprite = ButtonSprite::create("Update", "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .42f);
-        updateSprite->setScale(.78f);
+        auto updateSprite = ButtonSprite::create("Update", "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .40f);
+        updateSprite->setScale(.74f);
         auto button = CCMenuItemExt::createSpriteExtra(updateSprite, [this, option](CCMenuItemSpriteExtra*) {
             auto callback = std::move(m_callback);
             this->onClose(nullptr);
