@@ -22,13 +22,13 @@ bool isOriginalSource(std::string const& modID, std::string const& indexID) {
     return source && source->indexId == indexID;
 }
 
-CCNode* makeStatusTag(std::string text) {
+CCNode* makeStatusTag(std::string text, bool updated) {
     auto label = CCLabelBMFont::create(text.c_str(), "bigFont.fnt");
     label->setScale(.19f);
-    label->setColor({120, 255, 150});
+    label->setColor(updated ? ccColor3B{120, 190, 255} : ccColor3B{120, 255, 150});
     auto tag = NineSlice::create("square02_001.png");
     tag->setContentSize({label->getScaledContentWidth() + 9.f, 13.f});
-    tag->setColor({70, 125, 80});
+    tag->setColor(updated ? ccColor3B{65, 100, 145} : ccColor3B{70, 125, 80});
     tag->setOpacity(190);
     tag->addChildAtPosition(label, Anchor::Center);
     return tag;
@@ -94,7 +94,8 @@ bool UpdateSourcePopup::init() {
         row->addChild(versions);
 
         if (isOriginalSource(modID, option.indexID)) {
-            auto installed = makeStatusTag("Installed From");
+            auto updated = wasModUpdatedFromIndex(modID);
+            auto installed = makeStatusTag(updated ? "Updated From" : "Installed From", updated);
             installed->setAnchorPoint({0.f, .5f});
             installed->setPosition({8.f, 7.f});
             row->addChild(installed, 2);
