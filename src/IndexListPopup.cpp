@@ -99,9 +99,9 @@ protected:
 
             if (updateCount > 0) {
                 auto updateIcon = CCSprite::createWithSpriteFrameName(
-                    "geode.loader/update-available.png"
+                    "geode.loader/updates-available.png"
                 );
-                updateIcon->setScale(0.4f);
+                updateIcon->setScale(0.5f);
                 updateIcon->setPosition({10.f, rowHeight / 2});
                 row->addChild(updateIcon);
 
@@ -109,7 +109,7 @@ protected:
                     std::to_string(updateCount).c_str(),
                     "bigFont.fnt"
                 );
-                updateLabel->setScale(0.24f);
+                updateLabel->setScale(0.28f);
                 updateLabel->setAnchorPoint({0.5f, 0.5f});
                 updateLabel->setPosition(updateIcon->getPosition());
                 row->addChild(updateLabel);
