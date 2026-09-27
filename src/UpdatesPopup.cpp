@@ -326,6 +326,17 @@ class UpdateSourcePopup : public Popup {
                     button->getContentSize().width - 12.f,
                     button->getContentSize().height / 2.f
                 }, 0.35f);
+
+                if (!originalVersion.empty() && originalVersion == option.currentVersion) {
+                    auto current = CCLabelBMFont::create("Installed", "bigFont.fnt");
+                    current->setScale(0.18f);
+                    current->setAnchorPoint({1.f, 0.5f});
+                    current->setPosition({
+                        button->getContentSize().width - 18.f,
+                        button->getContentSize().height / 2.f - 10.f
+                    });
+                    button->addChild(current, 6);
+                }
             }
 
             menu->addChild(button);
@@ -464,7 +475,9 @@ protected:
 
             addStatusTags(row, group, 40.f, rowHeight - 45.f);
 
-                {
+            group.row = row;
+
+            {
                 auto updateSprite = CCSprite::createWithSpriteFrameName(
                     "geode.loader/update.png"
                 );
@@ -493,7 +506,6 @@ protected:
                 }
             }
 
-            group.row = row;
             float progressY = rowHeight - 82.f;
             for (auto const* update : group.indexes) {
                 auto version = CCLabelBMFont::create(
