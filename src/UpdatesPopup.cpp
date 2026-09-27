@@ -343,7 +343,7 @@ protected:
         auto restart = CCMenuItemExt::createSpriteExtra(
             restartSprite,
             [](CCMenuItemSpriteExtra*) {
-                game::restart();
+                game::restart(true);
             }
         );
         restart->setID("restart-button");
