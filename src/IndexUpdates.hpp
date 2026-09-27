@@ -242,6 +242,7 @@ inline void inferOriginalIndexSources(std::function<void()> callback = {}) {
         std::function<void()> callback;
         std::unordered_map<std::string, std::vector<std::string>> matches;
         std::unordered_map<std::string, std::string> versions;
+        std::unordered_set<std::string> checked;
     };
     auto state = std::make_shared<State>();
     state->callback = std::move(callback);
@@ -258,6 +259,10 @@ inline void inferOriginalIndexSources(std::function<void()> callback = {}) {
 
         auto version = mod->getVersion().toVString();
         state->versions[modID] = version;
+        if (readSetting("mod-source-checked-version-" + modID, "") == version) {
+            state->checked.insert(modID);
+            continue;
+        }
 
         for (auto const& index : indexes) {
             auto base = index.url;
@@ -290,7 +295,10 @@ inline void inferOriginalIndexSources(std::function<void()> callback = {}) {
                             } else if (matches.size() > 1) {
                                 writeSetting("mod-source-candidates-" + id, joinCSV(matches));
                             }
+                            writeSetting("mod-source-checked-version-" + id, state->versions[id]);
                         }
+                        for (auto const& id : state->checked)
+                            writeSetting("mod-source-checked-version-" + id, state->versions[id]);
 
                         if (state->callback)
                             state->callback();
@@ -300,8 +308,11 @@ inline void inferOriginalIndexSources(std::function<void()> callback = {}) {
         }
     }
 
-    if (state->pending == 0 && state->callback)
-        state->callback();
+    if (state->pending == 0) {
+        for (auto const& id : state->checked)
+            writeSetting("mod-source-checked-version-" + id, state->versions[id]);
+        if (state->callback) state->callback();
+    }
 }
 
 inline std::unordered_set<std::string>& completedIndexUpdates() {
