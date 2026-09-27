@@ -34,7 +34,6 @@ CCNode* makeTag(std::string text, ccColor3B labelColor, ccColor3B bgColor) {
 
 CCSprite* createActionButtonSprite(char const* text) {
     auto sprite = ButtonSprite::create(text, "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .30f);
-    sprite->setScale(.95f);
     return sprite;
 }
 
@@ -173,7 +172,6 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
     controls->addChild(m_updateButton);
 
     auto viewSprite = createActionButtonSprite("View");
-    viewSprite->setContentWidth(50.f);
     auto view = CCMenuItemSpriteExtra::create(viewSprite, this, menu_selector(UpdateModItem::onView));
     view->setID("view-button");
     controls->addChild(view);
@@ -253,7 +251,7 @@ void UpdateModItem::startUpdate(IndexUpdateInfo update) {
     m_progress->m_touchLogic->m_thumb->setVisible(false);
     m_progress->setScale(1.0f);
     m_progress->setValue(0.f);
-    m_progress->setContentSize({164.f, 8.f});
+    m_progress->setContentSize({120.f, 6.f});
     if (m_tags) m_tags->setVisible(false);
     if (m_description) m_description->setVisible(false);
     auto info = getChildByID("info-container");
