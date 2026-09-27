@@ -73,6 +73,8 @@ CCNode* makeStatusTag(GroupedUpdate const& update) {
     return tag;
 }
 
+} // namespace
+
 class UpdatesPopup : public Popup {
 protected:
     bool init() {
