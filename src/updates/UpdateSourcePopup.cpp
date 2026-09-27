@@ -2,6 +2,7 @@
 
 #include "../InstalledMods.hpp"
 #include "../Settings.hpp"
+#include "../PopupSectionUtils.hpp"
 
 #include <Geode/ui/ScrollLayer.hpp>
 #include <Geode/ui/GeodeUI.hpp>
