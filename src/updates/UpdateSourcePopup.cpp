@@ -51,6 +51,23 @@ bool UpdateSourcePopup::init() {
     sourceLabel->setPosition({size.width / 2.f, size.height - 33.f});
     m_mainLayer->addChild(sourceLabel);
 
+    if (m_alwaysInstalledCallback) {
+        auto alwaysSprite = ButtonSprite::create(
+            "Always Installed",
+            "bigFont.fnt",
+            getButtonTexture("GJ_button_01.png"),
+            .25f
+        );
+        auto alwaysButton = CCMenuItemExt::createSpriteExtra(alwaysSprite, [this](CCMenuItemSpriteExtra*) {
+            m_selected = true;
+            auto callback = std::move(m_alwaysInstalledCallback);
+            this->onClose(nullptr);
+            if (callback) callback();
+        });
+        alwaysButton->setPosition({size.width - 70.f, size.height - 33.f});
+        m_mainLayer->addChild(alwaysButton, 5);
+    }
+
     auto listBG = NineSlice::create(getSectionBackground());
     listBG->setContentSize({size.width - 24.f, size.height - 68.f});
     listBG->setOpacity(70);
@@ -136,12 +153,14 @@ void UpdateSourcePopup::onClose(CCObject* sender) {
 UpdateSourcePopup* UpdateSourcePopup::create(
     std::vector<IndexUpdateInfo> options,
     std::function<void(IndexUpdateInfo)> callback,
-    std::function<void()> closeCallback
+    std::function<void()> closeCallback,
+    std::function<void()> alwaysInstalledCallback
 ) {
     auto ret = new UpdateSourcePopup();
     ret->m_options = std::move(options);
     ret->m_callback = std::move(callback);
     ret->m_closeCallback = std::move(closeCallback);
+    ret->m_alwaysInstalledCallback = std::move(alwaysInstalledCallback);
     if (ret && ret->init()) { ret->autorelease(); return ret; }
     delete ret;
     return nullptr;
