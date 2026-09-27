@@ -333,9 +333,10 @@ protected:
             getButtonTexture("GJ_button_01.png"),
             .42f
         );
-        auto updateAll = CCMenuItemExt::createSpriteExtra(
+        CCMenuItemSpriteExtra* updateAll = nullptr;
+        updateAll = CCMenuItemExt::createSpriteExtra(
             updateAllSprite,
-            [groups, items](CCMenuItemSpriteExtra*) {
+            [groups, items, &updateAll](CCMenuItemSpriteExtra*) {
                 if (groups.empty() || activeBatch()) return;
 
                 createQuickPopup(
