@@ -20,6 +20,24 @@ class CommentsTabWatcher : public CCNode {
         return true;
     }
 
+    void finishTabClick(float) {
+        if (!m_popup) return;
+        auto tabs = m_popup->getChildByIDRecursive("tabs-menu");
+        auto comments = tabs ? typeinfo_cast<CCMenuItemSpriteExtra*>(
+            tabs->getChildByID("opengeode-comments-tab")
+        ) : nullptr;
+        auto descriptionTab = tabs ? typeinfo_cast<CCMenuItemSpriteExtra*>(
+            tabs->getChildByID("description")
+        ) : nullptr;
+        auto changelogTab = tabs ? typeinfo_cast<CCMenuItemSpriteExtra*>(
+            tabs->getChildByID("changelog")
+        ) : nullptr;
+        if (!comments) return;
+        if ((descriptionTab && descriptionTab->isSelected()) ||
+            (changelogTab && changelogTab->isSelected()))
+            clearCommentsTab(m_popup);
+    }
+
     void update(float) override {
         if (!m_popup) return;
 
@@ -36,11 +54,12 @@ class CommentsTabWatcher : public CCNode {
             tabs->getChildByID("changelog")
         );
 
-        if (descriptionTab && descriptionTab->isSelected()) {
-            clearCommentsTab(m_popup);
-        }
-        else if (changelogTab && changelogTab->isSelected()) {
-            clearCommentsTab(m_popup);
+        // Geode marks a tab selected as soon as the pointer goes down. Delay
+        // the check until the click has had time to finish so the comments
+        // tab does not disappear on mouse-down.
+        if ((descriptionTab && descriptionTab->isSelected()) ||
+            (changelogTab && changelogTab->isSelected())) {
+            scheduleOnce(schedule_selector(CommentsTabWatcher::finishTabClick), 0.08f);
         }
     }
 
