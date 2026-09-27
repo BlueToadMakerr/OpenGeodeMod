@@ -45,18 +45,31 @@ bool UpdateSourcePopup::init() {
     auto size = m_mainLayer->getScaledContentSize();
     auto modID = m_options.empty() ? "" : m_options.front().modID;
 
-    auto sourceLabel = CCLabelBMFont::create("Choose an index to update from", "bigFont.fnt");
+    auto sourceLabel = CCLabelBMFont::create(
+        m_alwaysInstalledCallback
+            ? fmt::format("<cy>{}</c> has updates from multiple indexes", modID).c_str()
+            : "Choose an index to update from",
+        "bigFont.fnt"
+    );
     sourceLabel->setScale(.25f);
     sourceLabel->setColor(ccGRAY);
-    sourceLabel->setPosition({size.width / 2.f, size.height - 33.f});
+    sourceLabel->setPosition({
+        size.width / 2.f,
+        m_alwaysInstalledCallback ? size.height - 29.f : size.height - 33.f
+    });
     m_mainLayer->addChild(sourceLabel);
 
+    CCMenu* actionMenu = nullptr;
     if (m_alwaysInstalledCallback) {
+        actionMenu = CCMenu::create();
+        actionMenu->setPosition({size.width / 2.f, 20.f});
+        actionMenu->setContentSize({size.width - 24.f, 30.f});
+
         auto alwaysSprite = ButtonSprite::create(
             "Always Installed",
             "bigFont.fnt",
             getButtonTexture("GJ_button_01.png"),
-            .25f
+            .36f
         );
         auto alwaysButton = CCMenuItemExt::createSpriteExtra(alwaysSprite, [this](CCMenuItemSpriteExtra*) {
             m_selected = true;
@@ -64,19 +77,32 @@ bool UpdateSourcePopup::init() {
             this->onClose(nullptr);
             if (callback) callback();
         });
-        alwaysButton->setPosition({size.width - 70.f, size.height - 33.f});
-        m_mainLayer->addChild(alwaysButton, 5);
+        alwaysButton->setPosition({actionMenu->getContentWidth() / 2.f, actionMenu->getContentHeight() / 2.f});
+        actionMenu->addChild(alwaysButton);
+        m_mainLayer->addChild(actionMenu, 10);
     }
 
     auto listBG = NineSlice::create(getSectionBackground());
-    listBG->setContentSize({size.width - 24.f, size.height - 68.f});
+    listBG->setContentSize({
+        size.width - 24.f,
+        m_alwaysInstalledCallback ? size.height - 78.f : size.height - 68.f
+    });
     listBG->setOpacity(70);
     listBG->setColor({0, 0, 0});
-    listBG->setPosition({size.width / 2.f, size.height / 2.f - 7.f});
+    listBG->setPosition({
+        size.width / 2.f,
+        m_alwaysInstalledCallback ? size.height / 2.f - 12.f : size.height / 2.f - 7.f
+    });
     m_mainLayer->addChild(listBG);
 
-    auto scroll = ScrollLayer::create({size.width - 38.f, size.height - 82.f});
-    scroll->setPosition({19.f, 20.f});
+    auto scroll = ScrollLayer::create({
+        size.width - 38.f,
+        m_alwaysInstalledCallback ? size.height - 92.f : size.height - 82.f
+    });
+    scroll->setPosition({
+        19.f,
+        m_alwaysInstalledCallback ? 30.f : 20.f
+    });
     scroll->m_contentLayer->setContentWidth(scroll->getContentWidth());
         constexpr float rowHeight = 43.f;
     constexpr float gap = 1.f;
