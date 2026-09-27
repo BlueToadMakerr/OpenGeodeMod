@@ -5,6 +5,8 @@
 #include <Geode/Geode.hpp>
 #include <Geode/utils/async.hpp>
 #include <Geode/utils/web.hpp>
+#include <Geode/loader/Dirs.hpp>
+#include <Geode/utils/file.hpp>
 
 #include <algorithm>
 #include <cctype>
@@ -50,7 +52,7 @@ inline bool& indexUpdatesLoading() {
     return loading;
 }
 
-inline int getIndexUpdateCount(std::string const& id) {
+inline int getTotalUpdateCount() {\n    int total = 0;\n    for (auto const& [_, count] : indexUpdateCounts()) total += count;\n    return total;\n}\n\ninline int getIndexUpdateCount(std::string const& id) {
     auto it = indexUpdateCounts().find(id);
     return it == indexUpdateCounts().end() ? -1 : it->second;
 }
