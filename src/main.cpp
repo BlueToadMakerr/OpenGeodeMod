@@ -53,8 +53,8 @@ $on_mod(Loaded) {
                 return ListenerResult::Propagate;
             }
 
-            // Track versioned downloads, including those created by the native
-            // Geode install flow after a pending-version override.
+            // Track versioned downloads, including updates performed through
+            // the normal Geode mod installer.
             auto versionedPos = givenUrl.find(modsPath);
             if (versionedPos != std::string::npos) {
                 auto versionedModStart = versionedPos + modsPath.size();
@@ -66,7 +66,18 @@ $on_mod(Loaded) {
                         auto modID = givenUrl.substr(versionedModStart, versionMarker - versionedModStart);
                         auto version = givenUrl.substr(versionStart, downloadPos - versionStart);
                         if (!modID.empty() && !version.empty()) {
-                            setInstalledModSource(modID, version);
+                            if (getInstalledModSource(modID).has_value()) {
+                                setInstalledModSource(
+                                    modID,
+                                    version,
+                                    getActiveIndexId(),
+                                    true
+                                );
+                                invalidateIndexUpdateCache();
+                            }
+                            else {
+                                setInstalledModSource(modID, version);
+                            }
                         }
                     }
                 }
