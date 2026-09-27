@@ -87,6 +87,187 @@ void addStatusTags(CCNode* row, GroupedUpdate const& update, float x, float y) {
     }
 }
 
+
+
+std::string getOriginalSourceName(std::string const& modID) {
+    auto source = readSetting("mod-source-index-" + modID, "");
+    if (source.empty())
+        return "Unknown";
+
+    auto indexes = getAllIndexes();
+    auto it = std::find_if(indexes.begin(), indexes.end(), [&](auto const& entry) {
+        return entry.id == source;
+    });
+    return it != indexes.end() ? it->name : source;
+}
+
+void confirmIndexUpdate(IndexUpdateInfo update, CCNode* row = nullptr, std::function<void(bool)> finished = {}) {
+    auto source = readSetting("mod-source-index-" + update.modID, "");
+
+    std::string warning;
+    if (source.empty()) {
+        warning =
+            "\n\n<cr>The original index this mod was installed from is unknown.</c>"
+            "\nIt will be updated from <cy>" + update.indexName + "</c>.";
+    } else if (source != update.indexID) {
+        warning = fmt::format(
+            "\n\n<cr>Originally downloaded from <cy>{}</c>.</cr>"
+            "\nIt will be updated from <cy>{}</c> instead.",
+            getOriginalSourceName(update.modID),
+            update.indexName
+        );
+    }
+
+    createQuickPopup(
+        "Update Mod",
+        fmt::format(
+            "Update <cy>{}</c> from <cg>{}</c>?\n"
+            "Version: <cy>{}</c> -> <cg>{}</c>{}",
+            update.modName,
+            update.indexName,
+            update.currentVersion,
+            update.newVersion,
+            warning
+        ),
+        "Cancel",
+        "Update",
+        [update = std::move(update), row, finished = std::move(finished)](auto, bool confirmed) mutable {
+            if (!confirmed) {
+                if (finished) finished(false);
+                return;
+            }
+
+            if (row) row->retain();
+            downloadIndexUpdate(
+                update,
+                [row, finished = std::move(finished)](bool success) mutable {
+                    if (success && row && row->getParent()) {
+                        auto restart = makeStatusTag(
+                            "Restart Required",
+                            {153, 245, 245}
+                        );
+                        restart->setAnchorPoint({0.f, 0.5f});
+                        restart->setPosition({150.f, 25.f});
+                        row->addChild(restart);
+                    }
+
+                    if (success) {
+                        Notification::create(
+                            "Update downloaded — restart required",
+                            NotificationIcon::Success,
+                            3.f
+                        )->show();
+                    } else {
+                        Notification::create(
+                            "Failed to download update",
+                            NotificationIcon::Error,
+                            3.f
+                        )->show();
+                    }
+
+                    if (row) row->release();
+                    if (finished) finished(success);
+                }
+            );
+        },
+        true
+    );
+}
+
+class UpdateSourcePopup : public Popup {
+    std::vector<IndexUpdateInfo> m_options;
+    std::function<void(IndexUpdateInfo)> m_callback;
+
+    bool init() {
+        if (!Popup::init(320.f, 250.f, getPopupBackground()))
+            return false;
+
+        setTitle("Choose Update Source");
+
+        if (auto close = createGeodeCloseButton())
+            setCloseButtonSpr(close, 0.875f);
+
+        auto size = m_mainLayer->getScaledContentSize();
+
+        auto original = CCLabelBMFont::create(
+            fmt::format("Originally downloaded from: {}", getOriginalSourceName(m_options.front().modID)).c_str(),
+            "bigFont.fnt"
+        );
+        original->setScale(0.27f);
+        original->setAnchorPoint({0.5f, 0.5f});
+        original->setPosition({size.width / 2.f, size.height - 38.f});
+        m_mainLayer->addChild(original);
+
+        auto menu = CCMenu::create();
+        menu->setContentSize({size.width - 30.f, size.height - 75.f});
+        menu->setPosition({15.f, 15.f});
+        menu->setLayout(ColumnLayout::create()->setGap(6.f));
+
+        for (auto const& option : m_options) {
+            auto button = CCMenuItemExt::createSpriteExtra(
+                ButtonSprite::create(
+                    fmt::format("{}  {} -> {}", option.indexName, option.currentVersion, option.newVersion).c_str(),
+                    "goldFont.fnt",
+                    getButtonTexture("GE_button_01.png"),
+                    0.48f
+                ),
+                [this, option](auto) {
+                    auto callback = std::move(m_callback);
+                    this->onClose(nullptr);
+                    if (callback)
+                        callback(option);
+                }
+            );
+            menu->addChild(button);
+        }
+
+        menu->updateLayout();
+        m_mainLayer->addChild(menu);
+        return true;
+    }
+
+public:
+    static UpdateSourcePopup* create(
+        std::vector<IndexUpdateInfo> options,
+        std::function<void(IndexUpdateInfo)> callback
+    ) {
+        auto ret = new UpdateSourcePopup();
+        ret->m_options = std::move(options);
+        ret->m_callback = std::move(callback);
+        if (ret && ret->init()) {
+            ret->autorelease();
+            return ret;
+        }
+        delete ret;
+        return nullptr;
+    }
+};
+
+void chooseUpdateSource(
+    GroupedUpdate const& group,
+    CCNode* row = nullptr,
+    std::function<void(bool)> finished = {}
+) {
+    if (group.indexes.size() <= 1) {
+        if (!group.indexes.empty())
+            confirmIndexUpdate(*group.indexes.front(), row, std::move(finished));
+        else if (finished)
+            finished(false);
+        return;
+    }
+
+    std::vector<IndexUpdateInfo> options;
+    for (auto const* update : group.indexes)
+        options.push_back(*update);
+
+    UpdateSourcePopup::create(
+        std::move(options),
+        [row, finished = std::move(finished)](IndexUpdateInfo selected) mutable {
+            confirmIndexUpdate(std::move(selected), row, std::move(finished));
+        }
+    )->show();
+}
+
 class UpdatesPopup : public Popup {
 protected:
     bool init() {
@@ -107,14 +288,14 @@ protected:
         totalLabel->setPosition({size.width / 2.f, size.height - 34.f});
         m_mainLayer->addChild(totalLabel);
 
-        auto scrollSize = CCSize{size.width - 20.f, size.height - 82.f};
+        auto scrollSize = CCSize{size.width - 20.f, size.height - 112.f};
 
         auto scrollBackground = NineSlice::create("square02_001.png");
         scrollBackground->setContentSize(scrollSize);
         scrollBackground->setAnchorPoint({0.5f, 0.5f});
         scrollBackground->setPosition({
             size.width / 2.f,
-            40.f + scrollSize.height / 2.f
+            55.f + scrollSize.height / 2.f
         });
         scrollBackground->setOpacity(50);
         m_mainLayer->addChild(scrollBackground);
@@ -126,7 +307,7 @@ protected:
         scroll->setAnchorPoint({0.5f, 0.5f});
         scroll->setPosition({
             size.width / 2.f - scroll->getContentSize().width / 2.f,
-            40.f
+            55.f
         });
         m_mainLayer->addChild(scroll);
 
@@ -144,7 +325,7 @@ protected:
             float rowHeight = 70.f + static_cast<float>(group.indexes.size()) * 27.f;
             y -= rowHeight;
 
-            auto row = CCNode::create();
+            auto row = CCMenu::create();
             row->setContentSize({scroll->getContentSize().width, rowHeight});
             row->setPosition({0.f, y});
 
@@ -201,90 +382,16 @@ protected:
                     auto updateButton = CCMenuItemExt::createSpriteExtra(
                         circle,
                         [updateCopy = *update, row](auto) {
-                            auto source = readSetting(
-                                "mod-source-index-" + updateCopy.modID,
-                                ""
-                            );
-
-                            std::string warning;
-                            if (source.empty()) {
-                                warning =
-                                    "\n\n<cr>The original index this mod was installed from is unknown.</c>"
-                                    "\nThis update will be installed from <cy>" + updateCopy.indexName + "</c>.";
-                            } else if (source != updateCopy.indexID) {
-                                auto indexes = getAllIndexes();
-                                auto sourceIt = std::find_if(
-                                    indexes.begin(),
-                                    indexes.end(),
-                                    [&](auto const& entry) {
-                                        return entry.id == source;
-                                    }
-                                );
-                                auto sourceName = sourceIt != indexes.end()
-                                    ? sourceIt->name
-                                    : source;
-
-                                warning = fmt::format(
-                                    "\n\n<cr>This mod was originally installed from {}.</c>"
-                                    "\nIt is being updated from <cy>{}</c> instead.",
-                                    sourceName,
-                                    updateCopy.indexName
-                                );
-                            }
-
-                            createQuickPopup(
-                                "Update Mod",
-                                fmt::format(
-                                    "Update <cy>{}</c> from <cg>{}</c>?\n"
-                                    "Version: <cy>{}</c> -> <cg>{}</c>{}",
-                                    updateCopy.modName,
-                                    updateCopy.indexName,
-                                    updateCopy.currentVersion,
-                                    updateCopy.newVersion,
-                                    warning
-                                ),
-                                "Cancel",
-                                "Update",
-                                [updateCopy, row](auto, bool confirmed) {
-                                    if (!confirmed) return;
-
-                                    row->retain();
-                                    downloadIndexUpdate(
-                                        updateCopy,
-                                        [row](bool success) {
-                                            if (success && row->getParent()) {
-                                                auto restart = makeStatusTag(
-                                                    "Restart Required",
-                                                    {153, 245, 245}
-                                                );
-                                                restart->setAnchorPoint({0.f, 0.5f});
-                                                restart->setPosition({150.f, 25.f});
-                                                row->addChild(restart);
-                                            }
-
-                                            if (success) {
-                                                Notification::create(
-                                                    "Update downloaded — restart required",
-                                                    NotificationIcon::Success,
-                                                    3.f
-                                                )->show();
-                                            } else {
-                                                Notification::create(
-                                                    "Failed to download update",
-                                                    NotificationIcon::Error,
-                                                    3.f
-                                                )->show();
-                                            }
-
-                                            row->release();
-                                        }
-                                    );
-                                },
-                                true
-                            );
+                            GroupedUpdate group;
+                            group.modID = updateCopy.modID;
+                            group.modName = updateCopy.modName;
+                            group.currentVersion = updateCopy.currentVersion;
+                            group.disabled = updateCopy.disabled;
+                            group.outdated = updateCopy.outdated;
+                            group.indexes = {&updateCopy};
+                            chooseUpdateSource(group, row);
                         }
                     );
-
                     updateButton->setScale(0.55f);
                     updateButton->setPosition({
                         scroll->getContentSize().width - 17.f,
@@ -317,6 +424,38 @@ protected:
             totalHeight
         });
         scroll->scrollToTop();
+
+        auto updateAllButton = CCMenuItemExt::createSpriteExtra(
+            ButtonSprite::create(
+                "Update All",
+                "goldFont.fnt",
+                getButtonTexture("GE_button_01.png"),
+                0.55f
+            ),
+            [groups](auto) {
+                auto sharedGroups = std::make_shared<std::vector<GroupedUpdate>>(groups);
+                auto runNext = std::make_shared<std::function<void(size_t)>>();
+                *runNext = [sharedGroups, runNext](size_t index) {
+                    if (index >= sharedGroups->size())
+                        return;
+
+                    chooseUpdateSource(
+                        (*sharedGroups)[index],
+                        nullptr,
+                        [runNext, index](bool) {
+                            (*runNext)(index + 1);
+                        }
+                    );
+                };
+                (*runNext)(0);
+            }
+        );
+
+        auto bottomMenu = CCMenu::create();
+        bottomMenu->setPosition({size.width / 2.f, 18.f});
+        bottomMenu->addChild(updateAllButton);
+        bottomMenu->updateLayout();
+        m_mainLayer->addChild(bottomMenu);
 
         return true;
     }
