@@ -10,6 +10,8 @@
 #include <Geode/Geode.hpp>
 #include <Geode/ui/SceneEvent.hpp>
 #include <Geode/utils/web.hpp>
+#include <Geode/loader/ModEvent.hpp>
+#include <Geode/loader/ModDownload.hpp>
 
 #include <algorithm>
 #include <string>
