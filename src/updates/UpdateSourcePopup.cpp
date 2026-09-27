@@ -12,143 +12,120 @@ using namespace geode::prelude;
 namespace opengeode {
 namespace {
 
-std::vector<std::string> getSourceCandidates(std::string const& modID) {
-    if (auto source = getInstalledModSource(modID)) {
-        if (!source->indexId.empty()) return {source->indexId};
-    }
-    return splitCSV(readSetting("mod-source-candidates-" + modID, ""));
+std::string cleanVersion(std::string value) {
+    if (!value.empty() && value.front() == 'v') value.erase(value.begin());
+    return value;
 }
 
-std::string getSourceNames(std::string const& modID) {
-    auto candidates = getSourceCandidates(modID);
-    if (candidates.empty()) return "Unknown";
-
-    auto indexes = getAllIndexes();
-    std::string result;
-    for (auto const& id : candidates) {
-        auto it = std::find_if(indexes.begin(), indexes.end(), [&](auto const& entry) {
-            return entry.id == id;
-        });
-        if (!result.empty()) result += " / ";
-        result += it != indexes.end() ? it->name : id;
-    }
-    return result;
+bool isOriginalSource(std::string const& modID, std::string const& indexID) {
+    auto source = getInstalledModSource(modID);
+    return source && source->indexId == indexID;
 }
 
-void addCheckmark(CCNode* parent, CCPoint position) {
-    auto check = CCSprite::createWithSpriteFrameName("GJ_checkOn_001.png");
-    if (!check) return;
-    check->setScale(.42f);
-    check->setPosition(position);
-    parent->addChild(check, 5);
+CCNode* makeStatusTag(std::string text) {
+    auto label = CCLabelBMFont::create(text.c_str(), "bigFont.fnt");
+    label->setScale(.19f);
+    label->setColor({120, 255, 150});
+    auto tag = NineSlice::create("square02_001.png");
+    tag->setContentSize({label->getScaledContentWidth() + 9.f, 13.f});
+    tag->setColor({70, 125, 80});
+    tag->setOpacity(190);
+    tag->addChildAtPosition(label, Anchor::Center);
+    return tag;
 }
 
 } // namespace
 
 bool UpdateSourcePopup::init() {
-    if (!Popup::init(350.f, 285.f, getPopupBackground()))
-        return false;
+    if (!Popup::init(350.f, 250.f, getPopupBackground())) return false;
 
     setTitle("Choose Update Source");
-    if (auto close = createGeodeCloseButton())
-        setCloseButtonSpr(close, .875f);
+    if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .875f);
 
     auto size = m_mainLayer->getScaledContentSize();
     auto modID = m_options.empty() ? "" : m_options.front().modID;
-    auto installed = getInstalledModSource(modID);
 
-    auto sourceLabel = CCLabelBMFont::create(
-        fmt::format(
-            "Originally installed from: {}{}",
-            getSourceNames(modID),
-            installed && !installed->version.empty()
-                ? fmt::format(" (v{})", installed->version)
-                : ""
-        ).c_str(),
-        "bigFont.fnt"
-    );
-    sourceLabel->setScale(.27f);
-    sourceLabel->setAnchorPoint({.5f, .5f});
-    sourceLabel->setPosition({size.width / 2.f, size.height - 37.f});
-    sourceLabel->limitLabelWidth(size.width - 35.f, .27f, .18f);
+    auto sourceLabel = CCLabelBMFont::create("Choose an index to update from", "bigFont.fnt");
+    sourceLabel->setScale(.25f);
+    sourceLabel->setColor(ccGRAY);
+    sourceLabel->setPosition({size.width / 2.f, size.height - 33.f});
     m_mainLayer->addChild(sourceLabel);
 
-    auto listBG = NineSlice::create("square02b_001.png");
-    listBG->setContentSize({size.width - 25.f, size.height - 85.f});
+    auto listBG = NineSlice::create(getSectionBackground());
+    listBG->setContentSize({size.width - 24.f, size.height - 68.f});
     listBG->setOpacity(70);
-    listBG->setPosition({size.width / 2.f, (size.height - 65.f) / 2.f - 5.f});
+    listBG->setPosition({size.width / 2.f, size.height / 2.f - 7.f});
     m_mainLayer->addChild(listBG);
 
-    auto scroll = ScrollLayer::create({size.width - 45.f, size.height - 105.f});
-    scroll->setPosition({22.5f, 25.f});
+    auto scroll = ScrollLayer::create({size.width - 38.f, size.height - 82.f});
+    scroll->setPosition({19.f, 20.f});
     scroll->m_contentLayer->setContentWidth(scroll->getContentWidth());
 
-    auto menu = CCMenu::create();
-    menu->setContentSize({scroll->getContentWidth() - 8.f, 30.f * m_options.size() + 8.f});
-    menu->setPosition({4.f, 4.f});
-    menu->setLayout(ColumnLayout::create()->setGap(5.f));
+    constexpr float rowHeight = 48.f;
+    constexpr float gap = 4.f;
+    auto contentHeight = std::max(scroll->getContentHeight(), static_cast<float>(m_options.size()) * (rowHeight + gap) + gap);
+    scroll->m_contentLayer->setContentSize({scroll->getContentWidth(), contentHeight});
 
-    auto originalIDs = getSourceCandidates(modID);
-    auto originalVersion = installed ? installed->version : "";
-
+    float y = contentHeight - gap - rowHeight / 2.f;
     for (auto const& option : m_options) {
-        auto text = fmt::format(
-            "{}   v{} -> v{}",
-            option.indexName,
-            option.currentVersion.starts_with("v") ? option.currentVersion.substr(1) : option.currentVersion,
-            option.newVersion.starts_with("v") ? option.newVersion.substr(1) : option.newVersion
-        );
-        auto buttonSprite = ButtonSprite::create(
-            text.c_str(), "goldFont.fnt", getButtonTexture("GE_button_01.png"), .46f
-        );
-        buttonSprite->setScale(.46f);
-        auto button = CCMenuItemExt::createSpriteExtra(
-            buttonSprite,
-            [this, option](CCMenuItemSpriteExtra*) {
-                auto callback = std::move(m_callback);
-                this->onClose(nullptr);
-                if (callback) callback(option);
-            }
-        );
-        button->setContentSize({scroll->getContentWidth() - 10.f, 28.f});
+        auto row = CCNode::create();
+        row->setContentSize({scroll->getContentWidth() - 4.f, rowHeight});
 
-        if (std::find(originalIDs.begin(), originalIDs.end(), option.indexID) != originalIDs.end()) {
-            addCheckmark(button, {button->getContentWidth() - 13.f, 14.f});
-            if (!originalVersion.empty() &&
-                parseUpdateVersion(originalVersion) == parseUpdateVersion(option.currentVersion)) {
-                auto installedLabel = CCLabelBMFont::create("Installed", "bigFont.fnt");
-                installedLabel->setScale(.18f);
-                installedLabel->setAnchorPoint({1.f, .5f});
-                installedLabel->setPosition({button->getContentWidth() - 20.f, 7.f});
-                button->addChild(installedLabel, 6);
-            }
+        auto rowBG = NineSlice::create("square02b_001.png");
+        rowBG->setContentSize(row->getContentSize());
+        rowBG->setOpacity(85);
+        rowBG->setColor({0, 0, 0});
+        row->addChildAtPosition(rowBG, Anchor::Center);
+
+        auto title = CCLabelBMFont::create(option.indexName.c_str(), "bigFont.fnt");
+        title->setAnchorPoint({0.f, .5f});
+        title->setScale(.31f);
+        title->limitLabelWidth(175.f, .31f, .16f);
+        title->setPosition({8.f, 33.f});
+        row->addChild(title);
+
+        auto versions = CCLabelBMFont::create(fmt::format("v{} -> v{}", cleanVersion(option.currentVersion), cleanVersion(option.newVersion)).c_str(), "bigFont.fnt");
+        versions->setAnchorPoint({0.f, .5f});
+        versions->setScale(.23f);
+        versions->setColor({102, 190, 255});
+        versions->setPosition({8.f, 20.f});
+        row->addChild(versions);
+
+        if (isOriginalSource(modID, option.indexID)) {
+            auto installed = makeStatusTag("Installed From");
+            installed->setAnchorPoint({0.f, .5f});
+            installed->setPosition({8.f, 7.f});
+            row->addChild(installed, 2);
         }
 
+        auto updateSprite = ButtonSprite::create("Update", "bigFont.fnt", getButtonTexture("GJ_button_01.png"), .42f);
+        updateSprite->setScale(.78f);
+        auto button = CCMenuItemExt::createSpriteExtra(updateSprite, [this, option](CCMenuItemSpriteExtra*) {
+            auto callback = std::move(m_callback);
+            this->onClose(nullptr);
+            if (callback) callback(option);
+        });
+        auto menu = CCMenu::create();
+        menu->setPosition({0.f, 0.f});
+        menu->setContentSize(row->getContentSize());
+        button->setPosition({row->getContentWidth() - 34.f, rowHeight / 2.f});
         menu->addChild(button);
+        row->addChild(menu, 5);
+
+        row->setPosition({scroll->getContentWidth() / 2.f, y});
+        scroll->m_contentLayer->addChild(row);
+        y -= rowHeight + gap;
     }
 
-    menu->updateLayout();
-    scroll->m_contentLayer->setContentSize({
-        scroll->getContentWidth(),
-        std::max(scroll->getContentHeight(), menu->getContentHeight() + 8.f)
-    });
-    menu->setPositionY(std::max(4.f, scroll->m_contentLayer->getContentHeight() - menu->getContentHeight() - 4.f));
-    scroll->m_contentLayer->addChild(menu);
     m_mainLayer->addChild(scroll);
     return true;
 }
 
-UpdateSourcePopup* UpdateSourcePopup::create(
-    std::vector<IndexUpdateInfo> options,
-    std::function<void(IndexUpdateInfo)> callback
-) {
+UpdateSourcePopup* UpdateSourcePopup::create(std::vector<IndexUpdateInfo> options, std::function<void(IndexUpdateInfo)> callback) {
     auto ret = new UpdateSourcePopup();
     ret->m_options = std::move(options);
     ret->m_callback = std::move(callback);
-    if (ret && ret->init()) {
-        ret->autorelease();
-        return ret;
-    }
+    if (ret && ret->init()) { ret->autorelease(); return ret; }
     delete ret;
     return nullptr;
 }
