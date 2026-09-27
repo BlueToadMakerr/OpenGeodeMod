@@ -54,7 +54,14 @@ public:
     bool alwaysInstalled = false;
     int successful = 0;
     int failed = 0;
+    std::unordered_map<std::string, UpdateModItem*> items;
     std::function<void()> finished;
+
+    ~BatchUpdateState() {
+        for (auto const& [_, item] : items) {
+            if (item) item->release();
+        }
+    }
 
     void next() {
         if (current >= groups.size()) {
@@ -140,6 +147,21 @@ public:
 
     void download(IndexUpdateInfo update) {
         auto weak = weak_from_this();
+        auto it = items.find(update.modID);
+        if (it != items.end() && it->second) {
+            it->second->updateWithoutConfirmation(
+                std::move(update),
+                [weak](bool success) {
+                    if (auto state = weak.lock()) {
+                        if (success) ++state->successful;
+                        else ++state->failed;
+                        state->next();
+                    }
+                }
+            );
+            return;
+        }
+
         downloadIndexUpdate(
             std::move(update),
             [weak](bool success) {
@@ -158,11 +180,20 @@ std::weak_ptr<BatchUpdateState>& activeBatch() {
     return batch;
 }
 
-void startUpdateAll(std::vector<UpdateGroup> groups) {
+void startUpdateAll(
+    std::vector<UpdateGroup> groups,
+    std::unordered_map<std::string, UpdateModItem*> items
+) {
     if (groups.empty() || !activeBatch().expired()) return;
 
     auto state = std::make_shared<BatchUpdateState>();
     state->groups = std::move(groups);
+    for (auto const& [modID, item] : items) {
+        if (item) {
+            item->retain();
+            state->items.emplace(modID, item);
+        }
+    }
     state->finished = [weak = std::weak_ptr<BatchUpdateState>(state)] {
         auto state = weak.lock();
         if (!state) return;
@@ -242,11 +273,13 @@ protected:
         });
 
         float y = contentHeight - gap - cardHeight / 2.f;
+        std::unordered_map<std::string, UpdateModItem*> items;
         for (auto const& group : groups) {
             auto item = UpdateModItem::create(highestUpdate(group.sources), group.sources);
             if (!item) continue;
             item->setPosition({scroll->getContentWidth() / 2.f, y});
             scroll->m_contentLayer->addChild(item);
+            items[group.modID] = item;
             y -= cardHeight + gap;
         }
 
@@ -279,7 +312,7 @@ protected:
         );
         auto updateAll = CCMenuItemExt::createSpriteExtra(
             updateAllSprite,
-            [groups](CCMenuItemSpriteExtra*) {
+            [groups, items](CCMenuItemSpriteExtra*) {
                 if (groups.empty() || !activeBatch().expired()) return;
 
                 createQuickPopup(
@@ -290,8 +323,8 @@ protected:
                     ),
                     "Cancel",
                     "Update All",
-                    [groups](auto, bool confirmed) {
-                        if (confirmed) startUpdateAll(groups);
+                    [groups, items](auto, bool confirmed) {
+                        if (confirmed) startUpdateAll(groups, items);
                     },
                     true
                 );
