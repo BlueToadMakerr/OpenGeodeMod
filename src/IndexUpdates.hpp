@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Settings.hpp"
+#include "InstalledMods.hpp"
 
 #include <Geode/Geode.hpp>
 #include <Geode/utils/async.hpp>
@@ -423,6 +424,7 @@ inline void downloadIndexUpdate(
                 completedIndexUpdates().insert(key);
                 writeSetting("mod-source-index-" + update.modID, update.indexID);
                 writeSetting("mod-source-version-" + update.modID, update.newVersion);
+                setInstalledModSource(update.modID, update.newVersion, update.indexID, true);
             }
         } else {
             log::error("Failed to download {} {} from {}: HTTP {}", update.modID, update.newVersion, update.indexName, response.code());
