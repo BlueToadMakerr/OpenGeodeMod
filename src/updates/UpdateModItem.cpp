@@ -24,7 +24,6 @@ CCNode* makeTag(std::string text, ccColor3B labelColor, ccColor3B bgColor) {
     auto label = CCLabelBMFont::create(text.c_str(), "bigFont.fnt");
     label->setScale(.22f);
     label->setColor(labelColor);
-
     auto tag = NineSlice::create("square02_001.png");
     tag->setContentSize({label->getScaledContentWidth() + 12.f, 16.f});
     tag->setOpacity(175);
@@ -54,36 +53,17 @@ std::vector<IndexUpdateInfo> sortedSources(std::vector<IndexUpdateInfo> sources)
 void showUpdateConfirmation(IndexUpdateInfo update, std::function<void(bool)> callback) {
     auto installed = getInstalledModSource(update.modID);
     std::string warning;
-
-    if (!installed) {
-        warning = "\n\n<cr>The original index this mod was installed from is unknown.</c>";
-    } else if (installed->indexId != update.indexID) {
-        warning = fmt::format(
-            "\n\n<cr>Originally installed from <cy>{}</c>.</c>\nYou are updating it from <cy>{}</c> instead.",
-            installed->indexName.empty() ? installed->indexId : installed->indexName,
-            update.indexName
-        );
+    if (!installed) warning = "\n\n<cr>The original index this mod was installed from is unknown.</c>";
+    else if (installed->indexId != update.indexID) {
+        warning = fmt::format("\n\n<cr>Originally installed from <cy>{}</c>.</c>\nYou are updating it from <cy>{}</c> instead.", installed->indexName.empty() ? installed->indexId : installed->indexName, update.indexName);
     }
-
-    createQuickPopup(
-        "Update Mod",
-        fmt::format(
-            "Update <cy>{}</c> from <cg>{}</c>?\nVersion: <cy>v{}</c> -> <cg>v{}</c>{}",
-            update.modName, update.indexName,
-            cleanVersion(update.currentVersion), cleanVersion(update.newVersion), warning
-        ),
-        "Cancel", "Update",
-        [callback = std::move(callback)](auto, bool confirmed) mutable {
-            if (callback) callback(confirmed);
-        }, true
-    );
+    createQuickPopup("Update Mod", fmt::format("Update <cy>{}</c> from <cg>{}</c>?\nVersion: <cy>v{}</c> -> <cg>v{}</c>{}", update.modName, update.indexName, cleanVersion(update.currentVersion), cleanVersion(update.newVersion), warning), "Cancel", "Update", [callback = std::move(callback)](auto, bool confirmed) mutable { if (callback) callback(confirmed); }, true);
 }
 
 } // namespace
 
 bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> sources) {
     if (!CCNode::init()) return false;
-
     m_update = std::move(update);
     m_sources = sortedSources(std::move(sources));
     m_mod = Loader::get()->getInstalledMod(m_update.modID);
@@ -112,10 +92,7 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
     info->setAnchorPoint({0.f, .5f});
     addChildAtPosition(info, Anchor::Left, {52.f, 0.f});
 
-    auto title = CCLabelBMFont::create(
-        fmt::format("{}  v{} -> v{}", m_update.modName, cleanVersion(m_update.currentVersion), cleanVersion(m_update.newVersion)).c_str(),
-        "bigFont.fnt"
-    );
+    auto title = CCLabelBMFont::create(fmt::format("{}  v{} -> v{}", m_update.modName, cleanVersion(m_update.currentVersion), cleanVersion(m_update.newVersion)).c_str(), "bigFont.fnt");
     title->setID("mod-name");
     title->setAnchorPoint({0.f, .5f});
     title->setScale(.42f);
@@ -124,25 +101,12 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
     title->setPosition({0.f, 63.f});
     info->addChild(title);
 
-    auto versions = CCLabelBMFont::create("", "bigFont.fnt");
-    versions->setAnchorPoint({0.f, .5f});
-    versions->setScale(.01f);
-    versions->setPosition({0.f, -20.f});
-    info->addChild(versions);
-    versions->setVisible(false);
-
-    auto versionPos = title->getPosition();
-    (void)versionPos;
-
     auto developers = CCLabelBMFont::create("", "goldFont.fnt");
     developers->setAnchorPoint({0.f, .5f});
     developers->setScale(.24f);
     developers->setColor(ccWHITE);
-    if (m_mod) {
-        developers->setString(ModMetadata::formatDeveloperDisplayString(m_mod->getMetadata().getDevelopers()).c_str());
-    } else {
-        developers->setString("Unknown developer");
-    }
+    if (m_mod) developers->setString(ModMetadata::formatDeveloperDisplayString(m_mod->getMetadata().getDevelopers()).c_str());
+    else developers->setString("Unknown developer");
     developers->limitLabelWidth(188.f, .24f, .15f);
     developers->setPosition({0.f, 39.f});
     info->addChild(developers);
@@ -156,14 +120,11 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
         m_tags->setID("status-tags");
         m_tags->setContentSize({188.f, 18.f});
         m_tags->setLayout(SimpleRowLayout::create()->setMainAxisAlignment(MainAxisAlignment::Start)->setGap(4.f));
-
         if (outdated) {
             auto text = gameVersion ? fmt::format("Outdated (GD {})", *gameVersion) : "Outdated";
             m_tags->addChild(makeTag(text, {245, 153, 245}, {156, 123, 163}));
         }
-        if (restartRequired)
-            m_tags->addChild(makeTag("Restart Required", {153, 245, 245}, {123, 156, 163}));
-
+        if (restartRequired) m_tags->addChild(makeTag("Restart Required", {153, 245, 245}, {123, 156, 163}));
         m_tags->updateLayout();
         m_tags->setAnchorPoint({0.f, .5f});
         m_tags->setPosition({0.f, 19.f});
@@ -176,11 +137,8 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
         descriptionBG->setAnchorPoint({0.f, .5f});
         descriptionBG->setPosition({0.f, 19.f});
         info->addChild(descriptionBG);
-
         auto descriptionText = m_mod ? m_mod->getMetadata().getDescription() : std::nullopt;
-        auto description = CCLabelBMFont::create(
-            descriptionText ? descriptionText->c_str() : "[No Description Provided]", "chatFont.fnt"
-        );
+        auto description = CCLabelBMFont::create(descriptionText ? descriptionText->c_str() : "[No Description Provided]", "chatFont.fnt");
         description->setColor(descriptionText ? ccWHITE : ccGRAY);
         description->setAnchorPoint({0.f, .5f});
         limitNodeWidth(description, 178.f, 1.f, .085f);
@@ -194,22 +152,16 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
     controls->setContentSize({112.f, 42.f});
     controls->setLayout(SimpleRowLayout::create()->setMainAxisAlignment(MainAxisAlignment::End)->setGap(5.f));
     addChildAtPosition(controls, Anchor::Right, {-7.f, 0.f});
-
-    auto updateSprite = CircleButtonSprite::create(
-        CCSprite::createWithSpriteFrameName("update.png"_spr),
-        CircleBaseColor::Green, CircleBaseSize::Small
-    );
+    auto updateSprite = CircleButtonSprite::create(CCSprite::createWithSpriteFrameName("update.png"_spr), CircleBaseColor::Green, CircleBaseSize::Small);
     m_updateButton = CCMenuItemSpriteExtra::create(updateSprite, this, menu_selector(UpdateModItem::onUpdate));
     m_updateButton->setID("update-button");
     controls->addChild(m_updateButton);
 
     if (m_mod && !m_mod->isInternal()) {
-        m_enableToggle = CCMenuItemToggler::createWithStandardSprites(
-            this, menu_selector(UpdateModItem::onEnable), .8f
-        );
+        m_enableToggle = CCMenuItemToggler::createWithStandardSprites(this, menu_selector(UpdateModItem::onEnable), .8f);
         m_enableToggle->setID("enable-toggler");
         m_enableToggle->setScale(.75f);
-        m_enableToggle->toggle(!m_mod->shouldLoad());
+        m_enableToggle->toggle(!m_mod->isOrWillBeEnabled());
         if (outdated) m_enableToggle->setOpacity(100);
         controls->addChild(m_enableToggle);
     }
@@ -218,18 +170,21 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
     auto view = CCMenuItemSpriteExtra::create(viewSprite, this, menu_selector(UpdateModItem::onView));
     view->setID("view-button");
     controls->addChild(view);
-
     controls->updateLayout();
     return true;
 }
 
 void UpdateModItem::onView(CCObject*) { if (m_mod) openInfoPopup(m_mod); }
-void UpdateModItem::onEnable(CCObject*) { if (!m_mod || m_mod->isInternal()) return; m_mod->requestEnable(); addRestartRequiredTag(); }
+void UpdateModItem::onEnable(CCObject*) {
+    if (!m_mod || m_mod->isInternal()) return;
+    if (m_mod->isOrWillBeEnabled()) (void)m_mod->disable();
+    else (void)m_mod->enable();
+    addRestartRequiredTag();
+}
 
 void UpdateModItem::addRestartRequiredTag() {
     auto info = getChildByID("info-container");
-    if (!info) return;
-    if (info->getChildByID("status-tags")) return;
+    if (!info || info->getChildByID("status-tags")) return;
     auto tags = CCNode::create();
     tags->setID("status-tags");
     tags->setContentSize({188.f, 18.f});
