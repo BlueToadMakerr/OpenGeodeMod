@@ -129,7 +129,7 @@ public:
         createQuickPopup(
             "Update Conflict",
             fmt::format(
-                "<cy>{}</c> has updates from multiple indexes, but its installed "
+                "{} has updates from multiple indexes, but its installed "
                 "source could not be identified. Choose an update source to continue.",
                 group.sources.front().modName
             ),
