@@ -32,6 +32,15 @@ CCNode* makeTag(std::string text, ccColor3B color) {
     return tag;
 }
 
+CCSprite* createActionButtonSprite(char const* text) {
+    return ButtonSprite::create(
+        text,
+        "goldFont.fnt",
+        getButtonTexture("GJ_button_01.png"),
+        .55f
+    );
+}
+
 bool isCompleted(IndexUpdateInfo const& update) {
     return completedIndexUpdates().contains(indexUpdateKey(update));
 }
@@ -196,12 +205,12 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
     );
     addChildAtPosition(controls, Anchor::Right, {-42.f, 0.f});
 
-    auto viewSprite = createGeodeButton("View", 50, false, true);
+    auto viewSprite = createActionButtonSprite("View");
     auto view = CCMenuItemSpriteExtra::create(viewSprite, this, menu_selector(UpdateModItem::onView));
     view->setID("view-button");
     controls->addChild(view);
 
-    auto updateSprite = createGeodeButton("Update", 50, false, true);
+    auto updateSprite = createActionButtonSprite("Update");
     m_updateButton = CCMenuItemSpriteExtra::create(updateSprite, this, menu_selector(UpdateModItem::onUpdate));
     m_updateButton->setID("update-button");
     controls->addChild(m_updateButton);
