@@ -86,7 +86,7 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
     if (!logo) logo = createServerModLogo(m_update.modID);
     if (!logo) logo = CCSprite::createWithSpriteFrameName("GJ_folderIcon_001.png");
     logo->setID("mod-logo");
-    logo->setScale(.58f);
+    logo->setScale(.68f);
     addChildAtPosition(logo, Anchor::Left, {25.f, 0.f});
 
     auto info = CCNode::create();
@@ -126,7 +126,7 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
     bool restartRequired = isCompleted(m_update);
     auto gameVersion = m_mod ? m_mod->getMetadata().getGameVersion() : std::nullopt;
 
-    if (outdated || restartRequired) {
+    if (outdated || restartRequired || m_update.disabled) {
         m_tags = CCNode::create();
         m_tags->setID("status-tags");
         m_tags->setContentSize({164.f, 14.f});
@@ -136,6 +136,7 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
             m_tags->addChild(makeTag(text, {245, 153, 245}, {156, 123, 163}));
         }
         if (restartRequired) m_tags->addChild(makeTag("Restart Required", {153, 245, 245}, {123, 156, 163}));
+        if (m_update.disabled) m_tags->addChild(makeTag("Disabled", {255, 170, 170}, {165, 95, 95}));
         m_tags->updateLayout();
         m_tags->setAnchorPoint({0.f, .5f});
         m_tags->setPosition({0.f, 10.f});
@@ -172,6 +173,7 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
     controls->addChild(m_updateButton);
 
     auto viewSprite = createActionButtonSprite("View");
+    viewSprite->setContentWidth(50.f);
     auto view = CCMenuItemSpriteExtra::create(viewSprite, this, menu_selector(UpdateModItem::onView));
     view->setID("view-button");
     controls->addChild(view);
@@ -188,18 +190,39 @@ bool UpdateModItem::init(IndexUpdateInfo update, std::vector<IndexUpdateInfo> so
 
 void UpdateModItem::onView(CCObject*) { if (m_mod) openInfoPopup(m_mod); }
 
-void UpdateModItem::addRestartRequiredTag() {
+void UpdateModItem::refreshStatusTags(bool restartRequired) {
     auto info = getChildByID("info-container");
-    if (!info || info->getChildByID("status-tags")) return;
+    if (!info) return;
+
+    if (m_tags) {
+        m_tags->removeFromParentAndCleanup(true);
+        m_tags = nullptr;
+    }
+
+    bool outdated = m_update.outdated;
+    bool disabled = m_update.disabled;
+    if (!outdated && !disabled && !restartRequired) return;
+
     auto tags = CCNode::create();
     tags->setID("status-tags");
-    tags->setContentSize({168.f, 13.f});
+    tags->setContentSize({164.f, 14.f});
     tags->setLayout(SimpleRowLayout::create()->setMainAxisAlignment(MainAxisAlignment::Start)->setGap(3.f));
-    tags->addChild(makeTag("Restart Required", {153, 245, 245}, {123, 156, 163}));
+
+    if (outdated) {
+        auto gameVersion = m_mod ? m_mod->getMetadata().getGameVersion() : std::nullopt;
+        auto text = gameVersion ? fmt::format("Outdated (GD {})", *gameVersion) : "Outdated";
+        tags->addChild(makeTag(text, {245, 153, 245}, {156, 123, 163}));
+    }
+    if (disabled) tags->addChild(makeTag("Disabled", {255, 170, 170}, {165, 95, 95}));
+    if (restartRequired) tags->addChild(makeTag("Restart Required", {153, 245, 245}, {123, 156, 163}));
+
     tags->updateLayout();
     tags->setAnchorPoint({0.f, .5f});
-    tags->setPosition({0.f, 13.f});
-    if (m_description) m_description->removeFromParentAndCleanup(true);
+    tags->setPosition({0.f, 10.f});
+    if (m_description) {
+        m_description->removeFromParentAndCleanup(true);
+        m_description = nullptr;
+    }
     info->addChild(tags);
     m_tags = tags;
 }
@@ -230,8 +253,14 @@ void UpdateModItem::startUpdate(IndexUpdateInfo update) {
     m_progress->m_touchLogic->m_thumb->setVisible(false);
     m_progress->setScale(1.0f);
     m_progress->setValue(0.f);
-    m_progress->setContentSize({21.f, 8.f});
-    if (auto parent = m_updateButton->getParent()) { parent->addChild(m_progress, 5); m_progress->setPosition(m_updateButton->getPosition()); }
+    m_progress->setContentSize({164.f, 8.f});
+    if (m_tags) m_tags->setVisible(false);
+    if (m_description) m_description->setVisible(false);
+    auto info = getChildByID("info-container");
+    if (info) {
+        info->addChild(m_progress, 5);
+        m_progress->setPosition({82.f, 10.f});
+    }
     downloadIndexUpdate(update, [this, update](bool success) { finishUpdate(update, success); }, [this](float progress) { setProgress(progress); });
 }
 
@@ -240,14 +269,15 @@ void UpdateModItem::setProgress(float progress) { if (m_progress) m_progress->se
 void UpdateModItem::finishUpdate(IndexUpdateInfo const& update, bool success) {
     if (m_progress) { m_progress->removeFromParentAndCleanup(true); m_progress = nullptr; }
     if (!success) {
+        if (m_tags) m_tags->setVisible(true);
+        if (m_description) m_description->setVisible(true);
         if (m_updateButton) { m_updateButton->setVisible(true); m_updateButton->setEnabled(true); }
         return;
     }
     m_updated = true;
-    if (m_updateButton) m_updateButton->setVisible(false);
-    addRestartRequiredTag();
-    auto check = CCSprite::createWithSpriteFrameName("GJ_checkOn_001.png");
-    if (check) { check->setID("updated-check"); check->setScale(.34f); check->setPosition({getContentWidth() - 13.f, -16.f}); addChild(check, 8); }
+    m_update = update;
+    refreshStatusTags(true);
+    if (m_updateButton) { m_updateButton->setVisible(true); m_updateButton->setEnabled(true); }
 }
 
 UpdateModItem* UpdateModItem::create(IndexUpdateInfo update, std::vector<IndexUpdateInfo> sources) {
