@@ -30,8 +30,19 @@ class CommentsTabWatcher : public CCNode {
         if (!comments) return;
 
         auto layer = m_popup->getChildByIDRecursive("opengeode-comments-layer");
-        if (!layer)
+        if (!layer) {
+            auto description = m_popup->getChildByIDRecursive("description-container");
+            auto changelog = m_popup->getChildByIDRecursive("changelog-container");
+            if (description) {
+                if (auto textarea = description->getChildByIDRecursive("textarea"))
+                    textarea->setVisible(true);
+            }
+            if (changelog) {
+                if (auto textarea = changelog->getChildByIDRecursive("textarea"))
+                    textarea->setVisible(true);
+            }
             clearCommentsTab(m_popup);
+        }
     }
 
 public:
