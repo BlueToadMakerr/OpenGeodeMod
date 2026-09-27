@@ -131,23 +131,23 @@ protected:
 
         if (count > 0) {
             auto badge = CCNode::create();
-            badge->setContentSize({27.f, 27.f});
+            badge->setContentSize({40.5f, 40.5f});
             badge->setAnchorPoint({.5f, .5f});
 
             auto icon = CCSprite::createWithSpriteFrameName("geode.loader/updates-available.png");
             if (icon) {
-                icon->setScale(.55f);
-                icon->setPosition({13.5f, 13.5f});
+                icon->setScale(.825f);
+                icon->setPosition({20.25f, 20.25f});
                 badge->addChild(icon);
             }
 
             auto label = CCLabelBMFont::create(std::to_string(count).c_str(), "bigFont.fnt");
-            label->setScale(.28f);
+            label->setScale(.42f);
             label->setAnchorPoint({.5f, .5f});
-            label->setPosition({13.5f, 13.5f});
+            label->setPosition({20.25f, 20.25f});
             badge->addChild(label, 2);
 
-            badge->setPosition({indexBtn->getContentWidth() - 3.f, indexBtn->getContentHeight() - 3.f});
+            badge->setPosition({indexBtn->getContentWidth() - 7.f, indexBtn->getContentHeight() - 7.f});
             indexBtn->addChild(badge, 10);
             m_updateBadge = badge;
         }
