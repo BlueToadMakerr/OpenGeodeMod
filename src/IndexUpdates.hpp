@@ -248,7 +248,7 @@ inline void downloadIndexUpdate(IndexUpdateInfo update, std::function<void(bool)
     if (!token.empty())
         req.header("Authorization", "Bearer " + token);
 
-    task->spawn(req.get(url), [task, key, update = std::move(update), callback = std::move(callback)](web::WebResponse response) mutable {
+    task->spawn(req.get(url), [key, update = std::move(update), callback = std::move(callback)](web::WebResponse response) mutable {
         bool success = false;
         if (response.ok()) {
             auto data = std::move(response).data();
