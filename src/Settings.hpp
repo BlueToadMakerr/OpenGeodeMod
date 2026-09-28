@@ -17,16 +17,15 @@ namespace opengeode {
 inline bool g_shouldReopenModsList = false;
 inline std::filesystem::path legacySettingPath(std::string const& key) { return Mod::get()->getSaveDir() / (key + ".txt"); }
 inline std::filesystem::path backupPath() { return dirs::getSaveDir() / "open-geode" / "backup.json"; }
-inline bool hasOpenGeodeSaveData() {
-    auto const& data = Mod::get()->getSaveContainer();
-    return data.isObject() && data.dump() != "{}";
-}
+inline matjson::Value& saveData() { return Mod::get()->getSaveContainer(); }
+inline bool hasSavedValue(std::string const& key) { return saveData().isObject() && saveData().contains(key); }
+inline bool hasOpenGeodeSaveData() { return saveData().isObject() && !saveData().asObject().empty(); }
 inline bool restoreFromBackup() {
     auto path = backupPath();
     if (!std::filesystem::is_regular_file(path)) return false;
     auto json = file::readJson(path);
     if (!json || !json.unwrap().isObject()) { log::warn("OpenGeode backup could not be read: {}", path.string()); return false; }
-    Mod::get()->getSaveContainer() = std::move(json.unwrap());
+    saveData() = std::move(json.unwrap());
     log::info("Restored OpenGeode save data from backup: {}", path.string());
     return true;
 }
@@ -42,7 +41,7 @@ inline void backupSaveData() {
     std::error_code ec;
     std::filesystem::create_directories(path.parent_path(), ec);
     if (ec) { log::warn("Could not create OpenGeode backup directory: {}", ec.message()); return; }
-    auto result = file::writeToJson(path, Mod::get()->getSaveContainer());
+    auto result = file::writeToJson(path, saveData());
     if (!result) log::warn("Could not write OpenGeode backup: {}", result.unwrapErr());
 }
 inline void migrateLegacyTextSaveData() {
@@ -53,23 +52,23 @@ inline void migrateLegacyTextSaveData() {
         if (ec) break;
         if (!entry.is_regular_file(ec) || entry.path().extension() != ".txt") continue;
         auto key = entry.path().stem().string();
-        if (key.empty() || Mod::get()->hasSavedValue(key)) continue;
+        if (key.empty() || hasSavedValue(key)) continue;
         std::ifstream file(entry.path(), std::ios::binary);
         if (!file.is_open()) continue;
         std::ostringstream ss; ss << file.rdbuf();
-        Mod::get()->setSavedValue<std::string>(key, ss.str());
+        saveData()[key] = ss.str();
         std::filesystem::remove(entry.path(), ec); ec.clear();
     }
 }
 inline std::string readSetting(std::string const& key, std::string const& fallback) {
-    if (Mod::get()->hasSavedValue(key)) return Mod::get()->getSavedValue<std::string>(key, fallback);
+    if (hasSavedValue(key)) return saveData()[key].asString().unwrapOr(fallback);
     auto path = legacySettingPath(key); std::ifstream file(path, std::ios::binary);
     if (!file.is_open()) return fallback;
     std::ostringstream ss; ss << file.rdbuf(); auto value = ss.str();
-    Mod::get()->setSavedValue<std::string>(key, value); std::error_code ec; std::filesystem::remove(path, ec); return value;
+    saveData()[key] = value; std::error_code ec; std::filesystem::remove(path, ec); return value;
 }
-inline void writeSetting(std::string const& key, std::string const& value) { Mod::get()->setSavedValue<std::string>(key, value); }
-inline void deleteSetting(std::string const& key) { Mod::get()->getSaveContainer().erase(key); }
+inline void writeSetting(std::string const& key, std::string const& value) { saveData()[key] = value; }
+inline void deleteSetting(std::string const& key) { saveData().erase(key); }
 inline std::vector<std::string> splitCSV(std::string const& raw) { std::vector<std::string> out; std::stringstream ss(raw); std::string item; while (std::getline(ss,item,',')) if (!item.empty()) out.push_back(item); return out; }
 inline std::string joinCSV(std::vector<std::string> const& items) { std::string out; for (size_t i=0;i<items.size();++i) { if(i) out+=','; out+=items[i]; } return out; }
 enum class ModStatus { Accepted, Unlisted, Pending, Rejected };
