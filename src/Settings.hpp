@@ -19,7 +19,7 @@ inline std::filesystem::path legacySettingPath(std::string const& key) { return 
 inline std::filesystem::path backupPath() { return dirs::getSaveDir() / "open-geode" / "backup.json"; }
 inline matjson::Value& saveData() { return Mod::get()->getSaveContainer(); }
 inline bool hasSavedValue(std::string const& key) { return saveData().isObject() && saveData().contains(key); }
-inline bool hasOpenGeodeSaveData() { return saveData().isObject() && !saveData().asObject().empty(); }
+inline bool hasOpenGeodeSaveData() { return saveData().isObject() && saveData().dump() != "{}"; }
 inline bool restoreFromBackup() {
     auto path = backupPath();
     if (!std::filesystem::is_regular_file(path)) return false;
