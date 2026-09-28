@@ -19,9 +19,7 @@ inline std::filesystem::path legacySettingPath(std::string const& key) { return 
 inline std::filesystem::path backupPath() { return dirs::getSaveDir() / "open-geode" / "backup.json"; }
 inline bool hasOpenGeodeSaveData() {
     auto const& data = Mod::get()->getSaveContainer();
-    if (!data.isObject()) return false;
-    for (auto const& key : {std::string_view("custom-index-ids"), std::string_view("custom-index-url"), std::string_view("installed-mod-"), std::string_view("mod-source-"), std::string_view("auth-access-"), std::string_view("auth-refresh-")}) if (data.has(key)) return true;
-    return false;
+    return data.isObject() && data.dump() != "{}";
 }
 inline bool restoreFromBackup() {
     auto path = backupPath();
