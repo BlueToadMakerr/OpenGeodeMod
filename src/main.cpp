@@ -46,6 +46,29 @@ $on_mod(Loaded) {
 
             if (req.getUrlParams().count("no_override") > 0) return ListenerResult::Propagate;
 
+            // Geode performs mod installs and updates through the /download
+            // endpoint. Record the source before the request is rewritten to
+            // the currently selected index so installed mods keep the index
+            // they were actually downloaded from.
+            if (string::contains(givenUrl, "api.geode-sdk.org/v1/mods/")) {
+                auto downloadPrefix = std::string("https://api.geode-sdk.org/v1/mods/");
+                if (givenUrl.starts_with(downloadPrefix)) {
+                    auto modStart = downloadPrefix.size();
+                    auto versionsPos = givenUrl.find("/versions/", modStart);
+                    if (versionsPos != std::string::npos && versionsPos > modStart) {
+                        auto versionStart = versionsPos + std::string("/versions/").size();
+                        auto downloadPos = givenUrl.find("/download", versionStart);
+                        if (downloadPos != std::string::npos && downloadPos > versionStart) {
+                            auto modID = givenUrl.substr(modStart, versionsPos - modStart);
+                            auto version = givenUrl.substr(versionStart, downloadPos - versionStart);
+                            if (!modID.empty() && !version.empty()) {
+                                setInstalledModSource(modID, version);
+                            }
+                        }
+                    }
+                }
+            }
+
             if (!string::contains(givenUrl, "api.geode-sdk.org")) return ListenerResult::Propagate;
 
             auto const modListPrefix = std::string("https://api.geode-sdk.org/v1/mods");
