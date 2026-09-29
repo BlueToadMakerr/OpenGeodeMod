@@ -5,6 +5,7 @@
 #include "../MoreManagePopup.hpp"
 #include "../VersionsPopup.hpp"
 #include "../Settings.hpp"
+#include "../InstalledMods.hpp"
 #include "../IndexUpdates.hpp"
 
 #include <Geode/Geode.hpp>
@@ -38,6 +39,55 @@ CCNode* createProfileButtonSprite() {
     return root;
 }
 
+std::string getTextureCacheKey(CCTexture2D* texture) {
+    if (!texture) return "";
+    auto cache = CCTextureCache::sharedTextureCache();
+    auto textures = cache ? cache->snapshotTextures() : nullptr;
+    if (!textures) return "";
+    for (auto key : CCArrayExt<CCString*>(textures->allKeys())) {
+        if (key && textures->objectForKey(key->getCString()) == texture)
+            return key->getCString();
+    }
+    return "";
+}
+
+std::string getModIDFromModItem(CCNode* modItem) {
+    auto logo = modItem->getChildByIDRecursive("logo-sprite");
+    auto lazySprite = typeinfo_cast<LazySprite*>(logo);
+    if (!lazySprite || !lazySprite->getTexture()) return "";
+
+    auto key = getTextureCacheKey(lazySprite->getTexture());
+    constexpr std::string_view prefix = "/files/geode/unzipped/";
+    auto start = key.find(prefix);
+    if (start == std::string::npos) return "";
+    start += prefix.size();
+
+    auto end = key.find("/logo.png", start);
+    if (end == std::string::npos || end <= start) return "";
+    return key.substr(start, end - start);
+}
+
+void hideUpdatedModListButtons(CCNode* listFrame) {
+    auto contentLayer = listFrame->getChildByIDRecursive("content-layer");
+    if (!contentLayer) return;
+
+    for (auto child : CCArrayExt<CCNode*>(contentLayer->getChildren())) {
+        if (!child) continue;
+
+        auto modID = getModIDFromModItem(child);
+        if (modID.empty() || !wasModUpdatedFromIndex(modID)) continue;
+
+        auto viewMenu = child->getChildByIDRecursive("view-menu");
+        if (!viewMenu) continue;
+
+        auto updateButton = viewMenu->getChildByID("update-button"_spr);
+        if (!updateButton) continue;
+
+        updateButton->removeFromParentAndCleanup(true);
+        if (auto menu = typeinfo_cast<CCMenu*>(viewMenu)) menu->updateLayout();
+    }
+}
+
 class ModsLayerWatcher : public CCNode {
     CCMenuItemSpriteExtra* m_accountButton = nullptr;
     CCNode* m_updateBadge = nullptr;
@@ -69,6 +119,8 @@ protected:
         m_inModsLayer = true;
         if (g_switchNotif) { g_switchNotif->cancel(); g_switchNotif = nullptr; }
         if (auto overlay = scene->getChildByID("switch-overlay"_spr)) overlay->removeFromParentAndCleanup(true);
+
+        hideUpdatedModListButtons(listFrame);
 
         auto modList = listFrame->getChildByID("ModList");
         if (!modList) return;
