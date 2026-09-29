@@ -1,6 +1,7 @@
 #include "WebRequestHook.hpp"
 #include "../Settings.hpp"
 #include "../InstalledMods.hpp"
+#include "../tracking/ModDownloadProtection.hpp"
 #include "../tracking/ModSourceTracking.hpp"
 
 #include <Geode/Geode.hpp>
@@ -44,6 +45,12 @@ void registerWebRequestHook() {
             }
 
             if (req.getUrlParams().count("no_override") > 0) return ListenerResult::Propagate;
+
+            std::string downloadModID;
+            if (isGeodeModDownloadRequest(givenUrl, downloadModID) &&
+                blockAlreadyUpdatedModDownload(req, downloadModID)) {
+                return ListenerResult::Propagate;
+            }
 
             trackModDownloadSource(givenUrl);
 
