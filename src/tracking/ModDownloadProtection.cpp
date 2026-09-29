@@ -1,5 +1,6 @@
 #include "ModDownloadProtection.hpp"
 #include "../InstalledMods.hpp"
+#include "../PopupSectionUtils.hpp"
 
 #include <Geode/ui/MDTextArea.hpp>
 #include <Geode/ui/Popup.hpp>
@@ -68,13 +69,13 @@ bool isGeodeModDownloadRequest(std::string const& url, std::string& modID) {
 
 void showAlreadyUpdatedPopup(std::string const& modID) {
     auto mod = Loader::get()->getInstalledMod(modID);
-    auto modName = mod ? mod->getName() : modID;
+    std::string modName = mod ? std::string(mod->getName()) : modID;
     Loader::get()->queueInMainThread([modName = std::move(modName)] {
         if (auto popup = AlreadyUpdatedPopup::create(modName)) popup->show();
     });
 }
 
-bool blockAlreadyUpdatedModDownload(web::WebRequest& request, std::string const& modID) {
+bool blockAlreadyUpdatedModDownload(geode::web::WebRequest& request, std::string const& modID) {
     if (modID.empty() || !wasModUpdatedFromIndex(modID)) return false;
 
     request.url("https://opengeode.invalid/already-updated/" + modID);
