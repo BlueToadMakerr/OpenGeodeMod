@@ -103,8 +103,26 @@ public:
 };
 }
 void ensureModPopupExtras(CCNode* popup) {
-    auto manageTitle = popup->getChildByIDRecursive("manage-title"); if (!manageTitle) return; auto managementMenu = getNativeManagementMenu(popup); if (!managementMenu) return; auto modID = getPopupModID(popup);
-    if (!modID.empty() && getInstalledModSource(modID) && isPopupInstalled(popup)) addManagementButton(popup, "opengeode-from-button", createThemedManageButton("Source", "GJ_downloadsIcon_001.png"), [modID](CCMenuItemSpriteExtra*) { showInstallSource(modID); });
+    auto manageTitle = popup->getChildByIDRecursive("manage-title"); if (!manageTitle) return;
+    auto modID = getPopupModID(popup);
+    auto managementMenu = getNativeManagementMenu(popup);
+    if (!managementMenu) return;
+
+    if (!modID.empty() && wasModUpdatedFromIndex(modID)) {
+        if (auto updateButton = managementMenu->getChildByID("update-button"_spr))
+            updateButton->removeFromParentAndCleanup(true);
+
+        if (!managementMenu->getChildByID("opengeode-updated-button"_spr)) {
+            if (auto sprite = createThemedManageButton("Updated", "GJ_completesIcon_001.png")) {
+                auto updated = CCMenuItemExt::createSpriteExtra(sprite, [](CCMenuItemSpriteExtra*) {});
+                updated->setID("opengeode-updated-button"_spr);
+                managementMenu->addChild(updated);
+            }
+        }
+    }
+
+    if (!modID.empty() && getInstalledModSource(modID) && isPopupInstalled(popup))
+        addManagementButton(popup, "opengeode-from-button", createThemedManageButton("Source", "GJ_downloadsIcon_001.png"), [modID](CCMenuItemSpriteExtra*) { showInstallSource(modID); });
     if (auto more = managementMenu->getChildByID("opengeode-more-button"_spr)) more->removeFromParentAndCleanup(true);
     if (applyManagementButtonLimit(managementMenu)) if (auto sprite = createThemedManageButton("More", "GJ_filterIcon_001.png")) { auto more = CCMenuItemExt::createSpriteExtra(sprite, [popup](CCMenuItemSpriteExtra*) { MoreManagePopup::create(popup)->show(); }); more->setID("opengeode-more-button"_spr); managementMenu->addChild(more); }
     managementMenu->updateLayout();
