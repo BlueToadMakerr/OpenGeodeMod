@@ -75,7 +75,7 @@ void showAlreadyUpdatedPopup(std::string const& modID) {
     });
 }
 
-bool blockAlreadyUpdatedModDownload(geode::web::WebRequest& request, std::string const& modID) {
+bool blockAlreadyUpdatedModDownload(utils::web::WebRequest& request, std::string const& modID) {
     if (modID.empty() || !wasModUpdatedFromIndex(modID)) return false;
 
     request.url("https://opengeode.invalid/already-updated/" + modID);
