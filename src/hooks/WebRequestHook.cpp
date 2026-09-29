@@ -16,6 +16,7 @@ void registerWebRequestHook() {
         [](std::string_view id, web::WebRequest& req) {
             std::string givenUrl = req.getUrl().data();
             auto modsPath = std::string("/v1/mods/");
+            bool openGeodeVersionOverride = false;
 
             auto modStart = givenUrl.find(modsPath);
             if (modStart != std::string::npos) {
@@ -39,6 +40,7 @@ void registerWebRequestHook() {
                             givenUrl.replace(apiPos, givenUrl.size() - apiPos, downloadPath);
                             req.url(givenUrl);
                             takePendingVersionInstall(modID);
+                            openGeodeVersionOverride = true;
                         }
                     }
                 }
@@ -47,7 +49,8 @@ void registerWebRequestHook() {
             if (req.getUrlParams().count("no_override") > 0) return ListenerResult::Propagate;
 
             std::string downloadModID;
-            if (isGeodeModDownloadRequest(givenUrl, downloadModID) &&
+            if (!openGeodeVersionOverride &&
+                isGeodeModDownloadRequest(givenUrl, downloadModID) &&
                 blockAlreadyUpdatedModDownload(req, downloadModID)) {
                 return ListenerResult::Propagate;
             }
