@@ -8,7 +8,7 @@
 namespace opengeode {
 
 bool isGeodeModDownloadRequest(std::string const& url, std::string& modID);
-bool blockAlreadyUpdatedModDownload(web::WebRequest& request, std::string const& modID);
+bool blockAlreadyUpdatedModDownload(geode::web::WebRequest& request, std::string const& modID);
 void showAlreadyUpdatedPopup(std::string const& modID);
 
 } // namespace opengeode
