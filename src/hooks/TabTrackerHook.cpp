@@ -1,4 +1,4 @@
-#include "Settings.hpp"
+#include "../Settings.hpp"
 
 #include <Geode/Geode.hpp>
 #include <Geode/modify/CCMenuItem.hpp>

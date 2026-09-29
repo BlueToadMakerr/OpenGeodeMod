@@ -1,11 +1,11 @@
-#include "FilterPopup.hpp"
-#include "IndexListPopup.hpp"
-#include "ModsListUtils.hpp"
-#include "AccountPopup.hpp"
-#include "MoreManagePopup.hpp"
-#include "VersionsPopup.hpp"
-#include "Settings.hpp"
-#include "IndexUpdates.hpp"
+#include "../FilterPopup.hpp"
+#include "../IndexListPopup.hpp"
+#include "../ModsListUtils.hpp"
+#include "../AccountPopup.hpp"
+#include "../MoreManagePopup.hpp"
+#include "../VersionsPopup.hpp"
+#include "../Settings.hpp"
+#include "../IndexUpdates.hpp"
 
 #include <Geode/Geode.hpp>
 #include <Geode/ui/SceneEvent.hpp>
