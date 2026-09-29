@@ -22,11 +22,6 @@
       "description": "Maximum number of management buttons shown before overflowing.",
       "default": 3,
       "min": 2
-    },
-    "manual-login": {
-      "type": "custom:manual-login",
-      "name": "Manual Login",
-      "description": "Set the access and refresh tokens used for the currently selected index."
     }
   },
   "resources": {
