@@ -37,11 +37,8 @@ std::string errorText(web::WebResponse const& response) {
             if (!value.empty()) return value;
         }
     }
-
-    if (response.code() > 0)
-        return fmt::format("HTTP {}", response.code());
-    if (!response.errorMessage().empty())
-        return std::string(response.errorMessage());
+    if (response.code() > 0) return fmt::format("HTTP {}", response.code());
+    if (!response.errorMessage().empty()) return std::string(response.errorMessage());
     return "Request failed.";
 }
 
@@ -71,42 +68,120 @@ bool versionIsNewer(std::string const& lhs, std::string const& rhs) {
     return lhs > rhs;
 }
 
-class GdLoginPopup : public Popup {
-protected:
-    TextInput* m_code = nullptr;
+class GithubLoginPopup : public Popup {
+    CCLabelBMFont* m_codeLabel = nullptr;
+    CCLabelBMFont* m_urlLabel = nullptr;
+    CCLabelBMFont* m_statusLabel = nullptr;
     std::function<void()> m_onLoggedIn;
     async::TaskHolder<web::WebResponse> m_task;
+    std::string m_uuid;
+    int m_pollInterval = 5;
+    bool m_finished = false;
 
     bool init(std::function<void()> onLoggedIn) {
-        if (!Popup::init(280.f, 175.f, getPopupBackground())) return false;
+        if (!Popup::init(320.f, 190.f, getPopupBackground())) return false;
         m_onLoggedIn = std::move(onLoggedIn);
-        setTitle("Geode Login");
+        setTitle("GitHub Login");
         if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .875f);
-        auto center = m_mainLayer->getContentWidth() / 2;
-        auto label = CCLabelBMFont::create("Enter the 4-character code from the website", "chatFont.fnt");
-        label->setScale(.8f); label->setAlignment(kCCTextAlignmentCenter); label->setPosition({center, 120.f}); m_mainLayer->addChild(label);
-        m_code = TextInput::create(130.f, "AB12", "chatFont.fnt"); m_code->setPosition({center, 73.f}); m_mainLayer->addChild(m_code);
-        auto login = CCMenuItemExt::createSpriteExtra(ButtonSprite::create("Log In", "goldFont.fnt", getButtonTexture("GJ_button_01.png"), .6f), [this](auto) { submit(); });
-        auto menu = CCMenu::create(); menu->addChild(login); menu->setPosition({center, 20.f}); m_mainLayer->addChild(menu);
+
+        auto center = m_mainLayer->getContentWidth() / 2.f;
+        auto instructions = CCLabelBMFont::create("Open GitHub and enter this code:", "chatFont.fnt");
+        instructions->setScale(.65f);
+        instructions->setPosition({center, 137.f});
+        m_mainLayer->addChild(instructions);
+
+        m_codeLabel = CCLabelBMFont::create("Loading...", "bigFont.fnt");
+        m_codeLabel->setScale(.7f);
+        m_codeLabel->setPosition({center, 106.f});
+        m_mainLayer->addChild(m_codeLabel);
+
+        m_urlLabel = CCLabelBMFont::create("https://github.com/login/device", "chatFont.fnt");
+        m_urlLabel->setScale(.48f);
+        m_urlLabel->setPosition({center, 78.f});
+        m_mainLayer->addChild(m_urlLabel);
+
+        m_statusLabel = CCLabelBMFont::create("Starting login...", "chatFont.fnt");
+        m_statusLabel->setScale(.55f);
+        m_statusLabel->setPosition({center, 48.f});
+        m_mainLayer->addChild(m_statusLabel);
+
+        startLogin();
         return true;
     }
 
-    void submit() {
-        std::string code = m_code->getString().c_str();
-        if (code.size() != 4) { showAlert("Login Failed", "Enter exactly 4 characters."); return; }
-        for (auto& c : code) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-        auto req = web::WebRequest(); req.header("Content-Type", "application/json"); req.body(makeBody(fmt::format("{{\"code\":{}}}", makeJsonString(code))));
-        m_task.spawn(req.post(trimSlash(getIndexUrl()) + "/OpenGeode/login-code/login"), [this](web::WebResponse res) {
-            if (!res.ok()) { showAlert("Login Failed", errorText(res)); return; }
+    void startLogin() {
+        m_statusLabel->setString("Starting login...");
+        auto req = web::WebRequest();
+        req.header("Accept", "application/json");
+        m_task.spawn(req.post(trimSlash(getIndexUrl()) + "/v1/login/github"), [this](web::WebResponse res) {
+            if (!res.ok()) {
+                showAlert("Login Failed", errorText(res));
+                return;
+            }
             auto payload = res.json().unwrapOr(matjson::Value())["payload"];
-            auto access = payload["access_token"].asString().unwrapOr("");
-            auto refresh = payload["refresh_token"].asString().unwrapOr("");
-            if (access.empty() || refresh.empty()) { showAlert("Login Failed", "The server returned invalid login tokens."); return; }
-            setAuthTokens(access, refresh); if (m_onLoggedIn) m_onLoggedIn(); onClose(nullptr);
+            m_uuid = payload["uuid"].asString().unwrapOr("");
+            auto uri = payload["uri"].asString().unwrapOr("https://github.com/login/device");
+            auto code = payload["code"].asString().unwrapOr("");
+            m_pollInterval = payload["interval"].asInt().unwrapOr(5);
+            if (m_uuid.empty() || code.empty()) {
+                showAlert("Login Failed", "The server returned an invalid GitHub login code.");
+                return;
+            }
+            m_codeLabel->setString(code.c_str());
+            m_urlLabel->setString(uri.c_str());
+            m_statusLabel->setString("Waiting for GitHub authorization...");
+            schedulePoll();
         });
     }
+
+    void schedulePoll() {
+        if (m_finished || m_uuid.empty()) return;
+        this->scheduleOnce(schedule_selector(GithubLoginPopup::poll), static_cast<float>(std::max(1, m_pollInterval)));
+    }
+
+    void poll(float) {
+        if (m_finished || m_uuid.empty()) return;
+        auto req = web::WebRequest();
+        req.header("Content-Type", "application/json");
+        req.body(makeBody(fmt::format("{{\"uuid\":{}}}", makeJsonString(m_uuid))));
+        m_task.spawn(req.post(trimSlash(getIndexUrl()) + "/v1/login/github/poll"), [this](web::WebResponse res) {
+            if (res.ok()) {
+                auto payload = res.json().unwrapOr(matjson::Value())["payload"];
+                auto access = payload["access_token"].asString().unwrapOr("");
+                auto refresh = payload["refresh_token"].asString().unwrapOr("");
+                if (access.empty() || refresh.empty()) {
+                    showAlert("Login Failed", "The server returned invalid login tokens.");
+                    return;
+                }
+                m_finished = true;
+                unschedule(schedule_selector(GithubLoginPopup::poll));
+                setAuthTokens(access, refresh);
+                if (m_onLoggedIn) m_onLoggedIn();
+                onClose(nullptr);
+                return;
+            }
+
+            auto detail = errorText(res);
+            if (res.code() == 400 && detail == "Authorization pending") {
+                m_statusLabel->setString("Waiting for GitHub authorization...");
+                schedulePoll();
+                return;
+            }
+
+            showAlert("Login Failed", detail);
+        });
+    }
+
 public:
-    static GdLoginPopup* create(std::function<void()> onLoggedIn) { auto ret = new GdLoginPopup(); if (ret && ret->init(std::move(onLoggedIn))) { ret->autorelease(); return ret; } delete ret; return nullptr; }
+    static GithubLoginPopup* create(std::function<void()> onLoggedIn) {
+        auto ret = new GithubLoginPopup();
+        if (ret && ret->init(std::move(onLoggedIn))) {
+            ret->autorelease();
+            return ret;
+        }
+        delete ret;
+        return nullptr;
+    }
 };
 
 class MyModsPopup : public Popup {
@@ -208,23 +283,16 @@ protected:
         m_name->setAnchorPoint({0.f, .5f});
         m_verifiedBadge->setAnchorPoint({0.f, .5f});
         m_adminBadge->setAnchorPoint({0.f, .5f});
-
         auto nameWidth = m_name->getScaledContentSize().width;
         float badgeWidth = 0.f;
         if (verified) badgeWidth += m_verifiedBadge->getScaledContentSize().width;
-        if (admin) {
-            if (verified) badgeWidth += 4.f;
-            badgeWidth += m_adminBadge->getScaledContentSize().width;
-        }
+        if (admin) { if (verified) badgeWidth += 4.f; badgeWidth += m_adminBadge->getScaledContentSize().width; }
         float gap = (verified || admin) ? 5.f : 0.f;
         float totalWidth = nameWidth + (verified || admin ? gap + badgeWidth : 0.f);
         float left = m_mainLayer->getContentWidth() / 2.f - totalWidth / 2.f;
         m_name->setPosition({left, 251.f});
         float x = left + nameWidth + gap;
-        if (verified) {
-            m_verifiedBadge->setPosition({x, 251.f});
-            x += m_verifiedBadge->getScaledContentSize().width + 4.f;
-        }
+        if (verified) { m_verifiedBadge->setPosition({x, 251.f}); x += m_verifiedBadge->getScaledContentSize().width + 4.f; }
         if (admin) m_adminBadge->setPosition({x, 251.f});
     }
 
@@ -277,10 +345,8 @@ protected:
             auto display = p["display_name"].asString().unwrapOr(""); auto username = p["username"].asString().unwrapOr("");
             auto verified = p["verified"].asBool().unwrapOr(false); auto admin = p["admin"].asBool().unwrapOr(false);
             auto plainName = display.empty() ? username : display;
-            m_name->setString(plainName.c_str());
-            updateNameBadges(verified, admin);
-            m_id->setString(fmt::format("Account ID: {}", p["id"].asInt().unwrapOr(0)).c_str());
-            m_displayName->setString(display.c_str());
+            m_name->setString(plainName.c_str()); updateNameBadges(verified, admin);
+            m_id->setString(fmt::format("Account ID: {}", p["id"].asInt().unwrapOr(0)).c_str()); m_displayName->setString(display.c_str());
         });
     }
 
@@ -296,8 +362,7 @@ protected:
         m_saving = true; m_saveButton->setEnabled(false); setButtonText(m_saveButton, "Saving...");
         request("PUT", "/v1/me", fmt::format("{{\"display_name\":{}}}", makeJsonString(name)), [this](web::WebResponse res) {
             m_saving = false; m_saveButton->setEnabled(true); setButtonText(m_saveButton, "Save");
-            if (!res.ok()) { showAlert("Save Failed", errorText(res)); return; }
-            loadProfile();
+            if (!res.ok()) { showAlert("Save Failed", errorText(res)); return; } loadProfile();
         });
     }
 
@@ -318,7 +383,7 @@ protected:
     }
 
     void confirmLogout() {
-        createQuickPopup("Log Out", "Are you sure you want to log out of this Geode account?", "Cancel", "Log Out", [this](FLAlertLayer*, bool confirmed) {
+        createQuickPopup("Log Out", "Are you sure you want to log out of this account?", "Cancel", "Log Out", [this](FLAlertLayer*, bool confirmed) {
             if (confirmed) { clearAuthTokens(); onClose(nullptr); }
         });
     }
@@ -328,6 +393,6 @@ public:
 };
 }
 
-void showAccountPopup() { if (!hasAuthTokens()) { showGdLoginPopup([] { showAccountPopup(); }); return; } AccountPopup::create()->show(); }
-void showGdLoginPopup(std::function<void()> onLoggedIn) { GdLoginPopup::create(std::move(onLoggedIn))->show(); }
-}
+void showAccountPopup() { if (!hasAuthTokens()) { showGithubLoginPopup([] { showAccountPopup(); }); return; } AccountPopup::create()->show(); }
+void showGithubLoginPopup(std::function<void()> onLoggedIn) { GithubLoginPopup::create(std::move(onLoggedIn))->show(); }
+} // namespace opengeode
