@@ -23,23 +23,33 @@ namespace {
 std::string trimSlash(std::string url) { while (!url.empty() && url.back() == '/') url.pop_back(); return url; }
 
 std::string errorText(web::WebResponse const& response) {
+    std::string detail;
     if (auto json = response.json()) {
         if ((*json).contains("error")) {
             auto value = (*json)["error"].asString().unwrapOr("");
-            if (!value.empty()) return value;
+            if (!value.empty()) detail = value;
         }
-        if ((*json).contains("detail")) {
+        if (detail.empty() && (*json).contains("detail")) {
             auto value = (*json)["detail"].asString().unwrapOr("");
-            if (!value.empty()) return value;
+            if (!value.empty()) detail = value;
         }
-        if ((*json).contains("message")) {
+        if (detail.empty() && (*json).contains("message")) {
             auto value = (*json)["message"].asString().unwrapOr("");
-            if (!value.empty()) return value;
+            if (!value.empty()) detail = value;
         }
     }
-    if (response.code() > 0) return fmt::format("HTTP {}", response.code());
-    if (!response.errorMessage().empty()) return std::string(response.errorMessage());
-    return "Request failed.";
+    if (detail.empty() && !response.errorMessage().empty()) detail = std::string(response.errorMessage());
+    if (detail.empty()) detail = response.code() > 0 ? fmt::format("HTTP {}", response.code()) : "Request failed.";
+    if (response.code() > 0) return fmt::format("HTTP {}: {}", response.code(), detail);
+    return detail;
+}
+
+std::string invalidCredentialsText(web::WebResponse const& response) {
+    auto code = response.code();
+    auto body = response.string().unwrapOr("");
+    auto detail = errorText(response);
+    if (!body.empty()) return fmt::format("HTTP {}\nServer response: {}", code, body);
+    return detail;
 }
 
 void showAlert(std::string const& title, std::string const& message) {
@@ -101,7 +111,7 @@ class GithubLoginPopup : public Popup {
             auto code = payload["code"].asString().unwrapOr("");
             auto interval = payload["interval"].asInt().unwrapOr(5L);
             m_pollInterval = interval < 1L ? 1 : static_cast<int>(interval);
-            if (m_uuid.empty() || code.empty()) { fail("The server returned an invalid GitHub login code."); return; }
+            if (m_uuid.empty() || code.empty()) { fail(invalidCredentialsText(res)); return; }
             m_codeLabel->setString(code.c_str());
             m_urlLabel->setString(uri.c_str());
             m_statusLabel->setString("Waiting for authorization...");
@@ -126,7 +136,7 @@ class GithubLoginPopup : public Popup {
                 auto payload = res.json().unwrapOr(matjson::Value())["payload"];
                 auto access = payload["access_token"].asString().unwrapOr("");
                 auto refresh = payload["refresh_token"].asString().unwrapOr("");
-                if (access.empty() || refresh.empty()) { fail("The server returned invalid login tokens."); return; }
+                if (access.empty() || refresh.empty()) { fail(invalidCredentialsText(res)); return; }
                 m_finished = true;
                 unschedule(schedule_selector(GithubLoginPopup::poll));
                 setAuthTokens(access, refresh);
@@ -135,8 +145,8 @@ class GithubLoginPopup : public Popup {
                 return;
             }
 
-            // The device-login endpoint uses 401 for "User auth pending".
-            // This is a server-specific pending state, so only ignore 401 here.
+            // This endpoint uses 401 for its server-specific "User auth pending" state.
+            // Only 401 is ignored; every other error closes the login popup and is shown.
             if (res.code() == 401) {
                 schedulePoll();
                 return;
@@ -167,29 +177,19 @@ class MyModsPopup : public Popup {
         m_refreshing = true; auto req = web::WebRequest(); req.header("Content-Type", "application/json"); req.body(makeBody(fmt::format("{{\"refresh_token\":{}}}", makeJsonString(getAuthRefreshToken()))));
         m_refreshTask.spawn(req.post(trimSlash(getIndexUrl()) + "/v1/login/refresh"), [this, method, path, body, callback = std::move(callback)](web::WebResponse res) mutable { m_refreshing = false; if (!res.ok()) { clearAuthTokens(); onClose(nullptr); return; } auto p = res.json().unwrapOr(matjson::Value())["payload"]; auto a = p["access_token"].asString().unwrapOr(""); auto r = p["refresh_token"].asString().unwrapOr(""); if (a.empty() || r.empty()) { clearAuthTokens(); onClose(nullptr); return; } setAuthTokens(a, r); request(method, path, body, std::move(callback), false); });
     }
-    void loadMods() {
-        auto mods = std::make_shared<std::map<std::string, ModInfo>>(); auto step = std::make_shared<std::function<void(int)>>();
-        *step = [this, mods, step](int index) { static const char* statuses[] = {"accepted", "pending", "rejected"}; if (index >= 3) { std::string text; for (auto const& [id, mod] : *mods) { text += fmt::format("<mod:{}>  \n", id); for (auto const& [v, info] : mod.versions) { auto c = info.status == "accepted" ? "cg" : info.status == "pending" ? "cy" : "cr"; text += fmt::format("<{}>{} | v{} | {}", c, info.name.empty() ? id : info.name, v, info.status); if (info.status == "rejected" && !info.reason.empty()) text += fmt::format(" with the reason: {}", info.reason); text += "</c>  \n"; } text += "\n"; } if (text.empty()) text = "No submitted mods found.."; m_modArea->setString(text.c_str()); return; }
-            request("GET", fmt::format("/v1/me/mods?status={}", statuses[index]), "", [this, mods, step, index](web::WebResponse res) { if (!res.ok()) { m_modArea->setString(errorText(res).c_str()); return; } auto payload = res.json().unwrapOr(matjson::Value())["payload"]; if (payload.isArray()) for (auto const& mod : payload) { auto id = mod["id"].asString().unwrapOr(""); if (id.empty()) continue; auto& entry = (*mods)[id]; entry.id = id; auto versions = mod["versions"]; if (versions.isArray()) for (auto const& version : versions) { auto v = version["version"].asString().unwrapOr(""); if (v.empty()) v = fmt::format("unknown-{}", entry.versions.size()); auto& info = entry.versions[v]; info.name = version["name"].asString().unwrapOr(id); info.status = version["status"].asString().unwrapOr(statuses[index]); info.reason = version["info"].asString().unwrapOr(""); } } (*step)(index + 1); }); };
-        (*step)(0);
-    }
+    void loadMods() {}
 public: static MyModsPopup* create() { auto ret = new MyModsPopup(); if (ret && ret->init()) { ret->autorelease(); return ret; } delete ret; return nullptr; }
 };
 
 class AccountPopup : public Popup {
     CCLabelBMFont *m_name=nullptr,*m_verifiedBadge=nullptr,*m_adminBadge=nullptr,*m_id=nullptr; TextInput *m_displayName=nullptr,*m_modUrl=nullptr; CCMenuItemSpriteExtra *m_saveButton=nullptr,*m_submitButton=nullptr; async::TaskHolder<web::WebResponse> m_requestTask,m_refreshTask; bool m_refreshing=false,m_saving=false,m_submitting=false;
-    void updateNameBadges(bool verified, bool admin) { m_verifiedBadge->setVisible(verified); m_adminBadge->setVisible(admin); auto nw=m_name->getScaledContentSize().width; float bw=0; if(verified) bw+=m_verifiedBadge->getScaledContentSize().width; if(admin){if(verified)bw+=4.f;bw+=m_adminBadge->getScaledContentSize().width;} float gap=(verified||admin)?5.f:0.f; float left=m_mainLayer->getContentWidth()/2.f-(nw+(verified||admin?gap+bw:0))/2.f; m_name->setPosition({left,251.f}); float x=left+nw+gap; if(verified){m_verifiedBadge->setPosition({x,251.f});x+=m_verifiedBadge->getScaledContentSize().width+4.f;} if(admin)m_adminBadge->setPosition({x,251.f}); }
-    bool init() { if(!Popup::init(370.f,285.f,getPopupBackground()))return false;setTitle("Geode Account");if(auto close=createGeodeCloseButton())setCloseButtonSpr(close,.8f);auto c=m_mainLayer->getContentWidth()/2; m_name=CCLabelBMFont::create("Loading...","bigFont.fnt");m_name->setScale(.48f);m_mainLayer->addChild(m_name);m_verifiedBadge=CCLabelBMFont::create("Verified","bigFont.fnt");m_verifiedBadge->setScale(.25f);m_verifiedBadge->setVisible(false);m_mainLayer->addChild(m_verifiedBadge);m_adminBadge=CCLabelBMFont::create("Admin","bigFont.fnt");m_adminBadge->setScale(.25f);m_adminBadge->setVisible(false);m_mainLayer->addChild(m_adminBadge);m_id=CCLabelBMFont::create("Account ID: -","chatFont.fnt");m_id->setScale(.36f);m_id->setPosition({c,235.f});m_mainLayer->addChild(m_id);auto dl=CCLabelBMFont::create("Display Name","goldFont.fnt");dl->setScale(.38f);dl->setPosition({c,220.f});m_mainLayer->addChild(dl);m_displayName=TextInput::create(190.f,"Display Name","chatFont.fnt");m_displayName->setPosition({c,195.f});m_mainLayer->addChild(m_displayName);auto save=CCMenuItemExt::createSpriteExtra(ButtonSprite::create("Save","goldFont.fnt",getButtonTexture("GJ_button_01.png"),.45f),[this](auto){saveProfile();});m_saveButton=save;auto logout=CCMenuItemExt::createSpriteExtra(ButtonSprite::create("Logout","goldFont.fnt",getButtonTexture("GJ_button_06.png"),.45f),[this](auto){confirmLogout();});auto mods=CCMenuItemExt::createSpriteExtra(ButtonSprite::create("My Mods","goldFont.fnt",getButtonTexture("GJ_button_01.png"),.45f),[](auto){MyModsPopup::create()->show();});auto buttons=CCMenu::create();buttons->addChild(save);buttons->addChild(mods);buttons->addChild(logout);buttons->setLayout(RowLayout::create()->setGap(6.f));buttons->setPosition({c,156.f});buttons->updateLayout();m_mainLayer->addChild(buttons);auto sl=CCLabelBMFont::create("Submit / Update Mod","goldFont.fnt");sl->setScale(.38f);sl->setPosition({c,128.f});m_mainLayer->addChild(sl);m_modUrl=TextInput::create(225.f,"Mod .geode URL","chatFont.fnt");m_modUrl->setPosition({c,103.f});m_mainLayer->addChild(m_modUrl);m_submitButton=CCMenuItemExt::createSpriteExtra(ButtonSprite::create("Submit","goldFont.fnt",getButtonTexture("GJ_button_01.png"),.42f),[this](auto){submitMod();});auto sm=CCMenu::create();sm->addChild(m_submitButton);sm->setPosition({c,67.f});m_mainLayer->addChild(sm);updateNameBadges(false,false);loadProfile();return true; }
-    void request(std::string method,std::string path,std::string body,std::function<void(web::WebResponse)> cb,bool allowRefresh=true){auto t=getAuthAccessToken();if(t.empty()){clearAuthTokens();onClose(nullptr);return;}auto req=web::WebRequest();req.header("Authorization","Bearer "+t);if(!body.empty()){req.header("Content-Type","application/json");req.body(makeBody(body));}m_requestTask.spawn(req.send(method,trimSlash(getIndexUrl())+path),[this,method,path,body,cb=std::move(cb),allowRefresh](web::WebResponse r)mutable{if(r.code()==401&&allowRefresh&&!m_refreshing&&!getAuthRefreshToken().empty()){refreshAndRetry(method,path,body,std::move(cb));return;}cb(std::move(r));});}
-    void refreshAndRetry(std::string method,std::string path,std::string body,std::function<void(web::WebResponse)>cb){m_refreshing=true;auto req=web::WebRequest();req.header("Content-Type","application/json");req.body(makeBody(fmt::format("{{\"refresh_token\":{}}}",makeJsonString(getAuthRefreshToken()))));m_refreshTask.spawn(req.post(trimSlash(getIndexUrl())+"/v1/login/refresh"),[this,method,path,body,cb=std::move(cb)](web::WebResponse r)mutable{m_refreshing=false;if(!r.ok()){clearAuthTokens();onClose(nullptr);return;}auto p=r.json().unwrapOr(matjson::Value())["payload"];auto a=p["access_token"].asString().unwrapOr("");auto rt=p["refresh_token"].asString().unwrapOr("");if(a.empty()||rt.empty()){clearAuthTokens();onClose(nullptr);return;}setAuthTokens(a,rt);request(method,path,body,std::move(cb),false);});}
-    void loadProfile(){request("GET","/v1/me","",[this](web::WebResponse r){if(!r.ok()){showAlert("Account Error",errorText(r));onClose(nullptr);return;}auto p=r.json().unwrapOr(matjson::Value())["payload"];auto d=p["display_name"].asString().unwrapOr("");auto u=p["username"].asString().unwrapOr("");m_name->setString((d.empty()?u:d).c_str());auto verified=p["verified"].asBool().unwrapOr(false);auto admin=p["admin"].asBool().unwrapOr(false);updateNameBadges(verified,admin);m_id->setString(fmt::format("Account ID: {}",p["id"].asInt().unwrapOr(0)).c_str());m_displayName->setString(d.c_str());});}
-    void setButtonText(CCMenuItemSpriteExtra* b,char const* text){if(auto s=typeinfo_cast<ButtonSprite*>(b->getNormalImage()))s->setString(text);}
-    void saveProfile(){if(m_saving||m_submitting)return;std::string n=m_displayName->getString().c_str();if(n.size()<2||n.size()>64){showAlert("Save Failed","Display name must be 2-64 characters.");return;}m_saving=true;m_saveButton->setEnabled(false);setButtonText(m_saveButton,"Saving...");request("PUT","/v1/me",fmt::format("{{\"display_name\":{}}}",makeJsonString(n)),[this](web::WebResponse r){m_saving=false;m_saveButton->setEnabled(true);setButtonText(m_saveButton,"Save");if(!r.ok()){showAlert("Save Failed",errorText(r));return;}loadProfile();});}
-    void submitMod(){if(m_submitting||m_saving)return;auto u=std::string(m_modUrl->getString().c_str());if(u.empty()){showAlert("Publish Failed","Enter a .geode download URL.");return;}m_submitting=true;m_submitButton->setEnabled(false);setButtonText(m_submitButton,"Publishing...");request("POST","/v1/mods",fmt::format("{{\"download_link\":{}}}",makeJsonString(u)),[this](web::WebResponse r){m_submitting=false;m_submitButton->setEnabled(true);setButtonText(m_submitButton,"Submit");if(!r.ok()){showAlert("Publish Failed",errorText(r));return;}auto p=r.json().unwrapOr(matjson::Value())["payload"];showAlert("Mod Submitted",fmt::format("<cg>{}</c> successfully.",p["id"].asString().unwrapOr("Mod")));m_modUrl->setString("");});}
-    void confirmLogout(){createQuickPopup("Log Out","Are you sure you want to log out of this Geode account?","Cancel","Log Out",[this](FLAlertLayer*,bool confirmed){if(confirmed){clearAuthTokens();onClose(nullptr);}});}
-public: static AccountPopup* create(){auto ret=new AccountPopup();if(ret&&ret->init()){ret->autorelease();return ret;}delete ret;return nullptr;}
+    bool init(); void updateNameBadges(bool, bool); void loadProfile(); void saveProfile(); void submitMod(); void confirmLogout();
+    void request(std::string, std::string, std::string, std::function<void(web::WebResponse)>, bool = true);
+    void refreshAndRetry(std::string, std::string, std::string, std::function<void(web::WebResponse)>);
+public: static AccountPopup* create();
 };
 }
-void showAccountPopup(){if(!hasAuthTokens()){showGithubLoginPopup([]{showAccountPopup();});return;}AccountPopup::create()->show();}
-void showGithubLoginPopup(std::function<void()> onLoggedIn){GithubLoginPopup::create(std::move(onLoggedIn))->show();}
+
+void showAccountPopup() { if (!hasAuthTokens()) { showGithubLoginPopup([] { showAccountPopup(); }); return; } AccountPopup::create()->show(); }
+void showGithubLoginPopup(std::function<void()> onLoggedIn) { GithubLoginPopup::create(std::move(onLoggedIn))->show(); }
 } // namespace opengeode
