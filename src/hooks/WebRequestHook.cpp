@@ -46,14 +46,14 @@ void registerWebRequestHook() {
                 }
             }
 
-            if (req.getUrlParams().count("no_override") > 0) return ListenerResult::Propagate;
-
             std::string downloadModID;
             if (!openGeodeVersionOverride &&
                 isGeodeModDownloadRequest(givenUrl, downloadModID) &&
                 blockAlreadyUpdatedModDownload(req, downloadModID)) {
                 return ListenerResult::Propagate;
             }
+
+            if (req.getUrlParams().count("no_override") > 0) return ListenerResult::Propagate;
 
             trackModDownloadSource(givenUrl);
 
