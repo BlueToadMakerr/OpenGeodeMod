@@ -106,7 +106,8 @@ class GithubLoginPopup : public Popup {
             m_uuid = payload["uuid"].asString().unwrapOr("");
             auto uri = payload["uri"].asString().unwrapOr("https://github.com/login/device");
             auto code = payload["code"].asString().unwrapOr("");
-            m_pollInterval = std::max(1, payload["interval"].asInt().unwrapOr(5));
+            auto interval = payload["interval"].asInt().unwrapOr(5L);
+            m_pollInterval = interval < 1L ? 1 : static_cast<int>(interval);
             if (m_uuid.empty() || code.empty()) { showAlert("Login Failed", "The server returned an invalid GitHub login code."); return; }
             m_codeLabel->setString(code.c_str());
             m_urlLabel->setString(uri.c_str());
@@ -140,20 +141,17 @@ class GithubLoginPopup : public Popup {
                 onClose(nullptr);
                 return;
             }
-
             auto detail = errorText(res);
             if (res.code() == 400 && (detail == "Authorization pending" || detail == "authorization_pending")) {
                 m_statusLabel->setString(fmt::format("Waiting for authorization... (checking every {}s)", m_pollInterval).c_str());
                 schedulePoll();
                 return;
             }
-
             if (res.code() == 400 && (detail == "Too fast" || detail == "too_fast")) {
                 m_statusLabel->setString(fmt::format("Rate limited; waiting {}s...", m_pollInterval).c_str());
                 schedulePoll();
                 return;
             }
-
             showAlert("Login Failed", detail);
         });
     }
