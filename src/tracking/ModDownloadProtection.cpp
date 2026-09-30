@@ -70,8 +70,11 @@ bool isGeodeModDownloadRequest(std::string const& url, std::string& modID) {
 void showAlreadyUpdatedPopup(std::string const& modID) {
     auto mod = Loader::get()->getInstalledMod(modID);
     std::string modName = mod ? std::string(mod->getName()) : modID;
-    Loader::get()->queueInMainThread([modName = std::move(modName)] {
-        if (auto popup = AlreadyUpdatedPopup::create(modName)) popup->show();
+    auto source = getInstalledModSource(modID);
+    auto sourceName = source ? (source->indexName.empty() ? source->indexId : source->indexName) : std::string("Unknown index");
+    auto sourceUrl = source ? source->indexUrl : std::string();
+    Loader::get()->queueInMainThread([modName = std::move(modName), sourceName = std::move(sourceName), sourceUrl = std::move(sourceUrl)] {
+        if (auto popup = AlreadyUpdatedPopup::create(fmt::format("{}\nUpdated from: {}", modName, sourceName))) popup->show();
     });
 }
 
