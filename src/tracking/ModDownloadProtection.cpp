@@ -72,8 +72,7 @@ void showAlreadyUpdatedPopup(std::string const& modID) {
     std::string modName = mod ? std::string(mod->getName()) : modID;
     auto source = getInstalledModSource(modID);
     auto sourceName = source ? (source->indexName.empty() ? source->indexId : source->indexName) : std::string("Unknown index");
-    auto sourceUrl = source ? source->indexUrl : std::string();
-    Loader::get()->queueInMainThread([modName = std::move(modName), sourceName = std::move(sourceName), sourceUrl = std::move(sourceUrl)] {
+    Loader::get()->queueInMainThread([modName = std::move(modName), sourceName = std::move(sourceName)] {
         if (auto popup = AlreadyUpdatedPopup::create(fmt::format("{}\nUpdated from: {}", modName, sourceName))) popup->show();
     });
 }
