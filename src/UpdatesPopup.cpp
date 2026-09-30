@@ -395,30 +395,6 @@ protected:
         updateAll->setPosition({buttons->getContentWidth() / 2.f - updateAll->getScaledContentWidth() / 2.f - 3.f, 18.f});
         buttons->addChild(updateAll);
 
-        auto restartSprite = ButtonSprite::create(
-            "Restart",
-            "bigFont.fnt",
-            getButtonTexture("GJ_button_01.png"),
-            .42f
-        );
-        auto restart = CCMenuItemExt::createSpriteExtra(
-            restartSprite,
-            [](CCMenuItemSpriteExtra*) {
-                game::restart(true);
-            }
-        );
-        restart->setID("restart-button");
-        bool restartRequired = !completedIndexUpdates().empty();
-        if (!restartRequired) {
-            restartRequired = std::any_of(groups.begin(), groups.end(), [](auto const& group) {
-                return wasModUpdatedFromIndex(group.modID);
-            });
-        }
-        restart->setVisible(restartRequired);
-        restart->setEnabled(restartRequired);
-        restart->setPosition({buttons->getContentWidth() / 2.f + restart->getScaledContentWidth() / 2.f + 3.f, 18.f});
-        buttons->addChild(restart);
-
         m_mainLayer->addChild(buttons, 10);
         return true;
     }
