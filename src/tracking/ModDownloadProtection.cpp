@@ -26,21 +26,29 @@ std::string getModIDFromDownloadURL(std::string const& url) {
     return url.substr(start, end - start);
 }
 
+std::string getCurrentIndexName() {
+    auto current = getIndexUrl();
+    for (auto const& entry : getAllIndexes()) {
+        if (entry.url == current) return entry.name;
+    }
+    return current;
+}
+
 class AlreadyUpdatedPopup : public Popup {
-    bool init(std::string modName) {
-        if (!Popup::init(360.f, 205.f, getPopupBackground())) return false;
+    bool init(std::string modName, std::string installedIndexName, std::string currentIndexName, std::string through) {
+        if (!Popup::init(360.f, 220.f, getPopupBackground())) return false;
         setTitle("Already Updated!");
         if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .875f);
 
         auto text = fmt::format(
-            "You already updated <cy>{}</c> through Open Geode.\n\n"
-            "To change where the update is installed from, click the Open Geode button and redownload the update from your preferred source.",
-            modName
+            "You already <cg>updated</c> <cy>{}</c> through <cj>{}</c> from <cy>{}</c>.\n\n"
+            "You are trying to install from <cy>{}</c>. To change the updated through this index (or any other index), click the <cj>Open Geode</c> button and <cy>redownload</c> the update.",
+            modName, through, installedIndexName, currentIndexName
         );
-        auto area = MDTextArea::create(text, {325.f, 130.f}, true);
+        auto area = MDTextArea::create(text, {325.f, 145.f}, true);
         if (!area) return false;
         area->setAnchorPoint({.5f, .5f});
-        area->setPosition({m_mainLayer->getContentWidth() / 2.f, 101.f});
+        area->setPosition({m_mainLayer->getContentWidth() / 2.f, 108.f});
         area->getScrollLayer()->m_cutContent = false;
         area->getScrollLayer()->m_disableMovement = false;
         area->getScrollLayer()->setMouseEnabled(true);
@@ -49,9 +57,9 @@ class AlreadyUpdatedPopup : public Popup {
     }
 
 public:
-    static AlreadyUpdatedPopup* create(std::string modName) {
+    static AlreadyUpdatedPopup* create(std::string modName, std::string installedIndexName, std::string currentIndexName, std::string through) {
         auto ret = new AlreadyUpdatedPopup();
-        if (ret && ret->init(std::move(modName))) {
+        if (ret && ret->init(std::move(modName), std::move(installedIndexName), std::move(currentIndexName), std::move(through))) {
             ret->autorelease();
             return ret;
         }
@@ -71,9 +79,11 @@ void showAlreadyUpdatedPopup(std::string const& modID) {
     auto mod = Loader::get()->getInstalledMod(modID);
     std::string modName = mod ? std::string(mod->getName()) : modID;
     auto source = getInstalledModSource(modID);
-    auto sourceName = source ? (source->indexName.empty() ? source->indexId : source->indexName) : std::string("Unknown index");
-    Loader::get()->queueInMainThread([modName = std::move(modName), sourceName = std::move(sourceName)] {
-        if (auto popup = AlreadyUpdatedPopup::create(fmt::format("{}\nUpdated from: {}", modName, sourceName))) popup->show();
+    auto installedIndexName = source ? (source->indexName.empty() ? source->indexId : source->indexName) : std::string("Unknown index");
+    auto currentIndexName = getCurrentIndexName();
+    auto through = wasModUpdatedFromGeode(modID) ? std::string("Geode") : std::string("Open Geode");
+    Loader::get()->queueInMainThread([modName = std::move(modName), installedIndexName = std::move(installedIndexName), currentIndexName = std::move(currentIndexName), through = std::move(through)] {
+        if (auto popup = AlreadyUpdatedPopup::create(std::move(modName), std::move(installedIndexName), std::move(currentIndexName), std::move(through))) popup->show();
     });
 }
 
