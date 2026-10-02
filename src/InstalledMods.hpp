@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Settings.hpp"
-
 #include <Geode/Geode.hpp>
 #include <cctype>
 #include <optional>
@@ -9,7 +8,6 @@
 #include <unordered_map>
 
 namespace opengeode {
-
 struct InstalledModSource { std::string indexId; std::string indexName; std::string indexUrl; std::string version; };
 inline std::string installedModKey(std::string modID){for(auto& c:modID)if(!std::isalnum(static_cast<unsigned char>(c))&&c!='-'&&c!='_')c='_';return modID;}
 inline std::string installedModSettingPrefix(std::string const& modID){return "installed-mod-"+installedModKey(modID);}
@@ -28,5 +26,5 @@ inline void clearInstalledModSource(std::string const& modID){if(modID.empty())r
 inline std::unordered_map<std::string,std::string>& pendingVersionInstalls(){static std::unordered_map<std::string,std::string> pending;return pending;}
 inline void setPendingVersionInstall(std::string const& modID,std::string const& version){if(modID.empty()||version.empty())return;pendingVersionInstalls()[modID]=version;}
 inline std::optional<std::string> takePendingVersionInstall(std::string const& modID){auto& pending=pendingVersionInstalls();auto it=pending.find(modID);if(it==pending.end())return std::nullopt;auto version=it->second;pending.erase(it);return version;}
-
+inline void showAlreadyUpdatedPopup(std::string const& modID){auto source=getInstalledModSource(modID);if(!source)return;auto currentIndexName=getIndexUrl();for(auto const& e:getAllIndexes())if(e.url==getIndexUrl()){currentIndexName=e.name;break;}auto mod=Loader::get()->getInstalledMod(modID);auto modName=mod?mod->getName():modID;auto through=wasModUpdatedFromGeode(modID)?"Geode":"Open Geode";auto installedName=source->indexName.empty()?source->indexId:source->indexName;auto message=fmt::format("You already <cg>updated</c> <cy>{}</c> through <cj>{}</c> from <cy>{}</c>.\n\nYou are trying to install from <cy>{}</c>. To change the updated through this index (or any other index), click the <cj>Open Geode</c> button and <cy>redownload</c> the update.",modName,through,installedName,currentIndexName);FLAlertLayer::create("Already Updated!",message.c_str(),"OK")->show();}
 } // namespace opengeode
