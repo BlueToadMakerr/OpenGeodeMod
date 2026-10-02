@@ -5,6 +5,7 @@
 #include <Geode/Geode.hpp>
 #include <Geode/ui/Popup.hpp>
 #include <Geode/ui/TextInput.hpp>
+#include <Geode/utils/web.hpp>
 
 using namespace geode::prelude;
 
@@ -17,6 +18,7 @@ protected:
     StatsFetcher m_stats;
     std::string m_id;
     std::function<void()> m_onSaved;
+    async::TaskHolder<web::WebResponse> m_infoTask;
 
     bool init(IndexEntry entry, std::function<void()> onSaved) {
         m_id = entry.id;
@@ -55,6 +57,36 @@ protected:
         m_stats.opengeodeLabel->setPosition({centerX, top - 116.f});
         m_stats.opengeodeLabel->setVisible(false);
         m_mainLayer->addChild(m_stats.opengeodeLabel);
+
+        auto infoBtn = CCMenuItemExt::createSpriteExtra(
+            ButtonSprite::create("Info", "goldFont.fnt", getButtonTexture("GJ_button_01.png"), .45f),
+            [this](auto) {
+                m_infoTask.spawn(
+                    web::WebRequest().get(m_urlInput->getString().c_str()),
+                    [this](web::WebResponse res) {
+                        if (!res.ok()) {
+                            FLAlertLayer::create("Index Info", fmt::format("Could not fetch the index message. (HTTP {})", res.code()).c_str(), "OK")->show();
+                            return;
+                        }
+                        auto json = res.json();
+                        if (!json) {
+                            FLAlertLayer::create("Index Info", "The index did not return valid JSON.", "OK")->show();
+                            return;
+                        }
+                        auto value = *json;
+                        auto message = value["message"].asString().unwrapOr("");
+                        if (message.empty()) message = value["payload"]["message"].asString().unwrapOr("");
+                        if (message.empty()) message = "This index did not provide a message.";
+                        FLAlertLayer::create("Index Info", message.c_str(), "OK")->show();
+                    }
+                );
+            }
+        );
+        auto infoMenu = CCMenu::create();
+        infoMenu->addChild(infoBtn);
+        infoMenu->setPosition({m_mainLayer->getContentWidth() - 34.f, m_mainLayer->getContentHeight() - 20.f});
+        infoMenu->updateLayout();
+        m_mainLayer->addChild(infoMenu);
 
         auto saveBtn = CCMenuItemExt::createSpriteExtra(
             ButtonSprite::create("Save", "goldFont.fnt", getButtonTexture("GJ_button_02.png"), .6f),
