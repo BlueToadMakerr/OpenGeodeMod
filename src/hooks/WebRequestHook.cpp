@@ -55,7 +55,7 @@ void registerWebRequestHook() {
 
             if (req.getUrlParams().count("no_override") > 0) return ListenerResult::Propagate;
 
-            trackModDownloadSource(givenUrl);
+            trackModDownloadSource(givenUrl, openGeodeVersionOverride);
 
             if (!string::contains(givenUrl, "api.geode-sdk.org")) return ListenerResult::Propagate;
 
