@@ -3,7 +3,6 @@
 #include "StatsFetcher.hpp"
 
 #include <Geode/Geode.hpp>
-#include <Geode/ui/MDTextArea.hpp>
 #include <Geode/ui/Popup.hpp>
 #include <Geode/ui/TextInput.hpp>
 #include <Geode/utils/web.hpp>
@@ -18,14 +17,19 @@ class IndexInfoPopup : public Popup {
         setTitle("Index Info");
         if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .875f);
 
-        auto area = MDTextArea::create(message, {325.f, 145.f}, true);
-        if (!area) return false;
-        area->setAnchorPoint({.5f, .5f});
-        area->setPosition({m_mainLayer->getContentWidth() / 2.f, 108.f});
-        area->getScrollLayer()->m_cutContent = false;
-        area->getScrollLayer()->m_disableMovement = false;
-        area->getScrollLayer()->setMouseEnabled(true);
-        m_mainLayer->addChild(area);
+        auto label = CCLabelTTF::create(
+            message.c_str(),
+            "monospace",
+            12.f,
+            CCSizeZero,
+            kCCTextAlignmentLeft
+        );
+        if (!label) return false;
+        label->setAnchorPoint({0.f, 1.f});
+        label->setScale(.55f);
+        label->setPosition({18.f, 180.f});
+        m_mainLayer->addChild(label);
+
         return true;
     }
 
