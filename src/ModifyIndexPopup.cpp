@@ -68,15 +68,10 @@ protected:
                             FLAlertLayer::create("Index Info", fmt::format("Could not fetch the index message. (HTTP {})", res.code()).c_str(), "OK")->show();
                             return;
                         }
-                        auto json = res.json();
-                        if (!json) {
-                            FLAlertLayer::create("Index Info", "The index did not return valid JSON.", "OK")->show();
-                            return;
-                        }
-                        auto value = *json;
-                        auto message = value["message"].asString().unwrapOr("");
-                        if (message.empty()) message = value["payload"]["message"].asString().unwrapOr("");
+
+                        auto message = res.string().unwrapOr("");
                         if (message.empty()) message = "This index did not provide a message.";
+
                         FLAlertLayer::create("Index Info", message.c_str(), "OK")->show();
                     }
                 );
