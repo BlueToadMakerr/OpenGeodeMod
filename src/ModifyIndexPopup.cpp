@@ -3,6 +3,7 @@
 #include "StatsFetcher.hpp"
 
 #include <Geode/Geode.hpp>
+#include <Geode/ui/MDTextArea.hpp>
 #include <Geode/ui/Popup.hpp>
 #include <Geode/ui/TextInput.hpp>
 #include <Geode/utils/web.hpp>
@@ -58,8 +59,9 @@ protected:
         m_stats.opengeodeLabel->setVisible(false);
         m_mainLayer->addChild(m_stats.opengeodeLabel);
 
+        auto infoIcon = CCSprite::createWithSpriteFrameName("GJ_infoIcon_001.png");
         auto infoBtn = CCMenuItemExt::createSpriteExtra(
-            ButtonSprite::create("Info", "goldFont.fnt", getButtonTexture("GJ_button_01.png"), .45f),
+            infoIcon,
             [this](auto) {
                 m_infoTask.spawn(
                     web::WebRequest().get(m_urlInput->getString().c_str()),
@@ -72,11 +74,28 @@ protected:
                         auto message = res.string().unwrapOr("");
                         if (message.empty()) message = "This index did not provide a message.";
 
-                        FLAlertLayer::create("Index Info", message.c_str(), "OK")->show();
+                        auto popup = Popup::create(360.f, 220.f, getPopupBackground());
+                        if (!popup) return;
+                        popup->setTitle("Index Info");
+                        if (auto close = createGeodeCloseButton()) popup->setCloseButtonSpr(close, .875f);
+
+                        auto area = MDTextArea::create(message, {325.f, 145.f}, true);
+                        if (!area) {
+                            popup->onClose(nullptr);
+                            return;
+                        }
+                        area->setAnchorPoint({.5f, .5f});
+                        area->setPosition({popup->getContentWidth() / 2.f, 108.f});
+                        area->getScrollLayer()->m_cutContent = false;
+                        area->getScrollLayer()->m_disableMovement = false;
+                        area->getScrollLayer()->setMouseEnabled(true);
+                        popup->addChild(area);
+                        popup->show();
                     }
                 );
             }
         );
+        infoBtn->setScale(.8f);
         auto infoMenu = CCMenu::create();
         infoMenu->addChild(infoBtn);
         infoMenu->setPosition({m_mainLayer->getContentWidth() - 34.f, m_mainLayer->getContentHeight() - 20.f});
