@@ -4,6 +4,6 @@
 
 namespace opengeode {
 
-void trackModDownloadSource(std::string const& url);
+void trackModDownloadSource(std::string const& url, bool throughOpenGeode = false);
 
 } // namespace opengeode

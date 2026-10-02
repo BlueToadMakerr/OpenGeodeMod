@@ -18,16 +18,13 @@ class ManualLoginPopup : public Popup {
 
     bool init(IndexEntry entry, std::function<void()> onSaved) {
         if (!Popup::init(320.f, 225.f, getPopupBackground())) return false;
-
         m_entry = std::move(entry);
         m_onSaved = std::move(onSaved);
         setTitle("Manual Login");
-        if (auto close = createGeodeCloseButton())
-            setCloseButtonSpr(close, .875f);
+        if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .875f);
 
         auto center = m_mainLayer->getContentWidth() / 2.f;
         auto top = m_mainLayer->getContentHeight() - 42.f;
-
         auto indexLabel = CCLabelBMFont::create(m_entry.name.c_str(), "bigFont.fnt");
         indexLabel->setScale(.38f);
         indexLabel->setPosition({center, top});
@@ -37,18 +34,16 @@ class ManualLoginPopup : public Popup {
         accessLabel->setScale(.32f);
         accessLabel->setPosition({center, top - 27.f});
         m_mainLayer->addChild(accessLabel);
-
         m_access = TextInput::create(260.f, "Access token", "chatFont.fnt");
         m_access->setString(getAuthAccessToken());
         m_access->setPosition({center, top - 47.f});
         m_mainLayer->addChild(m_access);
 
-        auto refreshLabel = CCLabelBMFont::create("Refresh Token", "bigFont.fnt");
+        auto refreshLabel = CCLabelBMFont::create("Refresh Token (Optional)", "bigFont.fnt");
         refreshLabel->setScale(.32f);
         refreshLabel->setPosition({center, top - 77.f});
         m_mainLayer->addChild(refreshLabel);
-
-        m_refresh = TextInput::create(260.f, "Refresh token", "chatFont.fnt");
+        m_refresh = TextInput::create(260.f, "Refresh token (optional)", "chatFont.fnt");
         m_refresh->setString(getAuthRefreshToken());
         m_refresh->setPosition({center, top - 97.f});
         m_mainLayer->addChild(m_refresh);
@@ -58,8 +53,8 @@ class ManualLoginPopup : public Popup {
             [this](auto) {
                 auto access = std::string(m_access->getString().c_str());
                 auto refresh = std::string(m_refresh->getString().c_str());
-                if (access.empty() || refresh.empty()) {
-                    FLAlertLayer::create("Invalid Credentials", "Both an access token and refresh token are required.", "OK")->show();
+                if (access.empty()) {
+                    FLAlertLayer::create("Invalid Credentials", "An access token is required.", "OK")->show();
                     return;
                 }
                 setAuthTokens(access, refresh);
@@ -67,7 +62,6 @@ class ManualLoginPopup : public Popup {
                 onClose(nullptr);
             }
         );
-
         auto clear = CCMenuItemExt::createSpriteExtra(
             ButtonSprite::create("Clear", "goldFont.fnt", getButtonTexture("GJ_button_06.png"), .6f),
             [this](auto) {
@@ -77,7 +71,6 @@ class ManualLoginPopup : public Popup {
                 if (m_onSaved) m_onSaved();
             }
         );
-
         auto menu = CCMenu::create();
         menu->addChild(save);
         menu->addChild(clear);
@@ -101,7 +94,7 @@ public:
 };
 
 void showManualLoginPopup(IndexEntry entry, std::function<void()> onSaved) {
-    ManualLoginPopup::create(std::move(entry), std::move(onSaved))->show();
+    if (auto popup = ManualLoginPopup::create(std::move(entry), std::move(onSaved))) popup->show();
 }
 
 } // namespace opengeode

@@ -21,45 +21,46 @@ protected:
     bool init(IndexEntry entry, std::function<void()> onSaved) {
         m_id = entry.id;
         m_onSaved = std::move(onSaved);
-
         if (!Popup::init(300.f, 220.f, getPopupBackground())) return false;
-        this->setTitle("Modify Index");
-        if (auto close = createGeodeCloseButton())
-            this->setCloseButtonSpr(close, 0.875f);
+        setTitle("Modify Index");
+        if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .875f);
 
-        float centerX = m_mainLayer->getContentWidth() / 2;
-        float top = m_mainLayer->getContentHeight() - 32.f;
+        float centerX = m_mainLayer->getContentWidth() / 2.f;
+        float top = m_mainLayer->getContentHeight() - 30.f;
 
         auto nameLbl = CCLabelBMFont::create("Name", "bigFont.fnt");
-        nameLbl->setScale(0.35f);
+        nameLbl->setScale(.35f);
         nameLbl->setPosition({centerX, top});
         m_mainLayer->addChild(nameLbl);
-
         m_nameInput = TextInput::create(220.f, "Name", "chatFont.fnt");
         m_nameInput->setString(entry.name);
-        m_nameInput->setPosition({centerX, top - 20.f});
+        m_nameInput->setPosition({centerX, top - 22.f});
         m_mainLayer->addChild(m_nameInput);
 
         auto urlLbl = CCLabelBMFont::create("URL", "bigFont.fnt");
-        urlLbl->setScale(0.35f);
-        urlLbl->setPosition({centerX, top - 50.f});
+        urlLbl->setScale(.35f);
+        urlLbl->setPosition({centerX, top - 54.f});
         m_mainLayer->addChild(urlLbl);
-
         m_urlInput = TextInput::create(220.f, "https://example.com", "chatFont.fnt");
         m_urlInput->setString(entry.url);
-        m_urlInput->setPosition({centerX, top - 70.f});
+        m_urlInput->setPosition({centerX, top - 76.f});
         m_mainLayer->addChild(m_urlInput);
 
         m_stats.label = CCLabelBMFont::create("Fetching index stats...", "bigFont.fnt");
-        m_stats.label->setScale(0.35f);
-        m_stats.label->setPosition({centerX, top - 88.f});
+        m_stats.label->setScale(.32f);
+        m_stats.label->setPosition({centerX, top - 99.f});
         m_mainLayer->addChild(m_stats.label);
+        m_stats.opengeodeLabel = CCLabelBMFont::create("Open Geode: Loading...", "bigFont.fnt");
+        m_stats.opengeodeLabel->setScale(.32f);
+        m_stats.opengeodeLabel->setPosition({centerX, top - 116.f});
+        m_stats.opengeodeLabel->setVisible(false);
+        m_mainLayer->addChild(m_stats.opengeodeLabel);
 
         auto saveBtn = CCMenuItemExt::createSpriteExtra(
-            ButtonSprite::create("Save", "goldFont.fnt", getButtonTexture("GJ_button_02.png"), 0.6f),
+            ButtonSprite::create("Save", "goldFont.fnt", getButtonTexture("GJ_button_02.png"), .6f),
             [this](auto) {
-                auto name = m_nameInput->getString();
-                auto url = m_urlInput->getString();
+                auto name = std::string(m_nameInput->getString().c_str());
+                auto url = std::string(m_urlInput->getString().c_str());
                 if (name.empty() || url.empty()) {
                     FLAlertLayer::create("Error", "Both a name and a URL are required.", "OK")->show();
                     return;
@@ -69,16 +70,14 @@ protected:
                     return;
                 }
                 if (m_onSaved) m_onSaved();
-                this->onClose(nullptr);
+                onClose(nullptr);
             }
         );
-
         auto menu = CCMenu::create();
         menu->addChild(saveBtn);
         menu->setPosition({centerX, 16.f});
         menu->updateLayout();
         m_mainLayer->addChild(menu);
-
         m_stats.fetch(entry.url);
         return true;
     }
@@ -86,17 +85,14 @@ protected:
 public:
     static ModifyIndexPopup* create(IndexEntry entry, std::function<void()> onSaved) {
         auto ret = new ModifyIndexPopup();
-        if (ret && ret->init(std::move(entry), std::move(onSaved))) {
-            ret->autorelease();
-            return ret;
-        }
+        if (ret && ret->init(std::move(entry), std::move(onSaved))) { ret->autorelease(); return ret; }
         delete ret;
         return nullptr;
     }
 };
 
 void showModifyIndexPopup(IndexEntry entry, std::function<void()> onSaved) {
-    ModifyIndexPopup::create(std::move(entry), std::move(onSaved))->show();
+    if (auto popup = ModifyIndexPopup::create(std::move(entry), std::move(onSaved))) popup->show();
 }
 
 } // namespace opengeode

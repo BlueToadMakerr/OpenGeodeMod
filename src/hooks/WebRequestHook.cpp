@@ -1,6 +1,7 @@
 #include "WebRequestHook.hpp"
 #include "../Settings.hpp"
 #include "../InstalledMods.hpp"
+#include "../tracking/ModDownloadProtection.hpp"
 #include "../tracking/ModSourceTracking.hpp"
 
 #include <Geode/Geode.hpp>
@@ -15,6 +16,7 @@ void registerWebRequestHook() {
         [](std::string_view id, web::WebRequest& req) {
             std::string givenUrl = req.getUrl().data();
             auto modsPath = std::string("/v1/mods/");
+            bool openGeodeVersionOverride = false;
 
             auto modStart = givenUrl.find(modsPath);
             if (modStart != std::string::npos) {
@@ -38,14 +40,22 @@ void registerWebRequestHook() {
                             givenUrl.replace(apiPos, givenUrl.size() - apiPos, downloadPath);
                             req.url(givenUrl);
                             takePendingVersionInstall(modID);
+                            openGeodeVersionOverride = true;
                         }
                     }
                 }
             }
 
+            std::string downloadModID;
+            if (!openGeodeVersionOverride &&
+                isGeodeModDownloadRequest(givenUrl, downloadModID) &&
+                blockAlreadyUpdatedModDownload(req, downloadModID)) {
+                return ListenerResult::Propagate;
+            }
+
             if (req.getUrlParams().count("no_override") > 0) return ListenerResult::Propagate;
 
-            trackModDownloadSource(givenUrl);
+            trackModDownloadSource(givenUrl, openGeodeVersionOverride);
 
             if (!string::contains(givenUrl, "api.geode-sdk.org")) return ListenerResult::Propagate;
 
