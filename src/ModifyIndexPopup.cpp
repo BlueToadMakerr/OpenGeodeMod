@@ -12,6 +12,35 @@ using namespace geode::prelude;
 
 namespace opengeode {
 
+class IndexInfoPopup : public Popup {
+    bool init(std::string message) {
+        if (!Popup::init(360.f, 220.f, getPopupBackground())) return false;
+        setTitle("Index Info");
+        if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .875f);
+
+        auto area = MDTextArea::create(message, {325.f, 145.f}, true);
+        if (!area) return false;
+        area->setAnchorPoint({.5f, .5f});
+        area->setPosition({m_mainLayer->getContentWidth() / 2.f, 108.f});
+        area->getScrollLayer()->m_cutContent = false;
+        area->getScrollLayer()->m_disableMovement = false;
+        area->getScrollLayer()->setMouseEnabled(true);
+        m_mainLayer->addChild(area);
+        return true;
+    }
+
+public:
+    static IndexInfoPopup* create(std::string message) {
+        auto ret = new IndexInfoPopup();
+        if (ret && ret->init(std::move(message))) {
+            ret->autorelease();
+            return ret;
+        }
+        delete ret;
+        return nullptr;
+    }
+};
+
 class ModifyIndexPopup : public Popup {
 protected:
     TextInput* m_nameInput = nullptr;
@@ -62,7 +91,7 @@ protected:
         auto infoIcon = CCSprite::createWithSpriteFrameName("GJ_infoIcon_001.png");
         auto infoBtn = CCMenuItemExt::createSpriteExtra(
             infoIcon,
-            [this](auto) {
+            [this](CCMenuItemSpriteExtra*) {
                 m_infoTask.spawn(
                     web::WebRequest().get(m_urlInput->getString().c_str()),
                     [this](web::WebResponse res) {
@@ -74,23 +103,7 @@ protected:
                         auto message = res.string().unwrapOr("");
                         if (message.empty()) message = "This index did not provide a message.";
 
-                        auto popup = Popup::create(360.f, 220.f, getPopupBackground());
-                        if (!popup) return;
-                        popup->setTitle("Index Info");
-                        if (auto close = createGeodeCloseButton()) popup->setCloseButtonSpr(close, .875f);
-
-                        auto area = MDTextArea::create(message, {325.f, 145.f}, true);
-                        if (!area) {
-                            popup->onClose(nullptr);
-                            return;
-                        }
-                        area->setAnchorPoint({.5f, .5f});
-                        area->setPosition({popup->getContentWidth() / 2.f, 108.f});
-                        area->getScrollLayer()->m_cutContent = false;
-                        area->getScrollLayer()->m_disableMovement = false;
-                        area->getScrollLayer()->setMouseEnabled(true);
-                        popup->addChild(area);
-                        popup->show();
+                        if (auto popup = IndexInfoPopup::create(std::move(message))) popup->show();
                     }
                 );
             }
