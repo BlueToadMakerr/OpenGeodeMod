@@ -19,7 +19,7 @@ inline std::filesystem::path legacySettingPath(std::string const& key) { return 
 inline std::filesystem::path backupPath() { return dirs::getSaveDir() / "open-geode" / "backup.json"; }
 inline matjson::Value& saveData() { return Mod::get()->getSaveContainer(); }
 inline bool hasSavedValue(std::string const& key) { return saveData().isObject() && saveData().contains(key); }
-inline bool hasOpenGeodeSaveData() { return saveData().isObject() && !saveData().asObject().empty(); }
+inline bool hasOpenGeodeSaveData() { return saveData().isObject() && saveData().size() > 0; }
 inline bool restoreFromBackup() { auto path=backupPath(); if(!std::filesystem::is_regular_file(path)) return false; auto json=file::readJson(path); if(!json||!json.unwrap().isObject()){log::warn("OpenGeode backup could not be read: {}",path.string());return false;} saveData()=std::move(json.unwrap()); log::info("Restored OpenGeode save data from backup: {}",path.string()); return true; }
 inline void restoreFromBackupIfNeeded(){if(hasOpenGeodeSaveData())return;if(restoreFromBackup()){auto result=Mod::get()->saveData();if(!result)log::warn("Failed to persist restored OpenGeode save data: {}",result.unwrapErr());}}
 inline void backupSaveData(){auto path=backupPath();std::error_code ec;std::filesystem::create_directories(path.parent_path(),ec);if(ec){log::warn("Could not create OpenGeode backup directory: {}",ec.message());return;}auto result=file::writeToJson(path,saveData());if(!result)log::warn("Could not write OpenGeode backup: {}",result.unwrapErr());}
