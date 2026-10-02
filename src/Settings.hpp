@@ -32,12 +32,23 @@ struct TabFilterConfig{std::string platform;std::string geodeVersion;std::string
 inline std::string getIndexUrl(){return readSetting("custom-index-url","https://api.geode-sdk.org");} inline void setIndexUrl(std::string url){if(!url.empty()&&url.back()=='/')url.pop_back();writeSetting("custom-index-url",url);}
 struct IndexEntry{std::string id;std::string name;std::string url;}; inline std::vector<IndexEntry> getAllIndexes(){std::vector<IndexEntry> out;for(auto const& id:splitCSV(readSetting("custom-index-ids",""))){IndexEntry e;e.id=id;e.name=readSetting("custom-index-name-"+id,"");e.url=readSetting("custom-index-url-"+id,"");if(!e.url.empty())out.push_back(e);}return out;} inline std::string getActiveIndexId(){auto url=getIndexUrl();for(auto const& e:getAllIndexes())if(e.url==url)return e.id;std::hash<std::string> h;return "url-"+fmt::format("{:016x}",static_cast<unsigned long long>(h(url)));}
 inline std::string getAuthAccessTokenForIndex(std::string const& id){return readSetting("auth-access-"+id,"");} inline std::string getAuthAccessToken(){return getAuthAccessTokenForIndex(getActiveIndexId());} inline std::string getAuthRefreshToken(){return readSetting("auth-refresh-"+getActiveIndexId(),"");}
-inline bool hasAuthAccessToken(){return !getAuthAccessToken().empty();}
-inline bool hasAuthTokens(){return hasAuthAccessToken();}
-inline void setAuthTokens(std::string const& accessToken,std::string const& refreshToken){auto id=getActiveIndexId();writeSetting("auth-access-"+id,accessToken);if(refreshToken.empty())deleteSetting("auth-refresh-"+id);else writeSetting("auth-refresh-"+id,refreshToken);}
-inline void clearAuthTokens(){auto id=getActiveIndexId();deleteSetting("auth-access-"+id);deleteSetting("auth-refresh-"+id);}
+inline bool hasAuthAccessToken(){return !getAuthAccessToken().empty();} inline bool hasAuthTokens(){return hasAuthAccessToken();}
+inline void setAuthTokens(std::string const& accessToken,std::string const& refreshToken){auto id=getActiveIndexId();writeSetting("auth-access-"+id,accessToken);if(refreshToken.empty())deleteSetting("auth-refresh-"+id);else writeSetting("auth-refresh-"+id,refreshToken);} inline void clearAuthTokens(){auto id=getActiveIndexId();deleteSetting("auth-access-"+id);deleteSetting("auth-refresh-"+id);}
 inline bool addCustomIndex(std::string name,std::string url){if(!url.empty()&&url.back()=='/')url.pop_back();for(auto const& e:getAllIndexes())if(e.url==url)return false;auto ids=splitCSV(readSetting("custom-index-ids",""));int nextId=0;for(auto const& id:ids)nextId=std::max(nextId,std::atoi(id.c_str())+1);std::string id=std::to_string(nextId);ids.push_back(id);writeSetting("custom-index-ids",joinCSV(ids));writeSetting("custom-index-name-"+id,name);writeSetting("custom-index-url-"+id,url);return true;}
-inline void ensurePresetsExist(){if(readSetting("custom-index-ids","NONE")=="NONE"){writeSetting("custom-index-ids","");addCustomIndex("Geode Index API","https://api.geode-sdk.org");addCustomIndex("Open Geode Index","https://open-geode.7m.pl");setIndexUrl("https://api.geode-sdk.org");}}
+inline void ensurePresetsExist(){
+    auto ids = splitCSV(readSetting("custom-index-ids",""));
+    if (ids.empty()) {
+        addCustomIndex("Geode Index API","https://api.geode-sdk.org");
+        addCustomIndex("Open Geode Index","https://open-geode.7m.pl");
+        setIndexUrl("https://api.geode-sdk.org");
+        ids = splitCSV(readSetting("custom-index-ids",""));
+    }
+    bool hasUnverified = false;
+    for (auto const& entry : getAllIndexes()) {
+        if (entry.url == "http://drake-tableful.tun.ply.gg:21749") { hasUnverified = true; break; }
+    }
+    if (!hasUnverified) addCustomIndex("Unverified Mods","http://drake-tableful.tun.ply.gg:21749");
+}
 inline bool updateCustomIndex(std::string const& id,std::string name,std::string url){if(!url.empty()&&url.back()=='/')url.pop_back();for(auto const& e:getAllIndexes())if(e.id!=id&&e.url==url)return false;bool active=readSetting("custom-index-url-"+id,"")==getIndexUrl();writeSetting("custom-index-name-"+id,name);writeSetting("custom-index-url-"+id,url);if(active)setIndexUrl(url);return true;}
 inline void deleteCustomIndex(std::string const& id){auto ids=splitCSV(readSetting("custom-index-ids",""));auto url=readSetting("custom-index-url-"+id,"");ids.erase(std::remove(ids.begin(),ids.end(),id),ids.end());writeSetting("custom-index-ids",joinCSV(ids));deleteSetting("custom-index-name-"+id);deleteSetting("custom-index-url-"+id);deleteSetting("auth-access-"+id);deleteSetting("auth-refresh-"+id);if(!url.empty()&&url==getIndexUrl())setIndexUrl(!ids.empty()?readSetting("custom-index-url-"+ids[0],"https://api.geode-sdk.org"):"https://api.geode-sdk.org");}
 } // namespace opengeode
