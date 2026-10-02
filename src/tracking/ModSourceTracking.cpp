@@ -14,16 +14,18 @@ void trackModDownloadSource(std::string const& url) {
     auto modStart = downloadPrefix.size();
     auto versionsPos = url.find("/versions/", modStart);
     if (versionsPos == std::string::npos || versionsPos <= modStart) return;
-
     auto versionStart = versionsPos + std::string("/versions/").size();
     auto downloadPos = url.find("/download", versionStart);
     if (downloadPos == std::string::npos || downloadPos <= versionStart) return;
 
     auto modID = url.substr(modStart, versionsPos - modStart);
     auto version = url.substr(versionStart, downloadPos - versionStart);
-    if (!modID.empty() && !version.empty()) {
-        setInstalledModSource(modID, version);
-    }
+    if (modID.empty() || version.empty()) return;
+
+    auto installed = getInstalledModSource(modID);
+    if (installed && installed->version != version) markModUpdatedFromGeode(modID);
+    setInstalledModSource(modID, version);
+    if (installed && installed->version != version) markModUpdatedFromGeode(modID);
 }
 
 } // namespace opengeode
