@@ -356,10 +356,11 @@ protected:
             getButtonTexture("GJ_button_01.png"),
             .42f
         );
-        CCMenuItemSpriteExtra* updateAll = nullptr;
-        updateAll = CCMenuItemExt::createSpriteExtra(
+        auto updateAllHolder = std::make_shared<CCMenuItemSpriteExtra*>();
+        auto updateAll = CCMenuItemExt::createSpriteExtra(
             updateAllSprite,
-            [groups, items, &updateAll](CCMenuItemSpriteExtra*) {
+            [groups, items, updateAllHolder](CCMenuItemSpriteExtra*) {
+                auto updateAll = *updateAllHolder;
                 if (groups.empty() || activeBatch()) return;
 
                 auto pendingGroups = groups;
@@ -390,6 +391,7 @@ protected:
                 );
             }
         );
+        *updateAllHolder = updateAll;
         updateAll->setID("update-all-button");
         updateAll->setEnabled(!activeBatch());
         updateAll->setPosition({buttons->getContentWidth() / 2.f - updateAll->getScaledContentWidth() / 2.f - 3.f, 18.f});
