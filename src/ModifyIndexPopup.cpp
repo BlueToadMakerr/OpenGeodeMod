@@ -3,12 +3,64 @@
 #include "StatsFetcher.hpp"
 
 #include <Geode/Geode.hpp>
+#include <Geode/ui/MDTextArea.hpp>
 #include <Geode/ui/Popup.hpp>
+#include <Geode/ui/TextArea.hpp>
 #include <Geode/ui/TextInput.hpp>
+#include <Geode/utils/web.hpp>
 
 using namespace geode::prelude;
 
 namespace opengeode {
+
+class IndexInfoPopup : public Popup {
+    bool init(std::string message) {
+        if (!Popup::init(360.f, 220.f, getPopupBackground())) return false;
+        setTitle("Index Info");
+        if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .875f);
+
+        // Fence the response so MDTextArea renders it literally and uses its monospace font.
+        size_t maxBackticks = 0;
+        size_t run = 0;
+        for (char c : message) {
+            if (c == static_cast<char>(96)) {
+                ++run;
+                maxBackticks = std::max(maxBackticks, run);
+            } else {
+                run = 0;
+            }
+        }
+        auto fence = std::string(std::max<size_t>(3, maxBackticks + 1), static_cast<char>(96));
+        auto text = fence + "\n" + message + "\n" + fence;
+
+        constexpr float areaWidth = 325.f;
+        constexpr float areaHeight = 145.f;
+        auto area = MDTextArea::create(text, {areaWidth, areaHeight}, true);
+        if (!area) return false;
+        area->setAnchorPoint({.5f, .5f});
+        area->setPosition({
+            m_mainLayer->getContentWidth() / 2.f,
+            m_mainLayer->getContentHeight() / 2.f - 3.f
+        });
+        area->getScrollLayer()->m_cutContent = false;
+        area->getScrollLayer()->m_disableMovement = false;
+        area->getScrollLayer()->setMouseEnabled(true);
+        m_mainLayer->addChild(area);
+
+        return true;
+    }
+
+public:
+    static IndexInfoPopup* create(std::string message) {
+        auto ret = new IndexInfoPopup();
+        if (ret && ret->init(std::move(message))) {
+            ret->autorelease();
+            return ret;
+        }
+        delete ret;
+        return nullptr;
+    }
+};
 
 class ModifyIndexPopup : public Popup {
 protected:
@@ -17,6 +69,7 @@ protected:
     StatsFetcher m_stats;
     std::string m_id;
     std::function<void()> m_onSaved;
+    async::TaskHolder<web::WebResponse> m_infoTask;
 
     bool init(IndexEntry entry, std::function<void()> onSaved) {
         m_id = entry.id;
@@ -55,6 +108,43 @@ protected:
         m_stats.opengeodeLabel->setPosition({centerX, top - 116.f});
         m_stats.opengeodeLabel->setVisible(false);
         m_mainLayer->addChild(m_stats.opengeodeLabel);
+
+        auto infoIcon = CCSprite::createWithSpriteFrameName("GJ_infoIcon_001.png");
+        auto infoBtn = CCMenuItemExt::createSpriteExtra(
+            infoIcon,
+            [this](CCMenuItemSpriteExtra*) {
+                m_infoTask.spawn(
+                    web::WebRequest().get(m_urlInput->getString().c_str()),
+                    [this](web::WebResponse res) {
+                        if (!res.ok()) {
+                            Loader::get()->queueInMainThread([code = res.code()] {
+                                FLAlertLayer::create(
+                                    "Index Info",
+                                    fmt::format("Could not fetch the index message. (HTTP {})", code).c_str(),
+                                    "OK"
+                                )->show();
+                            });
+                            return;
+                        }
+
+                        auto message = res.string().unwrapOr("");
+                        if (message.empty()) message = "This index did not provide a message.";
+
+                        Loader::get()->queueInMainThread([message = std::move(message)]() mutable {
+                            if (auto popup = IndexInfoPopup::create(std::move(message))) {
+                                popup->show();
+                            }
+                        });
+                    }
+                );
+            }
+        );
+        infoBtn->setScale(.8f);
+        auto infoMenu = CCMenu::create();
+        infoMenu->addChild(infoBtn);
+        infoMenu->setPosition({m_mainLayer->getContentWidth() - 34.f, m_mainLayer->getContentHeight() - 20.f});
+        infoMenu->updateLayout();
+        m_mainLayer->addChild(infoMenu);
 
         auto saveBtn = CCMenuItemExt::createSpriteExtra(
             ButtonSprite::create("Save", "goldFont.fnt", getButtonTexture("GJ_button_02.png"), .6f),
