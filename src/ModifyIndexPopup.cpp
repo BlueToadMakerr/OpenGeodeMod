@@ -38,7 +38,7 @@ class IndexInfoPopup : public Popup {
         auto area = MDTextArea::create(text, {areaWidth, areaHeight}, true);
         if (!area) return false;
         area->setAnchorPoint({.5f, .5f});
-        area->setScale(.9f);
+        area->setScale(.75f);
         area->setPosition({
             m_mainLayer->getContentWidth() / 2.f,
             m_mainLayer->getContentHeight() / 2.f - 3.f
