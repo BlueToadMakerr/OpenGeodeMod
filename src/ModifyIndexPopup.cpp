@@ -3,6 +3,7 @@
 #include "StatsFetcher.hpp"
 
 #include <Geode/Geode.hpp>
+#include <Geode/ui/MDTextArea.hpp>
 #include <Geode/ui/Popup.hpp>
 #include <Geode/ui/TextArea.hpp>
 #include <Geode/ui/TextInput.hpp>
@@ -18,16 +19,32 @@ class IndexInfoPopup : public Popup {
         setTitle("Index Info");
         if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .875f);
 
-        auto area = SimpleTextArea::create(
-            std::move(message),
-            "chatFont.fnt",
-            .5f,
-            325.f
-        );
+        // Fence the response so MDTextArea renders it literally and uses its monospace font.
+        size_t maxBackticks = 0;
+        size_t run = 0;
+        for (char c : message) {
+            if (c == static_cast<char>(96)) {
+                ++run;
+                maxBackticks = std::max(maxBackticks, run);
+            } else {
+                run = 0;
+            }
+        }
+        auto fence = std::string(std::max<size_t>(3, maxBackticks + 1), static_cast<char>(96));
+        auto text = fence + "\n" + message + "\n" + fence;
+
+        constexpr float areaWidth = 325.f;
+        constexpr float areaHeight = 145.f;
+        auto area = MDTextArea::create(text, {areaWidth, areaHeight}, true);
         if (!area) return false;
-        area->setWrappingMode(NO_WRAP);
-        area->setAlignment(kCCTextAlignmentLeft);
-        area->setPosition({18.f, 180.f});
+        area->setAnchorPoint({.5f, .5f});
+        area->setPosition({
+            m_mainLayer->getContentWidth() / 2.f,
+            m_mainLayer->getContentHeight() / 2.f - 3.f
+        });
+        area->getScrollLayer()->m_cutContent = false;
+        area->getScrollLayer()->m_disableMovement = false;
+        area->getScrollLayer()->setMouseEnabled(true);
         m_mainLayer->addChild(area);
 
         return true;
