@@ -1,7 +1,5 @@
 #pragma once
-
 #include <functional>
-
 namespace opengeode {
-void showAddIndexPopup(std::function<void()> onAdded);
+    void showAddIndexPopup(std::function < void() > onAdded);
 }

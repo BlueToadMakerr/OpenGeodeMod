@@ -1,5 +1,4 @@
 #pragma once
-
 namespace opengeode {
-void showIndexListPopup();
+    void showIndexListPopup();
 }
