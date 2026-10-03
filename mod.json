@@ -12,9 +12,7 @@
     "manual-login": {"type": "custom:manual-login", "name": "Manual Login", "description": "Set the access token and optional refresh token used for the currently selected index."}
   },
   "resources": {"sprites": ["resources/*"]},
-  "tags": {
-    "enhancement"
-  },
+  "tags": ["enhancement"],
   "links": {
     "source": "https://github.com/BlueToadMakerr/OpenGeodeMod"
   },
