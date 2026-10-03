@@ -43,11 +43,16 @@ inline void ensurePresetsExist(){
         setIndexUrl("https://api.geode-sdk.org");
         ids = splitCSV(readSetting("custom-index-ids",""));
     }
-    bool hasUnverified = false;
+    bool hasRejectedIndex = false;
     for (auto const& entry : getAllIndexes()) {
-        if (entry.url == "http://drake-tableful.tun.ply.gg:21749") { hasUnverified = true; break; }
+        if (entry.url == "http://drake-tableful.tun.ply.gg:21749") {
+            hasRejectedIndex = true;
+            if (entry.name == "Unverified Mods")
+                writeSetting("custom-index-name-" + entry.id, "Rejected Index");
+            break;
+        }
     }
-    if (!hasUnverified) addCustomIndex("Unverified Mods","http://drake-tableful.tun.ply.gg:21749");
+    if (!hasRejectedIndex) addCustomIndex("Rejected Index","http://drake-tableful.tun.ply.gg:21749");
 }
 inline bool updateCustomIndex(std::string const& id,std::string name,std::string url){if(!url.empty()&&url.back()=='/')url.pop_back();for(auto const& e:getAllIndexes())if(e.id!=id&&e.url==url)return false;bool active=readSetting("custom-index-url-"+id,"")==getIndexUrl();writeSetting("custom-index-name-"+id,name);writeSetting("custom-index-url-"+id,url);if(active)setIndexUrl(url);return true;}
 inline void deleteCustomIndex(std::string const& id){auto ids=splitCSV(readSetting("custom-index-ids",""));auto url=readSetting("custom-index-url-"+id,"");ids.erase(std::remove(ids.begin(),ids.end(),id),ids.end());writeSetting("custom-index-ids",joinCSV(ids));deleteSetting("custom-index-name-"+id);deleteSetting("custom-index-url-"+id);deleteSetting("auth-access-"+id);deleteSetting("auth-refresh-"+id);if(!url.empty()&&url==getIndexUrl())setIndexUrl(!ids.empty()?readSetting("custom-index-url-"+ids[0],"https://api.geode-sdk.org"):"https://api.geode-sdk.org");}
