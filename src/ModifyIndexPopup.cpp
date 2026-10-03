@@ -33,8 +33,9 @@ class IndexInfoPopup : public Popup {
         auto fence = std::string(std::max<size_t>(3, maxBackticks + 1), static_cast<char>(96));
         auto text = fence + "\n" + message + "\n" + fence;
 
-        constexpr float areaWidth = 360.f;
-        constexpr float areaHeight = 175.f;
+        // Keep the same visible size at 75% scale by enlarging the text area itself.
+        constexpr float areaWidth = 480.f;
+        constexpr float areaHeight = 235.f;
         auto area = MDTextArea::create(text, {areaWidth, areaHeight}, true);
         if (!area) return false;
         area->setAnchorPoint({.5f, .5f});
@@ -43,7 +44,7 @@ class IndexInfoPopup : public Popup {
             m_mainLayer->getContentWidth() / 2.f,
             m_mainLayer->getContentHeight() / 2.f - 3.f
         });
-        area->getScrollLayer()->m_cutContent = false;
+        area->getScrollLayer()->m_cutContent = true;
         area->getScrollLayer()->m_disableMovement = false;
         area->getScrollLayer()->setMouseEnabled(true);
         m_mainLayer->addChild(area);
