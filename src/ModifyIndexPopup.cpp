@@ -19,7 +19,7 @@ class IndexInfoPopup : public Popup {
 
         auto label = CCLabelTTF::create(
             message.c_str(),
-            "monospace",
+            "Courier New",
             12.f,
             CCSizeZero,
             kCCTextAlignmentLeft
@@ -100,14 +100,24 @@ protected:
                     web::WebRequest().get(m_urlInput->getString().c_str()),
                     [this](web::WebResponse res) {
                         if (!res.ok()) {
-                            FLAlertLayer::create("Index Info", fmt::format("Could not fetch the index message. (HTTP {})", res.code()).c_str(), "OK")->show();
+                            Loader::get()->queueInMainThread([code = res.code()] {
+                                FLAlertLayer::create(
+                                    "Index Info",
+                                    fmt::format("Could not fetch the index message. (HTTP {})", code).c_str(),
+                                    "OK"
+                                )->show();
+                            });
                             return;
                         }
 
                         auto message = res.string().unwrapOr("");
                         if (message.empty()) message = "This index did not provide a message.";
 
-                        if (auto popup = IndexInfoPopup::create(std::move(message))) popup->show();
+                        Loader::get()->queueInMainThread([message = std::move(message)]() mutable {
+                            if (auto popup = IndexInfoPopup::create(std::move(message))) {
+                                popup->show();
+                            }
+                        });
                     }
                 );
             }
