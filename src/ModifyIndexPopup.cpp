@@ -15,7 +15,7 @@ namespace opengeode {
 
 class IndexInfoPopup : public Popup {
     bool init(std::string message) {
-        if (!Popup::init(360.f, 220.f, getPopupBackground())) return false;
+        if (!Popup::init(370.f, 230.f, getPopupBackground())) return false;
         setTitle("Index Info");
         if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .875f);
 
@@ -33,11 +33,12 @@ class IndexInfoPopup : public Popup {
         auto fence = std::string(std::max<size_t>(3, maxBackticks + 1), static_cast<char>(96));
         auto text = fence + "\n" + message + "\n" + fence;
 
-        constexpr float areaWidth = 325.f;
-        constexpr float areaHeight = 145.f;
+        constexpr float areaWidth = 360.f;
+        constexpr float areaHeight = 175.f;
         auto area = MDTextArea::create(text, {areaWidth, areaHeight}, true);
         if (!area) return false;
         area->setAnchorPoint({.5f, .5f});
+        area->setScale(.9f);
         area->setPosition({
             m_mainLayer->getContentWidth() / 2.f,
             m_mainLayer->getContentHeight() / 2.f - 3.f
