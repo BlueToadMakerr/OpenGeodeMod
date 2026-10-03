@@ -51,7 +51,7 @@ protected:
 
         menu->addChild(addPreset("Geode Index API", "https://api.geode-sdk.org"));
         menu->addChild(addPreset("Open Geode Index", "https://open-geode.7m.pl"));
-        menu->addChild(addPreset("Unverified Mods", "http://drake-tableful.tun.ply.gg:21749"));
+        menu->addChild(addPreset("Rejected Index", "http://drake-tableful.tun.ply.gg:21749"));
         menu->updateLayout();
         m_mainLayer->addChild(menu);
 
