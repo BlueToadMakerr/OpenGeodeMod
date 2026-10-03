@@ -22,3 +22,9 @@ This mod also adds a bunch of QOL features to give you more access to the Geode 
 * **Versions** - You can download any version of a mod you want, not just the latest one, in the Verions pop-up next to the Install button
 * **Comments** - Geode has comments mainly used for internal discussion for mods. You can now see these comments, and comment yourself (with auth) in the comments tab
 * **Update Manager** - This simply allows you to update from multiple indexes on one screen. Useful so you don't need to switch indexes to see which index has updates for which mod.
+
+## Server Hosting!
+To host your own Geode server, you can use [OpenGeode](https://github.com/BlueToadMakerr/OpenGeode) or [Geode Server](https://github.com/geode-sdk/server). OpenGeode is more compatible with the OpenGeode mod but Geode Server is more up to date.
+
+## AI Usage
+This mod was made fully with AI. Mainly because its an illegal geode mod anyways so uhh.. yeah :p Learn more [here](https://bluetoadmaker.infinityfreeapp.com/ai.html) 
