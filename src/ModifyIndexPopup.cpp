@@ -4,6 +4,7 @@
 
 #include <Geode/Geode.hpp>
 #include <Geode/ui/Popup.hpp>
+#include <Geode/ui/TextArea.hpp>
 #include <Geode/ui/TextInput.hpp>
 #include <Geode/utils/web.hpp>
 
@@ -17,18 +18,17 @@ class IndexInfoPopup : public Popup {
         setTitle("Index Info");
         if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .875f);
 
-        auto label = CCLabelTTF::create(
-            message.c_str(),
-            "Courier New",
-            12.f,
-            CCSizeZero,
-            kCCTextAlignmentLeft
+        auto area = SimpleTextArea::create(
+            std::move(message),
+            "chatFont.fnt",
+            .5f,
+            325.f
         );
-        if (!label) return false;
-        label->setAnchorPoint({0.f, 1.f});
-        label->setScale(.55f);
-        label->setPosition({18.f, 180.f});
-        m_mainLayer->addChild(label);
+        if (!area) return false;
+        area->setWrappingMode(NO_WRAP);
+        area->setAlignment(kCCTextAlignmentLeft);
+        area->setPosition({18.f, 180.f});
+        m_mainLayer->addChild(area);
 
         return true;
     }
