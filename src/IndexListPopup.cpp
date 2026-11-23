@@ -30,8 +30,8 @@ protected:
         float centerX = m_mainLayer->getContentWidth() / 2;
 
         m_scrollLayer = ScrollLayer::create({300.f, 190.f});
-        // v6 ScrollLayer no longer ignores its anchor point; positions here assume a bottom-left origin
-        m_scrollLayer->ignoreAnchorPointForPosition(true);
+        // v6 ScrollLayer is centered by default; the positions here assume a bottom-left origin
+        m_scrollLayer->setAnchorPoint({0.f, 0.f});
         m_scrollLayer->setPosition({centerX - 150.f, 60.f});
         m_mainLayer->addChild(m_scrollLayer);
 
