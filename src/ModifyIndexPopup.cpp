@@ -115,8 +115,10 @@ protected:
         auto infoBtn = CCMenuItemExt::createSpriteExtra(
             infoIcon,
             [this](CCMenuItemSpriteExtra*) {
+                auto infoRequest = web::WebRequest();
+                infoRequest.param("no_override", "1");
                 m_infoTask.spawn(
-                    web::WebRequest().get(m_urlInput->getString().c_str()),
+                    infoRequest.get(m_urlInput->getString().c_str()),
                     [this](web::WebResponse res) {
                         if (!res.ok()) {
                             Loader::get()->queueInMainThread([code = res.code()] {

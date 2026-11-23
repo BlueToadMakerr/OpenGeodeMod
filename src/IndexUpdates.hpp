@@ -198,6 +198,8 @@ inline void fetchIndexUpdates(std::function<void()> callback = {}, bool force = 
             tasks->push_back(task);
             ++state->pending;
             auto req = web::WebRequest();
+            // this request targets a specific index, so it must not be redirected to the selected one
+            req.param("no_override", "1");
             req.param("platform", GEODE_PLATFORM_SHORT_IDENTIFIER);
             req.param("gd", Loader::get()->getGameVersion());
             req.param("geode", Loader::get()->getVersion().toNonVString());
@@ -288,7 +290,9 @@ inline void inferOriginalIndexSources(std::function<void()> callback = {}) {
             auto task = std::make_shared<Task>();
             tasks->push_back(task);
             ++state->pending;
-            task->holder.spawn(web::WebRequest().get(base + fmt::format("/v1/mods/{}/versions/{}", modID, version)), [state, tasks, modID, index](web::WebResponse response) {
+            auto versionReq = web::WebRequest();
+            versionReq.param("no_override", "1");
+            task->holder.spawn(versionReq.get(base + fmt::format("/v1/mods/{}/versions/{}", modID, version)), [state, tasks, modID, index](web::WebResponse response) {
                 if (response.ok()) {
                     auto json = response.json().unwrapOr(matjson::Value());
                     auto payload = json.contains("payload") ? json["payload"] : json;
@@ -372,6 +376,8 @@ inline void downloadIndexUpdate(IndexUpdateInfo update, std::function<void(bool)
     if (!url.empty() && url.back() == '/') url.pop_back();
     url += fmt::format("/v1/mods/{}/versions/{}/download", update.modID, update.newVersion);
     auto req = web::WebRequest();
+    // downloads from a specific index must not be redirected to (or tracked as) the selected index
+    req.param("no_override", "1");
     if (progressCallback) req.onProgress([progressCallback = std::move(progressCallback)](web::WebProgress const& progress) mutable {
         if (auto value = progress.downloadProgress()) Loader::get()->queueInMainThread([progressCallback, value = *value] { progressCallback(std::clamp(value, 0.f, 1.f)); });
     });
