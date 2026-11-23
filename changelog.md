@@ -1,10 +1,8 @@
-# Unreleased
-- Fixed scroll layers in popups appearing offset under Geode v6 (anchor set to bottom left)
-- Fixed macOS build failure (unbound CCSprite::createWithTexture overload) in the More popup icon copy
+# 1.1.0
+- Geode V6 Releaseeeeeee!!!!
 - Fixed update checks, source detection, downloads and index info for a specific index being redirected to the currently selected index
-- Ported to Geode v6 (`asp::fs` filesystem, `geode::Label`, new `MDTextArea` API, `TextInput` changes)
 - Fixed the mod ID lookup (Versions, More and Comments buttons) breaking on Geode's new label type
-- Fixed "already updated" detection failing outside Android (hard-coded logo path) and its per-frame texture cache scan
+- Fixed "already updated" detection failing outside Android (hard-coded logo path.. oops) and its per-frame texture cache scan
 - Fixed a failed update download deleting the installed mod before the new file was written
 - Fixed "Update All" hanging when the same update was already downloading
 - Fixed the Updates button doing nothing while a background refresh was running
