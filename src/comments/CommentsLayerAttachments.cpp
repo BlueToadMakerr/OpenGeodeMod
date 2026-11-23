@@ -14,7 +14,7 @@
 
 #include <algorithm>
 #include <cmath>
-#include <filesystem>
+#include <asp/fs/fs.hpp>
 #include <memory>
 #include <string>
 #include <utility>
@@ -44,7 +44,7 @@ void CommentsLayer::showAttachmentsPopup() {
         m_pendingFiles,
         m_removedAttachments,
         [this](int id) { toggleAttachmentRemoval(id); },
-        [this](std::filesystem::path const& path) { removePendingFile(path); },
+        [this](asp::fs::Path const& path) { removePendingFile(path); },
         [this]() { pickAttachments(); }
     );
     if (popup)
@@ -69,7 +69,7 @@ void CommentsLayer::toggleAttachmentRemoval(int attachmentID) {
     rebuild();
 }
 
-void CommentsLayer::removePendingFile(std::filesystem::path const& path) {
+void CommentsLayer::removePendingFile(asp::fs::Path const& path) {
     auto it = std::find(m_pendingFiles.begin(), m_pendingFiles.end(), path);
     if (it == m_pendingFiles.end()) return;
 

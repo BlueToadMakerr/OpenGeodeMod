@@ -47,18 +47,33 @@ namespace opengeode {
             for(auto key:CCArrayExt<CCString*>(textures->allKeys()))if(key&&textures->objectForKey(key->getCString())==texture)return key->getCString();
             return "";
         }
+        std::string normalizeSeparators(std::string value) {
+            std::replace(value.begin(),value.end(),'\\','/');
+            return value;
+        }
         std::string getModIDFromModItem(CCNode* modItem) {
+            // the texture cache scan is expensive and this is called for every item on every check, so cache per item
+            constexpr char const* cacheKey="opengeode-cached-mod-id";
+            if(auto cached=typeinfo_cast<CCString*>(modItem->getUserObject(cacheKey)))return cached->getCString();
             auto logo=modItem->getChildByIDRecursive("logo-sprite");
+            if(!logo)return "";
+            // "logo-sprite" is a wrapper node that holds the LazySprite as a child
             auto lazySprite=typeinfo_cast<LazySprite*>(logo);
+            if(!lazySprite)lazySprite=logo->getChildByType<LazySprite>(0);
             if(!lazySprite||!lazySprite->getTexture())return "";
-            auto key=getTextureCacheKey(lazySprite->getTexture());
-            constexpr std::string_view prefix="/files/geode/unzipped/";
+            auto key=normalizeSeparators(getTextureCacheKey(lazySprite->getTexture()));
+            // logos are loaded from <runtime dir>/<mod id>/logo.png, the runtime dir differs per platform
+            auto prefix=normalizeSeparators(dirs::getModRuntimeDir().string());
+            if(key.empty()||prefix.empty())return "";
+            if(prefix.back()!='/')prefix+='/';
             auto start=key.find(prefix);
             if(start==std::string::npos)return "";
             start+=prefix.size();
             auto end=key.find("/logo.png",start);
             if(end==std::string::npos||end<=start)return "";
-            return key.substr(start,end-start);
+            auto modID=key.substr(start,end-start);
+            modItem->setUserObject(cacheKey,CCString::create(modID));
+            return modID;
         }
         void collectModItems(CCNode* node,std::vector<CCNode*>& out) {
             if(!node)return;

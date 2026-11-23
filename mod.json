@@ -1,5 +1,5 @@
 {
-  "geode": "5.10.1",
+  "geode": "6.0.0-beta.2",
   "gd": {"win": "*", "android": "*", "mac": "*", "ios": "*"},
   "id": "bluetoadmaker.opengeode",
   "name": "OpenGeode",

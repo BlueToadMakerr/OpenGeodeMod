@@ -45,7 +45,7 @@ class AlreadyUpdatedPopup : public Popup {
             "You are trying to install from <cy>{}</c>. To change the updated through this index (or any other index), click the <cj>Open Geode</c> button and <cy>redownload</c> the update.",
             modName, through, installedIndexName, currentIndexName
         );
-        auto area = MDTextArea::create(text, {325.f, 145.f}, true);
+        auto area = MDTextArea::create(text, CCSize{325.f, 145.f});
         if (!area) return false;
         area->setAnchorPoint({.5f, .5f});
         area->setPosition({m_mainLayer->getContentWidth() / 2.f, 108.f});

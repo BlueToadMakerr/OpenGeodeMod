@@ -6,7 +6,7 @@
 #include <Geode/utils/string.hpp>
 
 #include <algorithm>
-#include <filesystem>
+#include <asp/fs/fs.hpp>
 #include <functional>
 #include <string>
 #include <utility>
@@ -18,10 +18,10 @@ namespace opengeode {
 
 class AttachmentPopup : public Popup {
     std::vector<CommentAttachment> m_attachments;
-    std::vector<std::filesystem::path> m_pending;
+    std::vector<asp::fs::Path> m_pending;
     std::vector<int> m_removed;
     std::function<void(int)> m_onToggleDelete;
-    std::function<void(std::filesystem::path const&)> m_onRemovePending;
+    std::function<void(asp::fs::Path const&)> m_onRemovePending;
     std::function<void()> m_onAdd;
     ScrollLayer* m_scroll = nullptr;
     CCNode* m_content = nullptr;
@@ -45,7 +45,7 @@ class AttachmentPopup : public Popup {
             std::string name,
             std::string status,
             std::string url,
-            std::filesystem::path const* localPath,
+            asp::fs::Path const* localPath,
             int attachmentID,
             bool removed,
             bool pendingUpload
@@ -98,7 +98,7 @@ class AttachmentPopup : public Popup {
             if (pendingUpload) {
                 actionItem = CCMenuItemExt::createSpriteExtra(
                     action,
-                    [this, path = localPath ? *localPath : std::filesystem::path()](auto) {
+                    [this, path = localPath ? *localPath : asp::fs::Path()](auto) {
                         if (path.empty()) return;
                         if (m_onRemovePending) m_onRemovePending(path);
                         m_pending.erase(std::remove(m_pending.begin(), m_pending.end(), path), m_pending.end());
@@ -142,7 +142,7 @@ class AttachmentPopup : public Popup {
 
         for (auto const& path : m_pending) {
             addRow(
-                geode::utils::string::pathToString(path.filename()),
+                pathFileName(path),
                 "Pending to upload",
                 "",
                 &path,
@@ -169,10 +169,10 @@ class AttachmentPopup : public Popup {
 
     bool init(
         std::vector<CommentAttachment> attachments,
-        std::vector<std::filesystem::path> pending,
+        std::vector<asp::fs::Path> pending,
         std::vector<int> removed,
         std::function<void(int)> onToggleDelete,
-        std::function<void(std::filesystem::path const&)> onRemovePending,
+        std::function<void(asp::fs::Path const&)> onRemovePending,
         std::function<void()> onAdd
     ) {
         if (!Popup::init(300.f, 235.f, getPopupBackground())) return false;
@@ -234,10 +234,10 @@ class AttachmentPopup : public Popup {
 public:
     static AttachmentPopup* create(
         std::vector<CommentAttachment> attachments,
-        std::vector<std::filesystem::path> pending,
+        std::vector<asp::fs::Path> pending,
         std::vector<int> removed,
         std::function<void(int)> onToggleDelete,
-        std::function<void(std::filesystem::path const&)> onRemovePending,
+        std::function<void(asp::fs::Path const&)> onRemovePending,
         std::function<void()> onAdd
     ) {
         auto ret = new AttachmentPopup();
@@ -255,10 +255,10 @@ public:
 
 Popup* createAttachmentPopup(
     std::vector<CommentAttachment> attachments,
-    std::vector<std::filesystem::path> pending,
+    std::vector<asp::fs::Path> pending,
     std::vector<int> removed,
     std::function<void(int)> onToggleDelete,
-    std::function<void(std::filesystem::path const&)> onRemovePending,
+    std::function<void(asp::fs::Path const&)> onRemovePending,
     std::function<void()> onAdd
 ) {
     return AttachmentPopup::create(

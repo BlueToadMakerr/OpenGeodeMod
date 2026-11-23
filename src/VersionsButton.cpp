@@ -3,6 +3,7 @@
 #include "PopupSectionUtils.hpp"
 
 #include <Geode/Geode.hpp>
+#include <Geode/ui/Label.hpp>
 #include <Geode/ui/IconButtonSprite.hpp>
 
 using namespace geode::prelude;
@@ -11,7 +12,7 @@ namespace opengeode {
 namespace {
 
 std::string getPopupModID(CCNode* popup) {
-    auto label = typeinfo_cast<CCLabelBMFont*>(popup->getChildByIDRecursive("mod-id-label"));
+    auto label = typeinfo_cast<geode::Label*>(popup->getChildByIDRecursive("mod-id-label"));
     if (!label) return "";
 
     std::string value = label->getString();

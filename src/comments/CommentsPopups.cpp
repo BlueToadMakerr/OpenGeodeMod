@@ -9,7 +9,7 @@
 #include <Geode/utils/string.hpp>
 
 #include <algorithm>
-#include <filesystem>
+#include <asp/fs/fs.hpp>
 #include <memory>
 #include <string>
 #include <vector>
@@ -24,11 +24,11 @@ class CommentViewPopup : public Popup {
         setTitle("Comment");
         if (auto close = createGeodeCloseButton())
             setCloseButtonSpr(close, .8f);
-        auto area = MDTextArea::create(text.empty() ? "..." : text, {330.f, 220.f}, true);
+        auto area = MDTextArea::create(text.empty() ? "..." : text, CCSize{330.f, 220.f});
         area->getScrollLayer()->m_cutContent = false;
         area->getScrollLayer()->m_disableMovement = false;
         area->getScrollLayer()->setMouseEnabled(true);
-        if (auto bg = area->getChildByType<CCScale9Sprite>(0)) bg->setVisible(false);
+        if (auto bg = area->getChildByID("background")) bg->setVisible(false);
         m_mainLayer->addChildAtPosition(area, Anchor::Center);
         return true;
     }

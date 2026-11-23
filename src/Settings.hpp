@@ -1,10 +1,9 @@
 #pragma once
 #include <Geode/Geode.hpp>
 #include <Geode/utils/file.hpp>
+#include <asp/fs/fs.hpp>
 #include <algorithm>
 #include <cstdlib>
-#include <filesystem>
-#include <fstream>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -12,10 +11,10 @@
 using namespace geode::prelude;
 namespace opengeode {
     inline bool g_shouldReopenModsList = false;
-    inline std::filesystem::path legacySettingPath(std::string const& key) {
+    inline asp::fs::Path legacySettingPath(std::string const& key) {
         return Mod::get()->getSaveDir() / (key + ".txt");
     }
-    inline std::filesystem::path backupPath() {
+    inline asp::fs::Path backupPath() {
         return dirs::getSaveDir() / "open-geode" / "backup.json";
     }
     inline matjson::Value& saveData() {
@@ -29,7 +28,7 @@ namespace opengeode {
     }
     inline bool restoreFromBackup() {
         auto path=backupPath();
-        if(!std::filesystem::is_regular_file(path)) return false;
+        if(!path.isFile()) return false;
         auto json=file::readJson(path);
         if(!json||!json.unwrap().isObject()) {
             log::warn("OpenGeode backup could not be read: {}",path.string());
@@ -48,44 +47,56 @@ namespace opengeode {
     }
     inline void backupSaveData() {
         auto path=backupPath();
-        std::error_code ec;
-        std::filesystem::create_directories(path.parent_path(),ec);
-        if(ec) {
-            log::warn("Could not create OpenGeode backup directory: {}",ec.message());
-            return;
+        if(auto parent=path.parent()) {
+            auto created=asp::fs::createDirAll(*parent);
+            if(!created) {
+                log::warn("Could not create OpenGeode backup directory: {}",created.unwrapErr());
+                return;
+            }
         }
         auto result=file::writeToJson(path,saveData());
         if(!result)log::warn("Could not write OpenGeode backup: {}",result.unwrapErr());
     }
+    inline void removeLegacySettingFile(asp::fs::PathView path) {
+        auto removed=asp::fs::removeFile(path);
+        if(!removed)log::warn("Could not remove legacy setting file {}: {}",path.string(),removed.unwrapErr());
+    }
     inline void migrateLegacyTextSaveData() {
         auto dir=Mod::get()->getSaveDir();
-        if(!std::filesystem::is_directory(dir))return;
-        std::error_code ec;
-        for(auto const& entry:std::filesystem::directory_iterator(dir,ec)) {
-            if(ec)break;
-            if(!entry.is_regular_file(ec)||entry.path().extension()!=".txt")continue;
-            auto key=entry.path().stem().string();
-            if(key.empty()||hasSavedValue(key))continue;
-            std::ifstream file(entry.path(),std::ios::binary);
-            if(!file.is_open())continue;
-            std::ostringstream ss;
-            ss<<file.rdbuf();
-            saveData()[key]=ss.str();
-            std::filesystem::remove(entry.path(),ec);
-            ec.clear();
+        if(!dir.isDir())return;
+        auto iterator=asp::fs::iterDir(dir);
+        if(!iterator)return;
+        // collect first, so the directory is never modified while it is being iterated
+        std::vector<asp::fs::Path> legacyFiles;
+        for(auto result:iterator.unwrap()) {
+            if(!result)break;
+            auto& entry=result.unwrap();
+            if(!entry.isFile())continue;
+            // asp::fs extension() has no leading dot, unlike std::filesystem
+            auto ext=entry.path.extension();
+            if(!ext||*ext!="txt")continue;
+            legacyFiles.push_back(entry.path);
+        }
+        for(auto const& path:legacyFiles) {
+            auto stem=path.stem();
+            if(!stem||stem->empty())continue;
+            std::string key(*stem);
+            if(hasSavedValue(key))continue;
+            auto content=file::readString(path);
+            if(!content)continue;
+            saveData()[key]=content.unwrap();
+            removeLegacySettingFile(path);
         }
     }
     inline std::string readSetting(std::string const& key,std::string const& fallback) {
         if(hasSavedValue(key))return saveData()[key].asString().unwrapOr(fallback);
         auto path=legacySettingPath(key);
-        std::ifstream file(path,std::ios::binary);
-        if(!file.is_open())return fallback;
-        std::ostringstream ss;
-        ss<<file.rdbuf();
-        auto value=ss.str();
+        if(!path.isFile())return fallback;
+        auto content=file::readString(path);
+        if(!content)return fallback;
+        auto value=content.unwrap();
         saveData()[key]=value;
-        std::error_code ec;
-        std::filesystem::remove(path,ec);
+        removeLegacySettingFile(path);
         return value;
     }
     inline void writeSetting(std::string const& key,std::string const& value) {

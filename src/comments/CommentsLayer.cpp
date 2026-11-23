@@ -15,7 +15,7 @@
 
 #include <algorithm>
 #include <cmath>
-#include <filesystem>
+#include <asp/fs/fs.hpp>
 #include <memory>
 #include <string>
 #include <utility>
@@ -30,7 +30,7 @@ std::string m_modID;
     CommentState m_state;
 
     async::TaskHolder<web::WebResponse> m_requestTask;
-    std::vector<std::filesystem::path> m_pendingFiles;
+    std::vector<asp::fs::Path> m_pendingFiles;
     std::vector<int> m_removedAttachments;
 
     int m_editingCommentID = 0;
@@ -254,7 +254,7 @@ std::string m_modID;
 
         m_input = TextInput::create(100.f, "Add a comment...", "chatFont.fnt");
         m_input->setID("opengeode-comment-input"_spr);
-        m_input->setCommonFilter(CommonFilter::Any);
+        m_input->setCommonFilter(CommonFilter::TextEmojis);
         m_input->setMaxCharCount(2000);
         m_input->setAnchorPoint({.5f, .5f});
         m_input->setContentSize({100.f, 4.5f});
@@ -304,7 +304,7 @@ void CommentsLayer::updateBottomLayout() {
             rowWidth - pad * 2.f - fixedWidth
                 - gap * static_cast<float>(std::max(0, shown - 1))
         );
-        m_input->setWidth(inputWidth);
+        m_input->setContentWidth(inputWidth);
         m_input->setContentSize({
             inputWidth,
             m_input->getContentHeight()
@@ -522,8 +522,7 @@ void CommentsLayer::rebuild() {
 
             auto body = MDTextArea::create(
                 text,
-                {width - 20.f, bodyHeight},
-                true
+                CCSize{width - 20.f, bodyHeight}
             );
 
             body->setContentSize({
@@ -537,7 +536,7 @@ void CommentsLayer::rebuild() {
             body->getScrollLayer()->m_cutContent = false;
             body->getScrollLayer()->m_disableMovement = true;
             body->getScrollLayer()->setMouseEnabled(false);
-            if (auto bodyBG = body->getChildByType<CCScale9Sprite>(0))
+            if (auto bodyBG = body->getChildByID("background"))
                 bodyBG->setVisible(false);
 
             auto attachmentArea = CCMenu::create();

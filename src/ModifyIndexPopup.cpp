@@ -36,7 +36,7 @@ class IndexInfoPopup : public Popup {
         // Keep the same visible size at 75% scale by enlarging the text area itself.
         constexpr float areaWidth = 480.f;
         constexpr float areaHeight = 235.f;
-        auto area = MDTextArea::create(text, {areaWidth, areaHeight}, true);
+        auto area = MDTextArea::create(text, CCSize{areaWidth, areaHeight});
         if (!area) return false;
         area->setAnchorPoint({.5f, .5f});
         area->setScale(.75f);

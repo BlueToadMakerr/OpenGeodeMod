@@ -7,7 +7,7 @@
 
 #include "CommentsTypes.hpp"
 
-#include <filesystem>
+#include <asp/fs/fs.hpp>
 #include <functional>
 #include <string>
 #include <unordered_map>
@@ -35,7 +35,7 @@ class CommentsLayer : public cocos2d::CCLayer {
     CCNode* m_textArea = nullptr;
     CommentState m_state;
     async::TaskHolder<web::WebResponse> m_requestTask;
-    std::vector<std::filesystem::path> m_pendingFiles;
+    std::vector<asp::fs::Path> m_pendingFiles;
     std::vector<int> m_removedAttachments;
     int m_editingCommentID = 0;
     CCMenuItemSpriteExtra* m_versionButton = nullptr;
@@ -84,7 +84,7 @@ class CommentsLayer : public cocos2d::CCLayer {
     void beginEdit(CommentData const& comment);
     void exitEdit();
     void toggleAttachmentRemoval(int attachmentID);
-    void removePendingFile(std::filesystem::path const& path);
+    void removePendingFile(asp::fs::Path const& path);
     void deleteComment(int id);
 
 public:

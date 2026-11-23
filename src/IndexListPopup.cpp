@@ -34,7 +34,7 @@ protected:
         m_mainLayer->addChild(m_scrollLayer);
 
         rebuildList();
-        fetchIndexUpdates([this] { rebuildList(); });
+        fetchIndexUpdates([self = WeakRef(this)] { if (auto popup = self.lock()) popup->rebuildList(); });
 
         auto addBtn = CCMenuItemExt::createSpriteExtra(
             ButtonSprite::create("+ Add", "goldFont.fnt", getButtonTexture("GJ_button_01.png"), 0.6f),
@@ -42,7 +42,7 @@ protected:
                 showAddIndexPopup([this] {
                     invalidateIndexUpdateCache();
                     rebuildList();
-                    fetchIndexUpdates([this] { rebuildList(); });
+                    fetchIndexUpdates([self = WeakRef(this)] { if (auto popup = self.lock()) popup->rebuildList(); });
                 });
             }
         );
@@ -53,7 +53,7 @@ protected:
                 showPresetIndexPopup([this] {
                     invalidateIndexUpdateCache();
                     rebuildList();
-                    fetchIndexUpdates([this] { rebuildList(); });
+                    fetchIndexUpdates([self = WeakRef(this)] { if (auto popup = self.lock()) popup->rebuildList(); });
                 });
             }
         );
@@ -168,7 +168,7 @@ protected:
                                 deleteCustomIndex(id);
                                 invalidateIndexUpdateCache();
                                 rebuildList();
-                                fetchIndexUpdates([this] { rebuildList(); });
+                                fetchIndexUpdates([self = WeakRef(this)] { if (auto popup = self.lock()) popup->rebuildList(); });
                             }
                         }
                     );

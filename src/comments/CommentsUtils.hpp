@@ -5,7 +5,7 @@
 #include <Geode/ui/Popup.hpp>
 #include <Geode/utils/web.hpp>
 
-#include <filesystem>
+#include <asp/fs/fs.hpp>
 #include <memory>
 #include <string>
 
@@ -33,15 +33,18 @@ LazySprite* createContainedImage(
     cocos2d::CCNode* holder,
     cocos2d::CCSize size,
     std::string const& url,
-    std::filesystem::path const* localPath = nullptr
+    asp::fs::Path const* localPath = nullptr
 );
 
 cocos2d::CCNode* createAttachmentBox(
     float size,
     std::string const& url,
-    std::filesystem::path const* localPath = nullptr
+    asp::fs::Path const* localPath = nullptr
 );
 
 std::string getModID(cocos2d::CCNode* popup);
+
+/// Returns the last component of a path (or the whole path if it has none)
+std::string pathFileName(asp::fs::PathView path);
 
 } // namespace opengeode
