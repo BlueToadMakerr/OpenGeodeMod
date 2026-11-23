@@ -308,6 +308,8 @@ protected:
         m_mainLayer->addChild(listBG);
 
         auto scroll = ScrollLayer::create({size.width - 30.f, 174.f});
+        // v6 ScrollLayer no longer ignores its anchor point; positions here assume a bottom-left origin
+        scroll->ignoreAnchorPointForPosition(true);
         scroll->setPosition({15.f, 52.f});
         scroll->m_contentLayer->setContentWidth(scroll->getContentWidth());
 
