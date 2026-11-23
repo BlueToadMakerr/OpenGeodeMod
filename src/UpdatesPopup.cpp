@@ -280,10 +280,27 @@ void startUpdateAll(
 
 class UpdatesPopup : public Popup {
 protected:
+    bool m_populated = false;
     bool init() {
         if (!Popup::init(390.f, 285.f, getPopupBackground())) return false;
         setTitle("Updates");
         if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .875f);
+
+        // shown right away so the popup can't be spam-opened while the list loads
+        auto size = m_mainLayer->getScaledContentSize();
+        auto loading = CCLabelBMFont::create("Loading updates...", "goldFont.fnt");
+        loading->setID("loading-label");
+        loading->setScale(.5f);
+        loading->setPosition(size / 2.f);
+        m_mainLayer->addChild(loading);
+        return true;
+    }
+
+public:
+    void populate() {
+        if (m_populated) return;
+        m_populated = true;
+        if (auto loading = m_mainLayer->getChildByID("loading-label")) loading->removeFromParent();
 
         auto size = m_mainLayer->getScaledContentSize();
         auto groups = groupUpdates();
@@ -424,10 +441,8 @@ protected:
         buttons->addChild(restart);
 
         m_mainLayer->addChild(buttons, 10);
-        return true;
     }
 
-public:
     static UpdatesPopup* create() {
         auto ret = new UpdatesPopup();
         if (ret && ret->init()) {
@@ -442,9 +457,15 @@ public:
 }
 
 void showUpdatesPopup() {
-    fetchIndexUpdates([] {
-        inferOriginalIndexSources([] {
-            UpdatesPopup::create()->show();
+    static WeakRef<UpdatesPopup> current;
+    if (current.lock()) return;
+    auto popup = UpdatesPopup::create();
+    if (!popup) return;
+    current = WeakRef(popup);
+    popup->show();
+    fetchIndexUpdates([self = WeakRef(popup)] {
+        inferOriginalIndexSources([self] {
+            if (auto p = self.lock()) p->populate();
         });
     }, false);
 }

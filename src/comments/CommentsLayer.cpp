@@ -257,7 +257,7 @@ std::string m_modID;
         m_input->setCommonFilter(CommonFilter::TextEmojis);
         m_input->setMaxCharCount(2000);
         m_input->setAnchorPoint({.5f, .5f});
-        m_input->setContentSize({100.f, 4.5f});
+        m_input->setContentSize({100.f, kBottomHeight - 4.f});
         bottom->addChild(m_input);
 
         auto send = ButtonSprite::create(
@@ -309,11 +309,7 @@ void CommentsLayer::updateBottomLayout() {
             inputWidth,
             m_input->getContentHeight()
         });
-        m_input->setPositionY(centerY - 12.5f);
-
-        if (auto bg = m_input->getBGSprite()) {
-            bg->setContentHeight(30.f);
-        }
+        m_input->setPositionY(centerY);
 
         float x = pad;
         for (auto node : order) {
@@ -323,7 +319,7 @@ void CommentsLayer::updateBottomLayout() {
                 : node->getScaledContentSize().width;
             node->setPosition({
                 x + w / 2.f,
-                node == m_input ? centerY - 12.5f : centerY
+                centerY
             });
             x += w + gap;
         }

@@ -1,3 +1,9 @@
+# 1.1.1
+- Fixed the comment input box being far too big and overflowing the comments panel
+- The Updates popup now opens immediately with a loading text while the update list loads, so it can't be spam-opened
+- The comments section now switches when Description/Changelog is released (actually clicked) instead of when pressed, matching Geode's built-in tabs
+- The Manual Login setting now uses Geode's built-in button setting type
+
 # 1.1.0
 - Geode V6 Releaseeeeeee!!!!
 - Fixed update checks, source detection, downloads and index info for a specific index being redirected to the currently selected index

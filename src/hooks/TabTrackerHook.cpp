@@ -1,4 +1,5 @@
 #include "../Settings.hpp"
+#include "../CommentsPopup.hpp"
 
 #include <Geode/Geode.hpp>
 #include <Geode/modify/CCMenuItem.hpp>
@@ -23,6 +24,19 @@ class $modify(TabTrackerMenuItem, CCMenuItem) {
         }
 
         CCMenuItem::activate();
+
+        // Description/Changelog switch the comments section off only once the click is
+        // released and activates (like Geode's own tabs), not on press, so cancelling
+        // a click no longer leaves the comments tab in a broken state.
+        if ((id == "description" || id == "changelog") && this->getParent() &&
+            this->getParent()->getID() == "tabs-menu") {
+            for (CCNode* node = this->getParent(); node; node = node->getParent()) {
+                if (auto popup = typeinfo_cast<FLAlertLayer*>(node)) {
+                    clearCommentsTab(popup);
+                    break;
+                }
+            }
+        }
     }
 };
 
