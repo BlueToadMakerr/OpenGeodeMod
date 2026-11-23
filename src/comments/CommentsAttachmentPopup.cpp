@@ -201,8 +201,8 @@ class AttachmentPopup : public Popup {
         m_mainLayer->addChild(listBG);
 
         m_scroll = ScrollLayer::create({scrollWidth, scrollHeight});
-        // v6 ScrollLayer no longer ignores its anchor point; positions here assume a bottom-left origin
-        m_scroll->ignoreAnchorPointForPosition(true);
+        // v6 ScrollLayer is centered by default; the positions here assume a bottom-left origin
+        m_scroll->setAnchorPoint({0.f, 0.f});
         m_scroll->setPosition({(size.width - scrollWidth) / 2.f, scrollBottom});
         m_content = m_scroll->m_contentLayer;
         m_content->setAnchorPoint({0.f, 0.f});

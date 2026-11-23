@@ -88,8 +88,8 @@ namespace opengeode {
         auto scroll=ScrollLayer::create( {
             size.width-38.f,m_alwaysInstalledCallback?size.height-92.f:size.height-82.f
         });
-        // v6 ScrollLayer no longer ignores its anchor point; positions here assume a bottom-left origin
-        scroll->ignoreAnchorPointForPosition(true);
+        // v6 ScrollLayer is centered by default; the positions here assume a bottom-left origin
+        scroll->setAnchorPoint({0.f, 0.f});
         scroll->setPosition( {
             19.f,m_alwaysInstalledCallback?30.f:20.f
         });

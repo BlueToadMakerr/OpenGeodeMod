@@ -1,5 +1,5 @@
 # Unreleased
-- Fixed scroll layers in popups appearing offset (bottom left) under Geode v6
+- Fixed scroll layers in popups appearing offset under Geode v6 (anchor set to bottom left)
 - Fixed macOS build failure (unbound CCSprite::createWithTexture overload) in the More popup icon copy
 - Fixed update checks, source detection, downloads and index info for a specific index being redirected to the currently selected index
 - Ported to Geode v6 (`asp::fs` filesystem, `geode::Label`, new `MDTextArea` API, `TextInput` changes)
