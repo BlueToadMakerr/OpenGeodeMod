@@ -1,6 +1,7 @@
 #include "CommentsUtils.hpp"
 
 #include <Geode/utils/string.hpp>
+#include <Geode/ui/Label.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -92,11 +93,10 @@ LazySprite* createContainedImage(
     CCNode* holder,
     CCSize size,
     std::string const& url,
-    std::filesystem::path const* localPath
+    asp::fs::Path const* localPath
 ) {
     if (localPath) {
-        std::error_code ec;
-        if (!std::filesystem::exists(*localPath, ec) || ec)
+        if (!localPath->exists())
             return nullptr;
     }
     else if (url.empty()) {
@@ -139,7 +139,7 @@ LazySprite* createContainedImage(
 CCNode* createAttachmentBox(
     float size,
     std::string const& url,
-    std::filesystem::path const* localPath
+    asp::fs::Path const* localPath
 ) {
     auto box = CCNode::create();
     box->setContentSize({size, size});
@@ -157,8 +157,13 @@ CCNode* createAttachmentBox(
     return box;
 }
 
+std::string pathFileName(asp::fs::PathView path) {
+    if (auto name = path.filename()) return name->string();
+    return path.string();
+}
+
 std::string getModID(CCNode* popup) {
-    auto label = typeinfo_cast<CCLabelBMFont*>(popup->getChildByIDRecursive("mod-id-label"));
+    auto label = typeinfo_cast<geode::Label*>(popup->getChildByIDRecursive("mod-id-label"));
     if (!label) return "";
 
     auto value = std::string(label->getString());

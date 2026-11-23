@@ -14,7 +14,7 @@
 
 #include <algorithm>
 #include <cmath>
-#include <filesystem>
+#include <asp/fs/fs.hpp>
 #include <memory>
 #include <string>
 #include <utility>
@@ -144,7 +144,7 @@ void CommentsLayer::pickAttachments() {
             if (files.empty())
                 return;
 
-            std::vector<std::filesystem::path> validFiles;
+            std::vector<asp::fs::Path> validFiles;
             for (auto const& path : files) {
                 web::MultipartForm form;
                 if (!form.file("image", path)) {
@@ -318,7 +318,11 @@ void CommentsLayer::uploadAttachments(int commentID, std::function<void()> finis
     auto index = std::make_shared<size_t>(0);
     auto uploadNext = std::make_shared<std::function<void()>>();
 
-    *uploadNext = [this, commentID, finish = std::move(finish), loading, failures, index, uploadNext]() mutable {
+    // the chain only holds a weak reference to itself (each in-flight request keeps it alive),
+    // otherwise the shared_ptr cycle would leak it forever
+    *uploadNext = [this, commentID, finish = std::move(finish), loading, failures, index, weakNext = std::weak_ptr(uploadNext)]() mutable {
+        auto uploadNext = weakNext.lock();
+        if (!uploadNext) return;
         if (*index >= m_pendingFiles.size()) {
             loading->hide();
             if (!failures->empty()) {
@@ -348,6 +352,7 @@ void CommentsLayer::uploadAttachments(int commentID, std::function<void()> finis
         web::MultipartForm form;
         auto result = form.file("image", path);
         if (!result) {
+            failures->push_back(fmt::format("{}: {}", pathFileName(path), result.unwrapErr()));
             (*uploadNext)();
             return;
         }
@@ -375,7 +380,7 @@ void CommentsLayer::uploadAttachments(int commentID, std::function<void()> finis
                 if (!response.ok()) {
                     failures->push_back(fmt::format(
                         "{}: {}",
-                        path.filename().string(),
+                        pathFileName(path),
                         errorText(response)
                     ));
                 }

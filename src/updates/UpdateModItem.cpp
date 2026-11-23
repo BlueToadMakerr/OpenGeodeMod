@@ -315,10 +315,13 @@ void UpdateModItem::startUpdate(IndexUpdateInfo update, std::function<void(bool)
         info->addChild(m_progress, 5);
         m_progress->setPosition({82.f, 10.f});
     }
-    downloadIndexUpdate(update, [this, update, callback = std::move(callback)](bool success) mutable {
-        finishUpdate(update, success);
+    // the download is global and can outlive this node (e.g. the popup being closed), so never capture a raw `this`
+    downloadIndexUpdate(update, [self = WeakRef(this), update, callback = std::move(callback)](bool success) mutable {
+        if (auto item = self.lock()) item->finishUpdate(update, success);
         if (callback) callback(success);
-    }, [this](float progress) { setProgress(progress); });
+    }, [self = WeakRef(this)](float progress) {
+        if (auto item = self.lock()) item->setProgress(progress);
+    });
 }
 
 void UpdateModItem::setProgress(float progress) { if (m_progress) m_progress->setValue(std::clamp(progress, 0.f, 1.f)); }

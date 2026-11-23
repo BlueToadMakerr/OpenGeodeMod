@@ -10,10 +10,13 @@
 #include <Geode/loader/Dirs.hpp>
 #include <Geode/utils/file.hpp>
 #include <Geode/ui/MDTextArea.hpp>
+#include <asp/fs/fs.hpp>
 #include <Geode/ui/Popup.hpp>
 
 #include <algorithm>
 #include <cctype>
+#include <charconv>
+#include <climits>
 #include <chrono>
 #include <functional>
 #include <string>
@@ -79,7 +82,12 @@ inline std::tuple<int, int, int> parseUpdateVersion(std::string value) {
         auto part = value.substr(start, end == std::string::npos ? std::string::npos : end - start);
         size_t numberEnd = 0;
         while (numberEnd < part.size() && std::isdigit(static_cast<unsigned char>(part[numberEnd]))) ++numberEnd;
-        if (numberEnd > 0) parts[i] = std::stoi(part.substr(0, numberEnd));
+        if (numberEnd > 0) {
+            // from_chars never throws; oversized numbers from a server response saturate instead of crashing
+            int parsed = 0;
+            auto result = std::from_chars(part.data(), part.data() + numberEnd, parsed);
+            parts[i] = result.ec == std::errc() ? parsed : (result.ec == std::errc::result_out_of_range ? INT_MAX : 0);
+        }
         if (end == std::string::npos) break;
         start = end + 1;
     }
@@ -126,13 +134,30 @@ inline void appendPendingUpdatedMods() {
     }
 }
 
+inline std::vector<std::function<void()>>& indexUpdateCallbacks() {
+    static std::vector<std::function<void()>> callbacks;
+    return callbacks;
+}
+
+inline void finishIndexUpdatesFetch() {
+    indexUpdatesFetchedAt() = std::chrono::steady_clock::now();
+    indexUpdatesLoading() = false;
+    auto callbacks = std::move(indexUpdateCallbacks());
+    indexUpdateCallbacks().clear();
+    for (auto& callback : callbacks) if (callback) callback();
+}
+
 inline void fetchIndexUpdates(std::function<void()> callback = {}, bool force = false) {
     if (!force && hasFreshIndexUpdateCache()) {
         appendPendingUpdatedMods();
         if (callback) callback();
         return;
     }
-    if (indexUpdatesLoading()) return;
+    if (indexUpdatesLoading()) {
+        // a fetch is already running: wait for it instead of silently dropping the callback
+        if (callback) indexUpdateCallbacks().push_back(std::move(callback));
+        return;
+    }
     indexUpdatesLoading() = true;
     indexUpdateCounts().clear();
     indexUpdates().clear();
@@ -149,9 +174,8 @@ inline void fetchIndexUpdates(std::function<void()> callback = {}, bool force = 
     if (indexes.empty() || ids.empty()) {
         for (auto const& entry : indexes) indexUpdateCounts()[entry.id] = 0;
         appendPendingUpdatedMods();
-        indexUpdatesFetchedAt() = std::chrono::steady_clock::now();
-        indexUpdatesLoading() = false;
-        if (callback) callback();
+        if (callback) indexUpdateCallbacks().push_back(std::move(callback));
+        finishIndexUpdatesFetch();
         return;
     }
 
@@ -174,6 +198,8 @@ inline void fetchIndexUpdates(std::function<void()> callback = {}, bool force = 
             tasks->push_back(task);
             ++state->pending;
             auto req = web::WebRequest();
+            // this request targets a specific index, so it must not be redirected to the selected one
+            req.param("no_override", "1");
             req.param("platform", GEODE_PLATFORM_SHORT_IDENTIFIER);
             req.param("gd", Loader::get()->getGameVersion());
             req.param("geode", Loader::get()->getVersion().toNonVString());
@@ -204,9 +230,8 @@ inline void fetchIndexUpdates(std::function<void()> callback = {}, bool force = 
                 }
                 if (--state->pending == 0) {
                     appendPendingUpdatedMods();
-                    indexUpdatesFetchedAt() = std::chrono::steady_clock::now();
-                    indexUpdatesLoading() = false;
-                    if (state->callback) state->callback();
+                    if (state->callback) indexUpdateCallbacks().push_back(std::move(state->callback));
+                    finishIndexUpdatesFetch();
                 }
             });
         }
@@ -265,7 +290,9 @@ inline void inferOriginalIndexSources(std::function<void()> callback = {}) {
             auto task = std::make_shared<Task>();
             tasks->push_back(task);
             ++state->pending;
-            task->holder.spawn(web::WebRequest().get(base + fmt::format("/v1/mods/{}/versions/{}", modID, version)), [state, tasks, modID, index](web::WebResponse response) {
+            auto versionReq = web::WebRequest();
+            versionReq.param("no_override", "1");
+            task->holder.spawn(versionReq.get(base + fmt::format("/v1/mods/{}/versions/{}", modID, version)), [state, tasks, modID, index](web::WebResponse response) {
                 if (response.ok()) {
                     auto json = response.json().unwrapOr(matjson::Value());
                     auto payload = json.contains("payload") ? json["payload"] : json;
@@ -304,12 +331,12 @@ inline void showIndexDownloadFailure(IndexUpdateInfo const& update, int code, st
             if (!Popup::init(380.f, 285.f, getPopupBackground())) return false;
             setTitle(title.c_str());
             if (auto close = createGeodeCloseButton()) setCloseButtonSpr(close, .875f);
-            auto area = MDTextArea::create(text, {350.f, 220.f}, true);
+            auto area = MDTextArea::create(text, CCSize{350.f, 220.f});
             if (!area) return false;
             area->getScrollLayer()->m_cutContent = false;
             area->getScrollLayer()->m_disableMovement = false;
             area->getScrollLayer()->setMouseEnabled(true);
-            if (auto bg = area->getChildByType<CCScale9Sprite>(0)) bg->setVisible(false);
+            if (auto bg = area->getChildByID("background")) bg->setVisible(false);
             m_mainLayer->addChildAtPosition(area, Anchor::Center);
             return true;
         }
@@ -333,8 +360,13 @@ inline void showIndexDownloadFailure(IndexUpdateInfo const& update, int code, st
 
 inline void downloadIndexUpdate(IndexUpdateInfo update, std::function<void(bool)> callback = {}, std::function<void(float)> progressCallback = {}) {
     static std::unordered_map<std::string, std::shared_ptr<async::TaskHolder<web::WebResponse>>> tasks;
+    // callbacks of duplicate requests wait for the download already in flight, so callers never hang
+    static std::unordered_map<std::string, std::vector<std::function<void(bool)>>> waiters;
     auto key = indexUpdateKey(update);
-    if (tasks.contains(key)) return;
+    if (tasks.contains(key)) {
+        if (callback) waiters[key].push_back(std::move(callback));
+        return;
+    }
     auto task = std::make_shared<async::TaskHolder<web::WebResponse>>();
     tasks[key] = task;
     auto indexes = getAllIndexes();
@@ -344,6 +376,8 @@ inline void downloadIndexUpdate(IndexUpdateInfo update, std::function<void(bool)
     if (!url.empty() && url.back() == '/') url.pop_back();
     url += fmt::format("/v1/mods/{}/versions/{}/download", update.modID, update.newVersion);
     auto req = web::WebRequest();
+    // downloads from a specific index must not be redirected to (or tracked as) the selected index
+    req.param("no_override", "1");
     if (progressCallback) req.onProgress([progressCallback = std::move(progressCallback)](web::WebProgress const& progress) mutable {
         if (auto value = progress.downloadProgress()) Loader::get()->queueInMainThread([progressCallback, value = *value] { progressCallback(std::clamp(value, 0.f, 1.f)); });
     });
@@ -357,12 +391,17 @@ inline void downloadIndexUpdate(IndexUpdateInfo update, std::function<void(bool)
         if (response.ok()) {
             auto data = std::move(response).data();
             auto path = dirs::getModsDir() / (update.modID + ".geode");
-            if (auto mod = Loader::get()->getInstalledMod(update.modID)) {
-                std::error_code ec;
-                std::filesystem::remove(mod->getPackagePath(), ec);
-                if (ec) log::error("Failed to remove old package for {}: {}", update.modID, ec.message());
-                else success = file::writeBinary(path, data).isOk();
-            } else success = file::writeBinary(path, data).isOk();
+            // write the new package first, so a failed write never leaves the user without the mod
+            success = file::writeBinary(path, data).isOk();
+            if (success) {
+                if (auto mod = Loader::get()->getInstalledMod(update.modID)) {
+                    auto oldPath = mod->getPackagePath();
+                    if (oldPath != path) {
+                        auto removed = asp::fs::removeFile(oldPath);
+                        if (!removed) log::error("Failed to remove old package for {}: {}", update.modID, removed.unwrapErr());
+                    }
+                }
+            }
             if (success) {
                 completedIndexUpdates().insert(key);
                 writeSetting("mod-source-index-" + update.modID, update.indexID);
@@ -376,7 +415,15 @@ inline void downloadIndexUpdate(IndexUpdateInfo update, std::function<void(bool)
         }
         if (!success) showIndexDownloadFailure(update, responseCode, std::move(responseBody), std::move(responseError));
         tasks.erase(key);
-        Loader::get()->queueInMainThread([callback = std::move(callback), success] { if (callback) callback(success); });
+        std::vector<std::function<void(bool)>> waiting;
+        if (auto it = waiters.find(key); it != waiters.end()) {
+            waiting = std::move(it->second);
+            waiters.erase(it);
+        }
+        Loader::get()->queueInMainThread([callback = std::move(callback), waiting = std::move(waiting), success] {
+            if (callback) callback(success);
+            for (auto const& waiter : waiting) if (waiter) waiter(success);
+        });
     });
 }
 

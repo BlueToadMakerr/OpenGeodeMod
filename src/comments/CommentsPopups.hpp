@@ -4,7 +4,7 @@
 
 #include <Geode/ui/Popup.hpp>
 
-#include <filesystem>
+#include <asp/fs/fs.hpp>
 #include <functional>
 #include <string>
 #include <vector>
@@ -21,10 +21,10 @@ geode::Popup* createVersionSelectPopup(
 
 geode::Popup* createAttachmentPopup(
     std::vector<CommentAttachment> attachments,
-    std::vector<std::filesystem::path> pending,
+    std::vector<asp::fs::Path> pending,
     std::vector<int> removed,
     std::function<void(int)> onToggleDelete,
-    std::function<void(std::filesystem::path const&)> onRemovePending,
+    std::function<void(asp::fs::Path const&)> onRemovePending,
     std::function<void()> onAdd
 );
 

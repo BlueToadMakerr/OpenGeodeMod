@@ -4,6 +4,7 @@
 #include "PopupSectionUtils.hpp"
 #include "tracking/ModDownloadProtection.hpp"
 #include <Geode/Geode.hpp>
+#include <Geode/ui/Label.hpp>
 #include <Geode/ui/IconButtonSprite.hpp>
 #include <Geode/ui/Popup.hpp>
 using namespace geode::prelude;
@@ -11,7 +12,7 @@ namespace opengeode {
     namespace {
         constexpr char const* MORE_HIDDEN_MARKER_ID = "opengeode-more-hidden-marker";
         std::string getPopupModID(CCNode* popup) {
-            auto label=typeinfo_cast<CCLabelBMFont*>(popup->getChildByIDRecursive("mod-id-label"));
+            auto label=typeinfo_cast<geode::Label*>(popup->getChildByIDRecursive("mod-id-label"));
             if(!label)return "";
             auto prefix=std::string("(ID: ");
             std::string value=label->getString();
@@ -173,7 +174,7 @@ namespace opengeode {
                 rect.size.height,rect.size.width
             }
             :rect.size;
-            auto duplicate=CCSprite::createWithTexture(sprite->getTexture(),rect);
+            auto duplicate=CCSprite::createWithTexture(sprite->getTexture());
             if(!duplicate)return nullptr;
             duplicate->setTextureRect(rect,rotated,untrimmedSize);
             duplicate->setFlipX(sprite->isFlipX());

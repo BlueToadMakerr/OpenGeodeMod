@@ -70,7 +70,7 @@ std::tuple<int, int, int> parseVersion(std::string value) {
         auto part = value.substr(start, end == std::string::npos ? std::string::npos : end - start);
         size_t numberEnd = 0;
         while (numberEnd < part.size() && std::isdigit(static_cast<unsigned char>(part[numberEnd]))) ++numberEnd;
-        if (numberEnd > 0) parts[i] = std::stoi(part.substr(0, numberEnd));
+        if (numberEnd > 0) parts[i] = std::stoi(part.substr(0, std::min<size_t>(numberEnd, 9)));
         if (end == std::string::npos) break;
         start = end + 1;
     }

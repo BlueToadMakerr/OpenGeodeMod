@@ -14,7 +14,7 @@
 
 #include <algorithm>
 #include <cmath>
-#include <filesystem>
+#include <asp/fs/fs.hpp>
 #include <memory>
 #include <string>
 #include <utility>
@@ -117,7 +117,8 @@ void CommentsLayer::loadMod() {
                         size_t digits = 0;
                         while (digits < part.size() && std::isdigit(static_cast<unsigned char>(part[digits])))
                             ++digits;
-                        parts.push_back(digits ? std::stoi(part.substr(0, digits)) : 0);
+                        // cap at 9 digits so a hostile version string can never overflow stoi
+                        parts.push_back(digits ? std::stoi(part.substr(0, std::min<size_t>(digits, 9))) : 0);
                         if (end == std::string::npos)
                             break;
                         start = end + 1;
