@@ -174,7 +174,7 @@ namespace opengeode {
                 rect.size.height,rect.size.width
             }
             :rect.size;
-            auto duplicate=CCSprite::createWithTexture(sprite->getTexture(),rect);
+            auto duplicate=CCSprite::createWithTexture(sprite->getTexture());
             if(!duplicate)return nullptr;
             duplicate->setTextureRect(rect,rotated,untrimmedSize);
             duplicate->setFlipX(sprite->isFlipX());

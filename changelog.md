@@ -1,4 +1,5 @@
 # Unreleased
+- Fixed macOS build failure (unbound CCSprite::createWithTexture overload) in the More popup icon copy
 - Fixed update checks, source detection, downloads and index info for a specific index being redirected to the currently selected index
 - Ported to Geode v6 (`asp::fs` filesystem, `geode::Label`, new `MDTextArea` API, `TextInput` changes)
 - Fixed the mod ID lookup (Versions, More and Comments buttons) breaking on Geode's new label type
