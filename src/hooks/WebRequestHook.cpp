@@ -7,9 +7,31 @@
 #include <Geode/Geode.hpp>
 #include <Geode/utils/web.hpp>
 
+#include <string_view>
+
 using namespace geode::prelude;
 
 namespace opengeode {
+
+namespace {
+
+// Geode's own data (loader versions, the geode.loader mod page) only exists on the official API.
+// Redirecting it to the selected index makes Geode show the wrong info, so it is never redirected.
+bool isGeodeOwnRequest(std::string const& url) {
+    constexpr std::string_view host = "https://api.geode-sdk.org";
+    if (!url.starts_with(host)) return false;
+    auto path = std::string_view(url).substr(host.size());
+
+    auto matchesSegment = [&](std::string_view prefix) {
+        if (!path.starts_with(prefix)) return false;
+        if (path.size() == prefix.size()) return true;
+        char next = path[prefix.size()];
+        return next == '/' || next == '?';
+    };
+    return matchesSegment("/v1/loader") || matchesSegment("/v1/mods/geode.loader");
+}
+
+} // namespace
 
 void registerWebRequestHook() {
     web::WebRequestInterceptEvent().listen(
@@ -54,6 +76,9 @@ void registerWebRequestHook() {
             }
 
             if (req.getUrlParams().count("no_override") > 0) return ListenerResult::Propagate;
+
+            // checked before tracking, so Geode's own downloads are not attributed to the selected index
+            if (isGeodeOwnRequest(givenUrl)) return ListenerResult::Propagate;
 
             trackModDownloadSource(givenUrl, openGeodeVersionOverride);
 
