@@ -281,6 +281,8 @@ void startUpdateAll(
 class UpdatesPopup : public Popup {
 protected:
     bool m_populated = false;
+    // captured in init: m_mainLayer's content size can change once its layout runs after show()
+    CCSize m_popupSize;
     bool init() {
         if (!Popup::init(390.f, 285.f, getPopupBackground())) return false;
         setTitle("Updates");
@@ -288,6 +290,7 @@ protected:
 
         // shown right away so the popup can't be spam-opened while the list loads
         auto size = m_mainLayer->getScaledContentSize();
+        m_popupSize = size;
         auto loading = CCLabelBMFont::create("Loading updates...", "goldFont.fnt");
         loading->setID("loading-label");
         loading->setScale(.5f);
@@ -302,7 +305,7 @@ public:
         m_populated = true;
         if (auto loading = m_mainLayer->getChildByID("loading-label")) loading->removeFromParent();
 
-        auto size = m_mainLayer->getScaledContentSize();
+        auto size = m_popupSize;
         auto groups = groupUpdates();
 
         auto total = CCLabelBMFont::create(

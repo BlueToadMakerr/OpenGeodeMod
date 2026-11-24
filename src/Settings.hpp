@@ -244,6 +244,7 @@ namespace opengeode {
         writeSetting("custom-index-url-"+id,url);
         return true;
     }
+    inline void deleteCustomIndex(std::string const& id);
     inline void ensurePresetsExist() {
         auto ids = splitCSV(readSetting("custom-index-ids",""));
         if (ids.empty()) {
@@ -252,16 +253,13 @@ namespace opengeode {
             setIndexUrl("https://api.geode-sdk.org");
             ids = splitCSV(readSetting("custom-index-ids",""));
         }
-        bool hasRejectedIndex = false;
+        // The Rejected Index is temporarily removed: drop it from existing installs.
         for (auto const& entry : getAllIndexes()) {
             if (entry.url == "http://drake-tableful.tun.ply.gg:21749") {
-                hasRejectedIndex = true;
-                if (entry.name == "Unverified Mods")
-                writeSetting("custom-index-name-" + entry.id, "Rejected Index");
+                deleteCustomIndex(entry.id);
                 break;
             }
         }
-        if (!hasRejectedIndex) addCustomIndex("Rejected Index","http://drake-tableful.tun.ply.gg:21749");
     }
     inline bool updateCustomIndex(std::string const& id,std::string name,std::string url) {
         if(!url.empty()&&url.back()=='/')url.pop_back();

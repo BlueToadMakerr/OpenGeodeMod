@@ -5,7 +5,7 @@ Here are the indexes that come bundles with this mod
 ## Pre Installed Indexes
 * **Geode Index API** - This is the default Geode Index. This is where you can access mods approved by the index team
 * **Open Geode Index** - This is a very popular alternative to the Geode Index. This is a place where you can upload any mod you want, without it having to be manually verified and where some people publish their mods when it gets rejected.
-* **Rejected Index** - This is where all rejected mods go. Every almost rejected mod gets put into this index (as Geode normally required Admin auth to access) and saved for you to download from
+* **Rejected Index** - *(Temporarily removed. This index is currently not available in the mod.)* This is where all rejected mods go. Every almost rejected mod gets put into this index (as Geode normally required Admin auth to access) and saved for you to download from
 
 ## How to install
 1. Download the latest version of this mod in the Releases tab
