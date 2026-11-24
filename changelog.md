@@ -1,4 +1,5 @@
 # 1.1.1
+- Temporarily removed the Rejected Index (preset and existing entry)
 - Fixed the comment input box being far too big and overflowing the comments panel
 - The Updates popup now opens immediately with a loading text while the update list loads, so it can't be spam-opened
 - The comments section now switches when Description/Changelog is released (actually clicked) instead of when pressed, matching Geode's built-in tabs
